@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "review-analytics"
+title = "Review analytics with ledger reconciliation, export, UI and scheduled report"
+kind = "role"
+path = "apps/control-plane/src/analytics/"
+package = "@guildwork/control-plane"
+stage = "6"
+purpose = "Key figures of the reviews as SQL views and daily rows review_metrics_daily, address rate and recall according to the pinned definition from FE-925, reconciliation against the ledger without tolerance, API with CSV export, page in the admin UI and weekly report via the notifier. Not here: the ledger itself (02) and the executor notify (04)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#28-review-analytics",
+  "09-reviewer-companion-features-and-learnings.md#31-new-tables",
+  "09-reviewer-companion-features-and-learnings.md#34-endpoints",
+  "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss",
+  "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms",
+  "09-reviewer-companion-features-and-learnings.md#7-configuration",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E05-T01", "6-E05-T02", "6-E05-T03", "6-E05-T04", "6-E05-T05", "6-E05-T06"]
+
+[[provides]]
+name = "tabelle-review-metrics-daily"
+kind = "table"
+title = "Table review_metrics_daily (fields from ReviewMetricsRow, money as micro-USD) and views of the key figures"
+defined_in = "09-reviewer-companion-features-and-learnings.md#31-new-tables"
+from_task = "6-E05-T01"
+
+[[provides]]
+name = "rollup"
+kind = "ts-api"
+title = "ReviewMetricsRow and rollupDay(tenantId, day), idempotent"
+defined_in = "09-reviewer-companion-features-and-learnings.md#28-review-analytics"
+from_task = "6-E05-T01"
+
+[[provides]]
+name = "queue-analytics-rollup"
+kind = "queue"
+title = "Queue analytics-rollup (daily, the day and the previous day)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "6-E05-T01"
+
+[[provides]]
+name = "alarm-rollup"
+kind = "metric"
+title = "guildwork.analytics.rollup_failures and alert rule analytics_rollup_failed"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E05-T01"
+
+[[provides]]
+name = "address-rate-und-recall"
+kind = "ts-api"
+title = "Address rate and recall according to the pinned definition in ReviewMetricsRow (FE-925)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#28-review-analytics"
+from_task = "6-E05-T02"
+
+[[provides]]
+name = "reconcile"
+kind = "ts-api"
+title = "reconcile(tenantId, from, to) with ReconcileReport"
+defined_in = "09-reviewer-companion-features-and-learnings.md#28-review-analytics"
+from_task = "6-E05-T03"
+
+[[provides]]
+name = "http-reconciliation"
+kind = "http"
+title = "GET /admin/api/v1/analytics/reconciliation (admin UI admin)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "6-E05-T03"
+
+[[provides]]
+name = "queue-analytics-reconcile"
+kind = "queue"
+title = "Queue analytics-reconcile (after every successful rollup)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "6-E05-T03"
+
+[[provides]]
+name = "alarm-ledger-mismatch"
+kind = "metric"
+title = "Alert rule analytics_ledger_mismatch"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E05-T03"
+
+[[provides]]
+name = "http-analytics-reviews"
+kind = "http"
+title = "GET /admin/api/v1/analytics/reviews and GET /admin/api/v1/analytics/reviews.csv (admin UI viewer, groupBy day or repo, at most 366 days, FE-961)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "6-E05-T04"
+
+[[provides]]
+name = "ui-analytics"
+kind = "ui"
+title = "Page review analytics in apps/admin-ui/src/pages/analytics/ with filters, key figures, as-of time computed_at, reconciliation and export"
+defined_in = "09-reviewer-companion-features-and-learnings.md#28-review-analytics"
+from_task = "6-E05-T05"
+
+[[provides]]
+name = "konfig-analytics-report"
+kind = "config"
+title = "analytics.report (org: schedule, notifier, audience)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E05-T06"
+
+[[provides]]
+name = "queue-analytics-report"
+kind = "queue"
+title = "Queue analytics-report (weekly report via the effect notify with kind report, idempotent per period)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "6-E05-T06"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "6-E05-T01"
+purpose = "Runs of the reviewer with final state"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "6-E05-T01"
+purpose = "posted comments"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "6-E05-T01"
+purpose = "Findings per severity"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.finding-feedback"
+from_task = "6-E05-T01"
+purpose = "Feedback for addressed"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "6-E05-T01"
+purpose = "Costs and tokens from the ledger"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.events"
+from_task = "6-E05-T01"
+purpose = "opened and merged for time to merge"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "6-E05-T01"
+purpose = "RLS for review_metrics_daily"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "6-E05-T01"
+purpose = "Table and views in block 0600"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "6-E05-T01"
+purpose = "Enter the queues analytics-*"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "6-E05-T01"
+purpose = "Schedules of the queues"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "6-E05-T01"
+purpose = "Alert rules analytics_*"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E05-T01"
+purpose = "Metric analytics.rollup_failures"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "6-E05-T01"
+purpose = "real Postgres instance"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/finding-feedback-actor-role"
+from_task = "6-E05-T02"
+purpose = "kind addressed and actor_role for address rate"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "6-E05-T03"
+purpose = "Endpoints under /admin/api/v1/analytics"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "6-E05-T03"
+purpose = "AdminRole viewer and admin, Problem"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "6-E05-T03"
+purpose = "Audit analytics.mismatch"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "6-E05-T05"
+purpose = "Register page review analytics"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "6-E05-T05"
+purpose = "typed client of the analytics endpoints"
+
+[[uses]]
+interface = "admin-ui/ui-e2e-grundlage"
+from_task = "6-E05-T05"
+purpose = "UI tests"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "6-E05-T06"
+purpose = "Key analytics.report in the org schema"
+
+[[uses]]
+interface = "contracts/skizze-notifier"
+from_task = "6-E05-T06"
+purpose = "Notifier.send with kind report"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "6-E05-T06"
+purpose = "Effect notify via submitPlatform"
+
+[[uses]]
+interface = "effekt-executoren/notify-send"
+from_task = "6-E05-T06"
+purpose = "Executor notify via Notifier.send"

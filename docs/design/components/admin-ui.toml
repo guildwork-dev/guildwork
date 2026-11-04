@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "admin-ui"
+title = "Admin UI SPA with markers"
+kind = "program"
+path = "apps/admin-ui/"
+package = "@guildwork/admin-ui"
+stage = "0"
+purpose = "React SPA with Vite under /admin/: router, layout, page registry, typed client of the admin API, login and break-glass pages, delivery by the role web with CSP and shared markers (ADR-47, condition 8); the domain pages are delivered by ui-setup-assistent, ui-betrieb, ui-run-record, not-aus and later areas."
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#261-pages-of-the-admin-ui", "06-installation-operations-ui.md#84-admin-api-login-wizard"]
+built_by = ["0-E17-T04", "1-E07-T09", "1-E08-T06"]
+
+[[provides]]
+name = "seitenregister"
+kind = "ts-api"
+title = "AdminPage and pages in src/pages/registry.ts: the only list for router and navigation"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "0-E17-T04"
+
+[[provides]]
+name = "api-client"
+kind = "ts-api"
+title = "Typed client src/api/client.ts from the TypeBox schemas of the admin API, CSRF header from /me"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T04"
+
+[[provides]]
+name = "spa-auslieferung"
+kind = "http"
+title = "Delivery of the built SPA under /admin/ by the role web with CSP without inline scripts"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T04"
+
+[[provides]]
+name = "seiten-login"
+kind = "ui"
+title = "Pages /admin/login, /admin/break-glass (login, enroll with QR) and /admin/cli-login (approval of a command line session, FE-653), error pages, role display"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "0-E17-T04"
+
+[[provides]]
+name = "ui-e2e-grundlage"
+kind = "ts-api"
+title = "Playwright foundation for UI tests against the stack with the test IdP"
+defined_in = "06-installation-operations-ui.md#84-admin-api-login-wizard"
+from_task = "0-E17-T04"
+
+[[provides]]
+name = "personal-mode-risk"
+kind = "ui"
+title = "Component PersonalModeRisk: operator risk, version from acknowledge_terms, open risk intermediate"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "1-E07-T09"
+
+[[provides]]
+name = "standard-not-proven-marker"
+kind = "ui"
+title = "Component StandardNotProvenMarker (ADR-47) for service list, Run Record and status"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "1-E08-T06"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "0-E17-T04"
+purpose = "AdminRole, Problem and AdminErrorCode in the client"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "0-E17-T04"
+purpose = "TypeBox schemas of the routes as the source of the client"
+
+[[uses]]
+interface = "admin-api/auth-oidc"
+from_task = "0-E17-T04"
+purpose = "Login, logout and /me"
+
+[[uses]]
+interface = "admin-api/cli-sitzung"
+from_task = "0-E17-T04"
+purpose = "Page /admin/cli-login calls POST /admin/auth/cli/approve"
+
+[[uses]]
+interface = "admin-api/auth-break-glass"
+from_task = "0-E17-T04"
+purpose = "Break-glass login and enroll with QR"
+
+[[uses]]
+interface = "testkit/test-idp"
+from_task = "0-E17-T04"
+purpose = "Playwright login against the test IdP"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "0-E17-T04"
+purpose = "Delivery under /admin/ in the role web"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E17-T04"
+purpose = "Vite, Vitest project e2e and type check of the SPA"
+
+[[uses]]
+interface = "admin-api/personal-modes-status"
+from_task = "1-E07-T09"
+purpose = "Data of the component PersonalModeRisk"
+
+[[uses]]
+interface = "ui-betrieb/pools-services-audit-api"
+from_task = "1-E08-T06"
+purpose = "ServiceView.standardNotProven in the service list"
+
+[[uses]]
+interface = "ui-betrieb/status-api"
+from_task = "1-E08-T06"
+purpose = "Markers on the status page"
+
+[[uses]]
+interface = "ui-run-record/run-record-view"
+from_task = "1-E08-T06"
+purpose = "RunRecordView.standardNotProven in the Run Record"

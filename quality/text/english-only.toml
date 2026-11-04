@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Rule english-only of tools/hooks/text_rules.py: public documentation is
+# written in English (OS8, ADR-53). German letters outside code are reported
+# in every file of `paths` that no glob of `skip` matches, and so is every
+# paragraph with at least max_per_paragraph of the marker words below.
+#
+# markers            German words that English text does not use, lower case,
+#                    matched as whole words in any case. Words that are also
+#                    English or common abbreviations (die, den, was, man, hat,
+#                    also, mit, es, ja) are left out on purpose.
+# max_per_paragraph  marker words per paragraph from which it is reported
+# paths              globs of the public documentation
+# skip               globs inside paths that stay untranslated: research
+#                    files are kept as written and marked "dated, not binding"
+#                    (ADR-53)
+
+markers = [
+  "aber", "alle", "auch", "auf", "aus", "bei", "beim", "bereits", "bitte",
+  "dann", "das", "dass", "dem", "der", "diese", "dieser", "dieses", "durch", "ein",
+  "eine", "einem", "einen", "einer", "eines", "gegen", "haben", "hier", "ich",
+  "im", "immer", "ist", "jede", "jeder", "jedes", "kein", "keine", "keinen", "nach",
+  "nicht", "noch", "nur", "ohne", "oder", "sein", "sich", "sind", "sondern",
+  "sowie", "und", "unter", "vom", "von", "vor", "weil", "wenn", "werden", "wie",
+  "wir", "wird", "wurde", "wurden", "zu", "zum", "zur", "zwischen",
+]
+max_per_paragraph = 2
+paths = ["**/*.md", ".github/ISSUE_TEMPLATE/**"]
+skip = ["docs/research/**"]

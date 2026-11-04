@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "hooks-und-textpruefung"
+title = "Hooks: text rules with link and English check, commit check with DCO, review gate, pre-commit, quality docs"
+kind = "tool"
+path = "tools/hooks/"
+stage = "R"
+purpose = "Checks texts (no dashes, English in public docs, glossary, instance data), links and anchors, commit messages with DCO and Plan-Task, and requires a Red Team report before the push; plus the hooks and the quality docs. Not the deny list scanner and not the secret search."
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#41-contribution-branch-commit-pr", "00-codebase-and-conventions.md#46-neutralization-and-translation", "00-codebase-and-conventions.md#7-configuration"]
+built_by = ["R-E02-T01", "R-E02-T02", "R-E02-T11"]
+
+[[provides]]
+name = "make-text-rules"
+kind = "cli"
+title = "make text-rules (text_rules.py: no-dash, english-only, glossary, instance-data)"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T01"
+
+[[provides]]
+name = "make-links"
+kind = "cli"
+title = "make links (links.py: relative links, anchors, no private paths)"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T01"
+
+[[provides]]
+name = "text-daten"
+kind = "file"
+title = "quality/text/{exempt-paths.txt, glossary.toml, english-only.toml, english-exceptions.toml, private-path-patterns.txt}"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T01"
+
+[[provides]]
+name = "make-commitlint"
+kind = "cli"
+title = "make commitlint with COMMIT_RANGE and hook commit-msg (commit_msg.py)"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T02"
+
+[[provides]]
+name = "commit-konvention"
+kind = "file"
+title = "Conventional Commits with types, Signed-off-by, Co-Authored-By, trailer Plan-Task; quality/commits/{bots.txt, limits.toml}"
+defined_in = "00-codebase-and-conventions.md#41-contribution-branch-commit-pr"
+from_task = "R-E02-T02"
+
+[[provides]]
+name = "review-gate"
+kind = "cli"
+title = "review_gate.py in pre-push: .review/<HEAD-sha>.md with the last line `Urteil: JA`, pushed commit equal to HEAD, the only exception REVIEW_SKIP=1"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T11"
+
+[[provides]]
+name = "pre-commit-hooks"
+kind = "config"
+title = ".pre-commit-config.yaml: pre-commit (text_rules, file hygiene from pre-commit-hooks, gitleaks git --staged, biome), commit-msg, pre-push (review_gate.py, make check without the private list with exit 2 and a hint)"
+defined_in = "00-codebase-and-conventions.md#41-contribution-branch-commit-pr"
+from_task = "R-E02-T11"
+
+[[provides]]
+name = "qualitaets-doku"
+kind = "file"
+title = "docs/quality/{README.md, push-discipline.md, red-team-gate.md, licenses.md, public-switch.md}"
+defined_in = "00-codebase-and-conventions.md#41-contribution-branch-commit-pr"
+from_task = "R-E02-T11"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E02-T01"
+purpose = "Tools under ruff and mypy, tests with unittest"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E02-T02"
+purpose = "Register the gate commitlint (R-E02-T02) and the gates text-rules and links (R-E02-T01)"
+
+[[uses]]
+interface = "denylist-scanner/ausnahmen-und-generisch"
+from_task = "R-E02-T01"
+purpose = "Rule instance-data reads the generic patterns from quality/denylist/generic.toml via load_generic() from tools/denylist/scan.py"
+
+[[uses]]
+interface = "sicherheits-scans/make-gitleaks"
+from_task = "R-E02-T11"
+purpose = "pre-commit calls gitleaks git --staged with .gitleaks.toml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "R-E02-T11"
+purpose = "pre-push calls make check"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "R-E02-T11"
+purpose = "pre-commit calls biome for changed files"

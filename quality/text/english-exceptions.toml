@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Exceptions of the rule english-only (tools/hooks/text_rules.py), one per exact
+# line, never per file. The line is left out of both checks of the rule.
+#
+# [[exception]]
+#   path         path of the file in the repository
+#   line_sha256  SHA-256 of the exact line in UTF-8, without the line break
+#   reason       why the line may stay

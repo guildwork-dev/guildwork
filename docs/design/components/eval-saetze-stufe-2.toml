@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-saetze-stufe-2"
+title = "Sets P1 to P4, AR1 to AR4, C1p, coder basket B1 to B4, hard gates, adapters Loc-Bench, LocAgent, DevBench, STRIDE GPT"
+kind = "eval"
+path = "eval/suites/p1-localization/"
+package = "@guildwork/eval-suites"
+stage = "2"
+purpose = "Eval sets and adapters of stage 2 for Gate A and Gate B of Planner, Architect and Coder, plus the suite cases S1, S2, S4, S6 and hard gates of stage 2 (folders eval/suites/* and eval/adapters/* according to section 2.1). Not: the gate runs and reports (prozess-abnahme-stufe-2) and not the runner and statistics (eval-runner, eval-statistik)."
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08", "10-planner-architect-coder.md#21-directories-and-packages"]
+built_by = ["2-E03-T09", "2-E04-T12", "2-E08-T03", "2-E08-T04", "2-E08-T05", "2-E08-T06", "2-E08-T09"]
+
+[[provides]]
+name = "suite-architect"
+kind = "file"
+title = "eval/suites/s4/architect-alone.test.ts, eval/suites/method-conformance/, eval/suites/s6/architect-*"
+defined_in = "10-planner-architect-coder.md#83-architect-2-e03"
+from_task = "2-E03-T09"
+
+[[provides]]
+name = "suite-coder-harte-gates"
+kind = "file"
+title = "eval/suites/hard-gates/, eval/suites/s4/coder-alone.test.ts, eval/suites/s6/coder-*"
+defined_in = "10-planner-architect-coder.md#84-coder-2-e04"
+from_task = "2-E04-T12"
+
+[[provides]]
+name = "adapter-locbench"
+kind = "contract"
+title = "Eval adapter Loc-Bench V0.1 (download script with pinned revision and checksum, no copy)"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T03"
+
+[[provides]]
+name = "adapter-locagent"
+kind = "contract"
+title = "Eval adapter LocAgent with the same model (FE-1052)"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T03"
+
+[[provides]]
+name = "saetze-p1-p4"
+kind = "file"
+title = "Suites p1-localization, p2-clarification, p3-plan-content, p4-plan-critique with case metadata origin, license, source_ref"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T03"
+
+[[provides]]
+name = "adapter-devbench"
+kind = "contract"
+title = "Eval adapter DevBench design"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T04"
+
+[[provides]]
+name = "adapter-stride-gpt"
+kind = "contract"
+title = "Eval adapter STRIDE GPT with the same model (FE-1063)"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T04"
+
+[[provides]]
+name = "saetze-ar1-ar4"
+kind = "file"
+title = "Suites ar1-design, ar2-design-review, ar3-threat-model, ar4-conformance"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T04"
+
+[[provides]]
+name = "satz-c1p"
+kind = "file"
+title = "Suite c1p with selection script, SPDX per case and an ex ante fixed subset subset-plan-no-harm.yaml (FE-1050)"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T05"
+
+[[provides]]
+name = "coder-korb"
+kind = "file"
+title = "Suite coder-basket B1 to B4 via the Harbor adapter with effect_sink record"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T06"
+
+[[provides]]
+name = "querschnitt-stufe-2"
+kind = "file"
+title = "S1, S2 and S6 cases of stage 2 and suite hard_gates.zero_violations"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T09"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "2-E03-T09"
+purpose = "Suite cases S4, S6 and method conformance"
+
+[[uses]]
+interface = "method-check/method-check-api"
+from_task = "2-E03-T09"
+purpose = "Method conformance across all fixture artifacts"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "2-E04-T12"
+purpose = "Required cases of stage 2 in the catalog"
+
+[[uses]]
+interface = "coder-harte-gates/hard-gates-api"
+from_task = "2-E04-T12"
+purpose = "Suite hard_gates across all fixture bundles"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "2-E08-T03"
+purpose = "EvalAdapter for Loc-Bench and LocAgent"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "2-E08-T03"
+purpose = "Case metadata origin, license, source_ref"
+
+[[uses]]
+interface = "eval-runner/fetcher"
+from_task = "2-E08-T03"
+purpose = "Download with pinned revision and checksum"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "2-E08-T03"
+purpose = "Scorers of the sets P1 to P4"
+
+[[uses]]
+interface = "eval-adapter-harbor/adapter"
+from_task = "2-E08-T06"
+purpose = "Coder basket via Harbor with effect_sink record"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "2-E08-T09"
+purpose = "EffectProbe, EgressProbe, SecretScanProbe in S1, S2, S6"
+
+[[uses]]
+interface = "testkit/dns-sink"
+from_task = "2-E08-T09"
+purpose = "0 DNS requests in s1.package_name_and_dns"

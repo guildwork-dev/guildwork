@@ -1,0 +1,224 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-notifier-slack"
+title = "Notifier Slack"
+kind = "plugin"
+path = "plugins/notifier-slack/"
+package = "@guildwork/plugin-notifier-slack"
+stage = "9"
+purpose = "First notifier: messages and approval requests to Slack via the effect notify, signed callback that creates a control command of the linked SCM identity; with it the Notifier contract becomes binding. Not: approval directly in the callback, notifier Teams (FE-1248)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#222-notifier-slack",
+  "14-stage-9-breadth-and-hardening.md#44-approval-via-slack",
+  "14-stage-9-breadth-and-hardening.md#412-states",
+  "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02",
+]
+built_by = ["9-E02-T02"]
+
+[[provides]]
+name = "notifier-vertrag"
+kind = "contract"
+title = "Contract Notifier binding in v1alpha1 (packages/contracts/src/kinds/notifier.ts) with abstract suite notifier.suite.ts and reference fake (FE-1412)"
+defined_in = "14-stage-9-breadth-and-hardening.md#222-notifier-slack"
+from_task = "9-E02-T02"
+
+[[provides]]
+name = "notifier"
+kind = "contract"
+title = "Notifier Slack: send, update, requestApproval, verifyCallback, parseCallback; capabilities THREADS, INTERACTIVE_APPROVAL, DM, MENTION"
+defined_in = "14-stage-9-breadth-and-hardening.md#222-notifier-slack"
+from_task = "9-E02-T02"
+
+[[provides]]
+name = "rueckruf-slack"
+kind = "http"
+title = "POST /callbacks/notifier/slack/{instanceId} in the role web (apps/control-plane/src/ingress/callbacks.ts): signature before parsing, control command with origin button"
+defined_in = "14-stage-9-breadth-and-hardening.md#222-notifier-slack"
+from_task = "9-E02-T02"
+
+[[provides]]
+name = "notifier-messages"
+kind = "table"
+title = "Table notifier_messages (migration 0904): MessageRef per first send for update"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E02-T02"
+
+[[provides]]
+name = "notifier-approvals"
+kind = "table"
+title = "Table notifier_approvals (migration 0904): one-time approvalId per approval point with result"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E02-T02"
+
+[[provides]]
+name = "konfig-slack"
+kind = "config"
+title = "plugins.notifiers[notifier-slack] (bot_token_ref, signing_secret_ref, default_channel), notifier.callback_max_age_s, approvals.notify"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E02-T02"
+
+[[uses]]
+interface = "contracts/skizze-notifier"
+from_task = "9-E02-T02"
+purpose = "Sketch Notifier is frozen as binding"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E02-T02"
+purpose = "Result, PluginError, SecretRef"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E02-T02"
+purpose = "Implement PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E02-T02"
+purpose = "Manifest with egress and secrets"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E02-T02"
+purpose = "NotifyCap in the capability catalog"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E02-T02"
+purpose = "Abstract suite notifier.suite.ts and contract suite"
+
+[[uses]]
+interface = "contract-harness/referenz-fakes"
+from_task = "9-E02-T02"
+purpose = "Reference fake Notifier"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "9-E02-T02"
+purpose = "Recorded Slack responses"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "9-E02-T02"
+purpose = "Recording and check"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E02-T02"
+purpose = "contract-attestation.json"
+
+[[uses]]
+interface = "effekt-executoren/notify"
+from_task = "9-E02-T02"
+purpose = "Executor notify from 1-E05-T11"
+
+[[uses]]
+interface = "effekt-executoren/notify-send"
+from_task = "9-E02-T02"
+purpose = "Path Notifier.send and update, variant approval"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "9-E02-T02"
+purpose = "Mount the callback route in the role web"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.inbox"
+from_task = "9-E02-T02"
+purpose = "Invalid callbacks into quarantine as in the ingress"
+
+[[uses]]
+interface = "identitaetsverknuepfung/identity-link-service"
+from_task = "9-E02-T02"
+purpose = "Resolve the Slack identity to the SCM identity"
+
+[[uses]]
+interface = "identitaetsverknuepfung/ui-konten-verknuepfen"
+from_task = "9-E02-T02"
+purpose = "Link to the Link accounts page"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identity-links"
+from_task = "9-E02-T02"
+purpose = "Column link_kind (migration 0910)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "9-E02-T02"
+purpose = "Foreign key used_by_identity_id"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "9-E02-T02"
+purpose = "Foreign key run_id"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "9-E02-T02"
+purpose = "Control command as StoredEvent with command.origin button"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "9-E02-T02"
+purpose = "Command runs through the router with permission check"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/befehl-approve-plan"
+from_task = "9-E02-T02"
+purpose = "G1 via approve plan"
+
+[[uses]]
+interface = "coder-harte-gates/befehl-approve-risk"
+from_task = "9-E02-T02"
+purpose = "G4 via approve risk"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "9-E02-T02"
+purpose = "Approval states G1, G4, G5 create notifier_approvals"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E02-T02"
+purpose = "Bot token and signing secret via ctx.secrets"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E02-T02"
+purpose = "Migrations 0904 and 0910"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "9-E02-T02"
+purpose = "Policy tenant_isolation for notifier_messages and notifier_approvals"
+
+[[uses]]
+interface = "db/repos"
+from_task = "9-E02-T02"
+purpose = "Access to notifier_messages and notifier_approvals"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "9-E02-T02"
+purpose = "Audit notifier.callback_rejected, approval_rejected, approval_command_emitted"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "9-E02-T02"
+purpose = "Keys approvals.notify and plugins.notifiers"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "9-E02-T02"
+purpose = "Key notifier.callback_max_age_s"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "9-E02-T02"
+purpose = "Contract cases against recordings"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E02-T02"
+purpose = "E2E approval g1 via slack"

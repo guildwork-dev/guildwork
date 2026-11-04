@@ -1,0 +1,111 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.github.com/repos/actions/checkout/actions/runs/39020211001/jobs?per_page=100&page=1",
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8"
+    },
+    "body": {
+      "total_count": 8,
+      "jobs": [
+        {
+          "id": 117360349676,
+          "run_id": 39020211001,
+          "name": "test-bypass-proxy",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:04Z",
+          "completed_at": "2026-10-17T09:12:10Z",
+          "labels": ["ubuntu-latest"]
+        },
+        {
+          "id": 117360349763,
+          "run_id": 39020211001,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:04Z",
+          "completed_at": "2026-10-17T09:12:44Z",
+          "labels": ["ubuntu-latest"]
+        },
+        {
+          "id": 117360349776,
+          "run_id": 39020211001,
+          "name": "test-output",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:04Z",
+          "completed_at": "2026-10-17T09:12:09Z",
+          "labels": ["ubuntu-latest"]
+        },
+        {
+          "id": 117360349779,
+          "run_id": 39020211001,
+          "name": "test-proxy",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:04Z",
+          "completed_at": "2026-10-17T09:12:33Z",
+          "labels": ["ubuntu-latest"]
+        },
+        {
+          "id": 117360349799,
+          "run_id": 39020211001,
+          "name": "test (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:03Z",
+          "completed_at": "2026-10-17T09:12:35Z",
+          "labels": ["ubuntu-latest"]
+        },
+        {
+          "id": 117360349822,
+          "run_id": 39020211001,
+          "name": "test (macos-latest)",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:08Z",
+          "completed_at": "2026-10-17T09:12:50Z",
+          "labels": ["macos-latest"]
+        },
+        {
+          "id": 117360349847,
+          "run_id": 39020211001,
+          "name": "test-git-container",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:04Z",
+          "completed_at": "2026-10-17T09:12:24Z",
+          "labels": ["ubuntu-latest"]
+        },
+        {
+          "id": 117360349958,
+          "run_id": 39020211001,
+          "name": "test (windows-latest)",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T09:12:01Z",
+          "started_at": "2026-10-17T09:12:04Z",
+          "completed_at": "2026-10-17T09:14:12Z",
+          "labels": ["windows-latest"]
+        }
+      ]
+    }
+  },
+  "recordedAt": "2026-11-01T20:38:00.000Z"
+}

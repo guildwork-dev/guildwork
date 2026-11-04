@@ -1,0 +1,349 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-reviewer"
+title = "Reviewer service: manifest, schemas, controller, state per PR, inputs and commands"
+kind = "service"
+path = "services/reviewer/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Scaffold of the reviewer: package with manifest, TypeBox schemas, configuration schema, controller as a single-service run with step plan, state per PR, inputs and commands as well as prompt loader and profile contribution. Not the domain steps (gate, finder, verifier, findings, output), which are separate components in the same package."
+design = [
+  "08-reviewer.md#1-purpose-and-sources",
+  "08-reviewer.md#21-directory-structure",
+  "08-reviewer.md#22-runtime-locations",
+  "08-reviewer.md#23-service-manifest",
+  "08-reviewer.md#24-input-and-output-types",
+  "08-reviewer.md#25-steps-and-work-item-envelopes",
+  "08-reviewer.md#28-entry-point-host-port-and-store-port",
+  "08-reviewer.md#31-tables",
+  "08-reviewer.md#33-output-schemas-of-the-models",
+  "08-reviewer.md#41-inputs",
+  "08-reviewer.md#43-run-and-step-states",
+  "08-reviewer.md#415-prompt-files",
+  "08-reviewer.md#6-security",
+  "08-reviewer.md#7-configuration",
+]
+built_by = ["1-E01-T01", "1-E01-T02", "1-E01-T03", "1-E01-T04", "1-E01-T05", "1-E01-T06", "1-E03-T02", "6-E01-T01", "6-E02-T03"]
+
+[[provides]]
+name = "manifest"
+kind = "contract"
+title = "ServiceManifest reviewerManifest: subscriptions, effects propose_review, propose_check, propose_thread_resolve, job profiles, qualification"
+defined_in = "08-reviewer.md#23-service-manifest"
+from_task = "1-E01-T01"
+
+[[provides]]
+name = "schemas"
+kind = "ts-api"
+title = "Export ./schema: ReviewRequest, Finding, ReviewArtifact, CheckReason, LossReason, FindingState and enums as TypeBox schema and type; from 6-E01-T01 stage 6 fields of the ReviewArtifact with types from 09"
+defined_in = "08-reviewer.md#24-input-and-output-types"
+from_task = "1-E01-T01"
+
+[[provides]]
+name = "modell-ausgabeschemas"
+kind = "ts-api"
+title = "FinderOutputSchema, VerifierVerdictSchema, RecheckVerdictSchema, GateModelOutputSchema (additionalProperties false)"
+defined_in = "08-reviewer.md#33-output-schemas-of-the-models"
+from_task = "1-E01-T01"
+
+[[provides]]
+name = "umschlaege"
+kind = "ts-api"
+title = "Envelopes PrepareInput and PrepareOutput, FindInput and FindOutput, VerifyInput and VerifyOutput, ChangedFile, FinderId, ModelRoleRef; from 6-E02-T03 PrepareOutput.symbolsTouched (09 FE-956)"
+defined_in = "08-reviewer.md#25-steps-and-work-item-envelopes"
+from_task = "1-E01-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "Section services.reviewer with x-qualification per key, consistency rules, named value reviewer.job_output_max_bytes"
+defined_in = "08-reviewer.md#7-configuration"
+from_task = "1-E01-T01"
+
+[[provides]]
+name = "registrierung"
+kind = "ts-api"
+title = "reviewerService (ServiceDefinition, entry controller returns ServiceController with enter, onStepEvent, onRunEvent, onCancel) and registerReviewer(host); port ReviewerHost extends ControllerHost with store, ledger, audit, reply, workItems, pools, provided via reviewerHostExtension in the service loader (FE-843, FE-848)"
+defined_in = "08-reviewer.md#28-entry-point-host-port-and-store-port"
+from_task = "1-E01-T02"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "ReviewerController: onEvent, onStepResult, onRunEvent; step plan 1 to 15 in the active state verifying"
+defined_in = "08-reviewer.md#43-run-and-step-states"
+from_task = "1-E01-T02"
+
+[[provides]]
+name = "job-arten"
+kind = "queue"
+title = "Work item kinds reviewer.prepare, reviewer.find, reviewer.verify registered (handlers initially a fake, FE-800)"
+defined_in = "08-reviewer.md#25-steps-and-work-item-envelopes"
+from_task = "1-E01-T02"
+
+[[provides]]
+name = "run-notes"
+kind = "file"
+title = "Artifact ReviewerRunNotes per run: service part of the Run Record (FE-846)"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E01-T02"
+
+[[provides]]
+name = "metriken-lauf"
+kind = "metric"
+title = "reviewer_step_failed_total{step}, reviewer_deadline_total"
+defined_in = "08-reviewer.md#5-failure-and-abort-paths"
+from_task = "1-E01-T02"
+
+[[provides]]
+name = "speicher-port"
+kind = "ts-api"
+title = "ReviewerStore and ReviewerStoreTx (prState, findings, feedback), implementation in apps/control-plane (FE-843)"
+defined_in = "08-reviewer.md#28-entry-point-host-port-and-store-port"
+from_task = "1-E01-T03"
+
+[[provides]]
+name = "review-pr-state"
+kind = "table"
+title = "Table review_pr_state (migration 0101) with CAS via version and row-level security"
+defined_in = "08-reviewer.md#31-tables"
+from_task = "1-E01-T03"
+
+[[provides]]
+name = "befehle"
+kind = "contract"
+title = "Inputs and commands @agent review, review full, ignore, stop with answers, object lock and follow-up job"
+defined_in = "08-reviewer.md#41-inputs"
+from_task = "1-E01-T04"
+
+[[provides]]
+name = "prompt-lader"
+kind = "ts-api"
+title = "Prompt loader with shared parts, prompts.lock.json, prompt_v = <name>@<version>, CHANGELOG required"
+defined_in = "08-reviewer.md#415-prompt-files"
+from_task = "1-E01-T05"
+
+[[provides]]
+name = "profilbeitrag"
+kind = "ts-api"
+title = "reviewerProfileContribution (ServiceProfileContribution from 07 FE-741): prompt_v per stage and derived verifier.mode_effective"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E01-T06"
+
+[[provides]]
+name = "prompts-gemeinsam"
+kind = "prompt"
+title = "shared.rules.md, shared.severity.md, shared.untrusted.md and prompt structure 1 to 7"
+defined_in = "08-reviewer.md#47-finder-passes"
+from_task = "1-E03-T02"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "1-E01-T01"
+purpose = "ChangeRef, Actor, ServiceId and PermissionLevel in ReviewRequest, Finding and FindingFeedbackRow"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "1-E01-T01"
+purpose = "Check TypeBox schemas with compileSchema and output them with toJsonSchema for manifest and models"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "1-E01-T01"
+purpose = "Type Untrusted fields in ReviewRequest and context schemas"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "1-E01-T01"
+purpose = "Key services.reviewer with x-qualification and x-merge in the schema module services/reviewer.ts"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "1-E01-T01"
+purpose = "Consistency rules of the reviewer (build with subscription, ensemble.runs, allowlist) in the form ConsistencyRule"
+
+[[uses]]
+interface = "config-resolver-regeln/model-reachability"
+from_task = "1-E01-T01"
+purpose = "Rule models.* reachable (ADR-58) for models.gate, models.finder, models.verifier"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "1-E01-T02"
+purpose = "Package as ServiceDefinition with defineService and JobKind reviewer.prepare, reviewer.find, reviewer.verify"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E01-T02"
+purpose = "ReviewerController behind ServiceController (enter, onStepEvent, onRunEvent, onCancel; decisions steps, event, wait per 00 FE-050) and ControllerHost"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "1-E01-T02"
+purpose = "Fake handlers of the three job kinds as JobHandler with input and output schema"
+
+[[uses]]
+interface = "sdk-service/testhilfen"
+from_task = "1-E01-T02"
+purpose = "inMemoryHost and runJob for the controller and job tests"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "1-E01-T02"
+purpose = "Hook point in the orchestrator: the service loader turns the ServiceController into a ServiceControllerModule (02 FE-242) and passes the host extension of the reviewer"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "1-E01-T02"
+purpose = "active state verifying and required events stop, budget_exhausted, deadline, error_after_retries"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "1-E01-T02"
+purpose = "ResolvedEvent and Skipped as input of onEvent"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "1-E01-T02"
+purpose = "Envelopes of the work item kinds reviewer.prepare, reviewer.find, reviewer.verify"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "1-E01-T02"
+purpose = "Create items and revoke leases on stop"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "1-E01-T02"
+purpose = "Read Run Record fields (repo_class, credential_kind, harness_version)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "1-E01-T02"
+purpose = "ReviewerRunNotes as artifact type ReviewerRunNotes per run"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "1-E01-T02"
+purpose = "Audit entries of the reviewer via host.audit"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "1-E01-T02"
+purpose = "Enter counters reviewer_* in the metrics catalog"
+
+[[uses]]
+interface = "core/logger"
+from_task = "1-E01-T02"
+purpose = "Event logs of the controller without foreign content"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "1-E01-T02"
+purpose = "Clock in the host port"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "1-E01-T02"
+purpose = "FakeClock for deadlines and required events in the test"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "1-E01-T03"
+purpose = "Migration 0101_review_pr_state.sql with header lines"
+
+[[uses]]
+interface = "db-migrator/tabellenverzeichnis"
+from_task = "1-E01-T03"
+purpose = "Entry review_pr_state in the number block of stage 1"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "1-E01-T03"
+purpose = "Policy tenant_isolation for review_pr_state"
+
+[[uses]]
+interface = "db-schema-kern/sql-mandanten-funktionen"
+from_task = "1-E01-T03"
+purpose = "current_tenant() in the policy of review_pr_state"
+
+[[uses]]
+interface = "db/connect"
+from_task = "1-E01-T03"
+purpose = "Kysely instance for the implementation of ReviewerStore in apps/control-plane"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "1-E01-T03"
+purpose = "withTenant for ReviewerStore.tx"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "1-E01-T03"
+purpose = "real Postgres for state.cas_conflict_detected and state.rls_other_tenant_invisible"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "1-E01-T04"
+purpose = "RouteDecision with rights and command as input of the intake"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "1-E01-T04"
+purpose = "Routes change.* and command_permissions of the commands review and ignore"
+
+[[uses]]
+interface = "event-schema/routing-name"
+from_task = "1-E01-T04"
+purpose = "Mapping routing.on to TriggerEvent for the reviewer routes (M38)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "1-E01-T04"
+purpose = "Object lock per PR and service reviewer (ADR-68)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-followups"
+from_task = "1-E01-T04"
+purpose = "exactly one follow-up job per PR"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "1-E01-T04"
+purpose = "Answers to commands as platform effect comment via submitPlatform (POL-103)"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "1-E01-T05"
+purpose = "sha256Hex of the prompt files for prompts.lock.json"
+
+[[uses]]
+interface = "lizenz-gate/spdx-kopf"
+from_task = "1-E01-T05"
+purpose = "SPDX header of each prompt file"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "1-E01-T05"
+purpose = "License gate over services/reviewer/prompts/"
+
+[[uses]]
+interface = "denylist-scanner/scan"
+from_task = "1-E01-T05"
+purpose = "Deny scan over services/reviewer/prompts/"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "1-E01-T06"
+purpose = "ServiceProfileContribution of the reviewer (prompt_v, derived)"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "1-E01-T06"
+purpose = "buildProfile and qualificationKey in the profile tests"
+
+[[uses]]
+interface = "config-resolver/snapshot"
+from_task = "1-E01-T06"
+purpose = "qualification_key per service in the snapshot"

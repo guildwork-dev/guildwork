@@ -1,0 +1,159 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-veroeffentlichung"
+title = "Neutralization, export and publication checklist V1 to V9 with root commit"
+kind = "process"
+path = "-"
+stage = "R"
+purpose = "Turns the German planning files into a neutral English version, checks it with the items V1 to V9 and produces exactly one signed root commit with evidence. Tools live in the ops repo under publish/, never in the product repo."
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation", "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10", "00-codebase-and-conventions.md#48-stage-r-before-the-first-push", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"]
+built_by = ["R-E04-T01", "R-E04-T02", "R-E04-T03", "R-E04-T07", "R-E04-T08", "R-E04-T09", "R-E04-T10", "R-E04-T11", "R-E04-T12", "R-E04-T13", "R-E04-T14", "R-E04-T15", "R-E04-T16"]
+
+[[provides]]
+name = "manifest"
+kind = "file"
+title = "publish/manifest.toml: status and target per path under docs/, private by default"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T01"
+
+[[provides]]
+name = "export-werkzeuge"
+kind = "cli"
+title = "publish/export.py, check_neutral.py, structure_diff.py with glossary.toml and linkmap.toml"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T01"
+
+[[provides]]
+name = "private-listen"
+kind = "file"
+title = "publish/denylist.txt, leak-terms.txt, allow-authors.txt (ops repo only)"
+defined_in = "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"
+from_task = "R-E04-T15"
+
+[[provides]]
+name = "neutrale-planung"
+kind = "file"
+title = "Neutralized German architecture, backlog and public research in the ops repo"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T03"
+
+[[provides]]
+name = "secret-liste-v8"
+kind = "file"
+title = "publish/evidence/V8-liste.txt: secrets from planning and logs, without values, with rotation date"
+defined_in = "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"
+from_task = "R-E04-T09"
+
+[[provides]]
+name = "make-root"
+kind = "cli"
+title = "publish/make_root.sh: fresh repo from main of the build repo, commit command for the owner, archive as git bundle"
+defined_in = "00-codebase-and-conventions.md#48-stage-r-before-the-first-push"
+from_task = "R-E04-T11"
+
+[[provides]]
+name = "wurzel-commit"
+kind = "file"
+title = "Local directory with exactly one signed root commit"
+defined_in = "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"
+from_task = "R-E04-T12"
+
+[[provides]]
+name = "belege-v2-bis-v7"
+kind = "file"
+title = "publish/evidence/V2.txt to V7.txt with commit, command and output; publish/overlap.py"
+defined_in = "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"
+from_task = "R-E04-T13"
+
+[[provides]]
+name = "go-blatt-v10"
+kind = "file"
+title = "publish/evidence/V9.txt (Red Team report) and publish/go-v10.md"
+defined_in = "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"
+from_task = "R-E04-T14"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E04-T01"
+purpose = "Export tools under Python 3.12 with unittest"
+
+[[uses]]
+interface = "denylist-scanner/scan"
+from_task = "R-E04-T02"
+purpose = "Deny scan with the private list across the neutralized files"
+
+[[uses]]
+interface = "produkt-doku/adr"
+from_task = "R-E04-T07"
+purpose = "docs/DECISIONS.md names O16, O17, O20, O21 as decided"
+
+[[uses]]
+interface = "sicherheits-scans/gitleaks-toml"
+from_task = "R-E04-T09"
+purpose = "gitleaks with the rule anthropic-credential-any across the ops repo and log locations"
+
+[[uses]]
+interface = "sicherheits-scans/secret-samples"
+from_task = "R-E04-T09"
+purpose = "Cross-check of the list without plain text"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "R-E04-T11"
+purpose = "make_root.sh checks make check in the fresh directory"
+
+[[uses]]
+interface = "hooks-und-textpruefung/commit-konvention"
+from_task = "R-E04-T11"
+purpose = "Subject and sign-off of the root commit according to the commit convention"
+
+[[uses]]
+interface = "denylist-scanner/make-denylist"
+from_task = "R-E04-T13"
+purpose = "V3 in the fresh clone"
+
+[[uses]]
+interface = "sicherheits-scans/make-gitleaks"
+from_task = "R-E04-T13"
+purpose = "V4 with GITLEAKS_LOG_OPTS=--all"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "R-E04-T13"
+purpose = "V6 license gate"
+
+[[uses]]
+interface = "lizenz-gate/make-scancode"
+from_task = "R-E04-T13"
+purpose = "V6 ScanCode"
+
+[[uses]]
+interface = "lizenz-gate/third-party-notices"
+from_task = "R-E04-T13"
+purpose = "V6 third_party_notices.py --check"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-text-rules"
+from_task = "R-E04-T13"
+purpose = "V2 check steps from 4.6 in the fresh clone"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-links"
+from_task = "R-E04-T13"
+purpose = "V2 links in the fresh clone"
+
+[[uses]]
+interface = "hooks-und-textpruefung/review-gate"
+from_task = "R-E04-T14"
+purpose = "Report .review/<sha>.md with exact final line"
+
+[[uses]]
+interface = "hooks-und-textpruefung/qualitaets-doku"
+from_task = "R-E04-T14"
+purpose = "Checklist from docs/quality/red-team-gate.md"
+
+[[uses]]
+interface = "denylist-scanner/deny-liste-format"
+from_task = "R-E04-T15"
+purpose = "Format of the private list with literal, re: and word:"

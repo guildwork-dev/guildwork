@@ -1,0 +1,115 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Dependency updates of Guildwork, see docs/quality/renovate.md (Feinentwurf 00 section 2.11).",
+  "extends": ["config:best-practices"],
+  "schedule": ["* 0-5 * * 1"],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "prConcurrentLimit": 5,
+  "dependencyDashboard": true,
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "semanticCommits": "enabled",
+  "lockFileMaintenance": {
+    "description": "Off: the package managers pick new transitive versions here, without the waiting time of minimumReleaseAge. Lockfiles change with the manifest update that needs them.",
+    "enabled": false
+  },
+  "pip_requirements": {
+    "managerFilePatterns": ["/^tools/bootstrap/scancode/requirements\\.in$/"]
+  },
+  "customManagers": [
+    {
+      "description": "Pinned binaries of tools/bootstrap/tools.toml (GitHub releases). Only version is updated; see the package rule of the group bootstrap binaries for the checksums.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/bootstrap/tools\\.toml$/"],
+      "matchStrings": [
+        "\\[(?<depName>[a-z0-9-]+)\\]\\nversion = \"(?<currentValue>[^\"]+)\"\\nurl = \"https://github\\.com/(?<packageName>[^/\"]+/[^/\"]+)/releases/"
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "description": "Container images of tools/bootstrap/tools.toml, pinned by digest; tag and digest are updated together.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/bootstrap/tools\\.toml$/"],
+      "matchStrings": [
+        "\\[images\\.[a-z0-9-]+\\]\\nimage = \"(?<depName>[^\"]+)\"\\ntag = \"(?<currentValue>[^\"]+)\"\\ndigest = \"(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Waiting time of 7 days for every update with a release date. config:best-practices sets 3 days for npm in a package rule, which beats the top level value.",
+      "matchPackageNames": ["*"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "One pull request for the non-major npm updates (package.json, pnpm-lock.yaml, packageManager).",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "groupName": "npm dependencies"
+    },
+    {
+      "description": "One pull request for the non-major updates of the Python tools (pyproject.toml, uv.lock).",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "groupName": "Python tools"
+    },
+    {
+      "description": "One pull request for the non-major updates of the GitHub Actions, pinned by commit SHA with a version comment.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Node.js in .node-version and engines.node together; both must stay equal.",
+      "matchDepNames": ["node"],
+      "groupName": "Node.js"
+    },
+    {
+      "description": "Python stays on 3.12 (.python-version, requires-python, the ScanCode image and requirements.txt are made for it).",
+      "matchDepNames": ["python", "docker.io/library/python"],
+      "allowedVersions": "/^3\\.12(\\.|-|$)/"
+    },
+    {
+      "description": "Runner labels are fixed by allowed_runners in quality/ci/policy.toml.",
+      "matchDatasources": ["github-runners"],
+      "enabled": false
+    },
+    {
+      "description": "Pinned binaries: Renovate cannot fill in the checksums, which are only ever copied from the vendor.",
+      "matchFileNames": ["tools/bootstrap/tools.toml"],
+      "matchDatasources": ["github-releases"],
+      "groupName": "bootstrap binaries",
+      "prBodyNotes": [
+        "**Manual step before merging.** Renovate changed only `version` in `tools/bootstrap/tools.toml`. Copy the `sha256` of every platform from the vendor's published checksums of the new release, update `source` and `retrieved`, and check the license row in `docs/quality/toolchain.md`. Until then `make bootstrap` stops with `bootstrap.checksum_mismatch` and CI stays red."
+      ]
+    },
+    {
+      "description": "Container images of tools.toml: Renovate reads the new digest from the registry.",
+      "matchFileNames": ["tools/bootstrap/tools.toml"],
+      "matchDatasources": ["docker"],
+      "groupName": "bootstrap images",
+      "prBodyNotes": [
+        "**Before merging:** update `retrieved` of the image table in `tools/bootstrap/tools.toml` and the tag in `docs/quality/toolchain.md`."
+      ]
+    },
+    {
+      "description": "The ScanCode environment is compiled with ScanCode's own pins as constraints; updating single packages breaks it.",
+      "matchFileNames": ["tools/bootstrap/scancode/requirements.txt"],
+      "enabled": false
+    },
+    {
+      "description": "ScanCode and pylibmagic only on approval from the Dependency Dashboard.",
+      "matchFileNames": ["tools/bootstrap/scancode/requirements.in"],
+      "dependencyDashboardApproval": true,
+      "groupName": "ScanCode",
+      "prBodyNotes": [
+        "**Manual step before merging.** Renovate changed only `requirements.in`. Copy ScanCode's `requirements.txt` of the new tag into `constraints.txt`, compile `requirements.txt` with the command in its header (new `--exclude-newer` date), run `make scancode SCANCODE_RUNNER=local` and update `docs/quality/toolchain.md`."
+      ]
+    }
+  ]
+}

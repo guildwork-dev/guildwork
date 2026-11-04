@@ -1,0 +1,22 @@
+{
+  "ts": {
+    "result": "success",
+    "outputs": {}
+  },
+  "tools": {
+    "result": "success",
+    "outputs": {}
+  },
+  "security": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "denylist": {
+    "result": "success",
+    "outputs": {}
+  },
+  "denylist-fork": {
+    "result": "skipped",
+    "outputs": {}
+  }
+}

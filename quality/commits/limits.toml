@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Named limits of the commit message check tools/hooks/commit_msg.py (FE-020).
+
+# Longest allowed first line of a commit message, in characters.
+subject_max_length = 72

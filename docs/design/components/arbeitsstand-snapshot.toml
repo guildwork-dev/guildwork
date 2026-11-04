@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "arbeitsstand-snapshot"
+title = "Work-state snapshot and restore"
+kind = "role"
+path = "apps/worker/src/work-snapshot/"
+package = "@guildwork/worker"
+stage = "2"
+purpose = "Saves the work state of an agent (workspace with .git and the configuration directory of the harness) after a secret scan as an archive and restores it for a clarifying question, steering, deadline expiry and rate limit pause; plus the deletion job after expiry. Not: a container image and not the environment snapshot (worker-umgebungs-snapshot)."
+design = ["10-planner-architect-coder.md#29-work-state-snapshot-and-restore", "10-planner-architect-coder.md#45-question-and-continuation-l1"]
+built_by = ["2-E01-T13", "2-E04-T09"]
+
+[[provides]]
+name = "work-snapshot-dienst"
+kind = "ts-api"
+title = "Implementation of WorkSnapshotService.create and restore (check of sha256, harness version, envSnapshotKey)"
+defined_in = "10-planner-architect-coder.md#29-work-state-snapshot-and-restore"
+from_task = "2-E01-T13"
+
+[[provides]]
+name = "snapshots-endpunkt"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/snapshots"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T13"
+
+[[provides]]
+name = "tabelle-work-snapshots"
+kind = "table"
+title = "work_snapshots (migration 0205)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E01-T13"
+
+[[provides]]
+name = "arbeitsstand-archiv"
+kind = "file"
+title = "Archive t/<tenant>/runs/<runId>/work-snapshots/<snapshotRef>.tar.zst until expires_at"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E01-T13"
+
+[[provides]]
+name = "queue-work-snapshots-expire"
+kind = "queue"
+title = "pg-boss schedule work-snapshots-expire (role orchestrator, singleton, FE-1072)"
+defined_in = "10-planner-architect-coder.md#29-work-state-snapshot-and-restore"
+from_task = "2-E01-T13"
+
+[[provides]]
+name = "konfig-expire"
+kind = "config"
+title = "work_snapshots.expire_interval_min (installation)"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E01-T13"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E01-T13"
+purpose = "Implement WorkSnapshotService and WorkSnapshot"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/env-snapshot-dienst"
+from_task = "2-E01-T13"
+purpose = "Restore into a sandbox from the environment snapshot with the same key"
+
+[[uses]]
+interface = "plugin-analyzer-gitleaks/secret-regeln"
+from_task = "2-E01-T13"
+purpose = "Secret scan before storing"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T13"
+purpose = "copyOut and copyIn of the defined paths"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "2-E01-T13"
+purpose = "Upload of the archive via upload-url"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "2-E01-T13"
+purpose = "snapshotRef and sha256 in the envelope of coder.resume"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E01-T13"
+purpose = "Migration 0205 work_snapshots"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E01-T13"
+purpose = "Repository work_snapshots"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "2-E01-T13"
+purpose = "Deletion of expired archives in the deletion job"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "2-E01-T13"
+purpose = "Queue work-snapshots-expire"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E01-T13"
+purpose = "Audit work_snapshot.stored and work_snapshot.deleted"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "2-E01-T13"
+purpose = "Secret in the work-state snapshot in snapshot.secret_found_discarded"
+
+[[uses]]
+interface = "plugin-claude-code/resume"
+from_task = "2-E04-T09"
+purpose = "Save and restore the configuration directory of the harness for --resume"
+
+[[uses]]
+interface = "worker-sandbox-phasen/eingabe-grants"
+from_task = "2-E01-T13"
+purpose = "Download of the archive on restore via the input grant of the claim response"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E01-T13"
+purpose = "sha256Hex of the archive, newId for snapshotRef"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E01-T13"
+purpose = "New counters of stage 2 in the metric catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E01-T13"
+purpose = "Real Postgres per test file for the migrations and repositories"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "2-E01-T13"
+purpose = "FakeClock in the test of the deletion job"

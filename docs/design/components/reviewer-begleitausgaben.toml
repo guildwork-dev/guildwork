@@ -1,0 +1,313 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-begleitausgaben"
+title = "Companion outputs: walkthrough, diagram, related items, labels, reviewer suggestions, effort"
+kind = "service"
+path = "services/reviewer/src/companions/"
+package = "@guildwork/service-reviewer"
+stage = "6"
+purpose = "Generates in the work item reviewer.companions the companion outputs of the reviewer (walkthrough with change table, sequence diagram, related items, labels, reviewer suggestions, effort, risk level) and checks every output deterministically before it goes into the summary. Not here: pre-merge checks, findings of the finders and the posting itself (poster from 08, executor labels from 04)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#23-companion-generators",
+  "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats",
+  "09-reviewer-companion-features-and-learnings.md#41-companion-outputs-in-a-review-run",
+  "09-reviewer-companion-features-and-learnings.md#5-failure-and-abort-paths",
+  "09-reviewer-companion-features-and-learnings.md#7-configuration",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E01-T01", "6-E01-T02", "6-E01-T03", "6-E01-T04", "6-E01-T06", "6-E01-T07", "6-E01-T08"]
+
+[[provides]]
+name = "begleit-typen"
+kind = "ts-api"
+title = "Types of the companion outputs (Walkthrough, DiagramSpec, RelatedItem, LabelSuggestion, ReviewerSuggestion, CompanionDraft, CompanionResult, DropReason, SummaryConfig, RiskLevelConfig) and extension of ReviewArtifact"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T01"
+
+[[provides]]
+name = "konfig-summary"
+kind = "config"
+title = "services.reviewer.summary.*, services.reviewer.models.companion and services.reviewer.risk_levels with default, range, x-qualification and resolver rules"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E01-T01"
+
+[[provides]]
+name = "work-item-companions"
+kind = "queue"
+title = "Work item type reviewer.companions (envelope input and output, no write requests)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats"
+from_task = "6-E01-T02"
+
+[[provides]]
+name = "prompts-companions"
+kind = "prompt"
+title = "Prompts of the generators under services/reviewer/src/companions/prompts/ with prompt_v per generator"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T02"
+
+[[provides]]
+name = "walkthrough"
+kind = "ts-api"
+title = "validateWalkthrough(w, diff) with cohort rules (FE-904, FE-905)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T03"
+
+[[provides]]
+name = "diagramm"
+kind = "ts-api"
+title = "allowedParticipants, validateDiagram, renderDiagram (restricted Mermaid grammar, FE-903)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T04"
+
+[[provides]]
+name = "verwandte-items"
+kind = "ts-api"
+title = "relatedCandidates(ctx) and selectRelated(draft, candidates, target, crossRepo) with CompanionContext (FE-906)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T06"
+
+[[provides]]
+name = "labels-und-reviewer"
+kind = "ts-api"
+title = "decideLabels(draft, cfg) and suggestReviewers(owners, author) (FE-908, FE-909)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T07"
+
+[[provides]]
+name = "risk-level"
+kind = "ts-api"
+title = "riskLevelOf(riskScore, cfg): sets ReviewArtifact.riskLevel from stage 6 on (FE-910, FE-946)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T08"
+
+[[provides]]
+name = "zusammenfassung-begleitabschnitt"
+kind = "ts-api"
+title = "renderSummarySection(result, caps, preMergeMd?): Markdown of the companion sections in a fixed order, pre-merge section only without CHECK_RUN (FE-952)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#23-companion-generators"
+from_task = "6-E01-T08"
+
+[[provides]]
+name = "metriken-companions"
+kind = "metric"
+title = "guildwork.reviewer.companions.failed and guildwork.reviewer.companions.dropped"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E01-T02"
+
+[[provides]]
+name = "metrik-related-search-failed"
+kind = "metric"
+title = "guildwork.reviewer.related.search_failed"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E01-T06"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "6-E01-T01"
+purpose = "Extend ReviewArtifact from 08 by the companion fields"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "6-E01-T01"
+purpose = "Extend section services.reviewer by summary.*, models.companion and risk_levels"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "6-E01-T01"
+purpose = "Keys with default, range and x-qualification in schema/services/reviewer.ts"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "6-E01-T01"
+purpose = "Resolver rule label_allowlist without prefix agent"
+
+[[uses]]
+interface = "config-resolver-regeln/model-reachability"
+from_task = "6-E01-T01"
+purpose = "models.companion reachable (s2/companion-model-unreachable, ADR-58)"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "6-E01-T01"
+purpose = "TypeBox schemas of the model outputs"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "6-E01-T01"
+purpose = "ChangeRef, Actor, Result in the types"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "6-E01-T01"
+purpose = "Title and text of the PR and candidates as untrusted"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "6-E01-T01"
+purpose = "ResolvedEvent.links in CompanionContext"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/is-visible-for"
+from_task = "6-E01-T01"
+purpose = "Visibility and VisibilitySubject in the types, filter of the candidates in 6-E01-T06"
+
+[[uses]]
+interface = "service-reviewer/controller"
+from_task = "6-E01-T02"
+purpose = "Schedule the work item reviewer.companions in parallel to the finders and check the result"
+
+[[uses]]
+interface = "service-reviewer/registrierung"
+from_task = "6-E01-T02"
+purpose = "Register job handler reviewer.companions"
+
+[[uses]]
+interface = "service-reviewer/job-arten"
+from_task = "6-E01-T02"
+purpose = "Work item kind reviewer.companions next to prepare, find, verify"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "6-E01-T02"
+purpose = "StepRequest of the companion job"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "6-E01-T02"
+purpose = "JobHandler and JobContext of the companion job"
+
+[[uses]]
+interface = "sdk-service/testhilfen"
+from_task = "6-E01-T02"
+purpose = "runJob for the job tests"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "6-E01-T02"
+purpose = "Envelope with kind model_call"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "6-E01-T02"
+purpose = "generate with outputSchema per generator"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "6-E01-T02"
+purpose = "Prompts under companions/prompts/ with prompt_v"
+
+[[uses]]
+interface = "service-reviewer/profilbeitrag"
+from_task = "6-E01-T02"
+purpose = "prompt_v of the generators in the qualification profile"
+
+[[uses]]
+interface = "reviewer-router-und-budget/kontextpaket"
+from_task = "6-E01-T02"
+purpose = "Diff with line numbers and impact set as the only input"
+
+[[uses]]
+interface = "reviewer-router-und-budget/budgetaufteilung"
+from_task = "6-E01-T02"
+purpose = "ItemBudget of the companion job"
+
+[[uses]]
+interface = "service-reviewer/run-notes"
+from_task = "6-E01-T02"
+purpose = "companions.dropped in the Run Record"
+
+[[uses]]
+interface = "reviewer-ausgabe/zusammenfassung"
+from_task = "6-E01-T02"
+purpose = "Notice Summary not available and companion sections"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E01-T02"
+purpose = "Enter the metrics companions.failed and companions.dropped"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "6-E01-T02"
+purpose = "Increment counters"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "6-E01-T02"
+purpose = "recorded model responses"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "6-E01-T02"
+purpose = "S6 case s6/companions-job-failed"
+
+[[uses]]
+interface = "reviewer-gate/gate-regeln"
+from_task = "6-E01-T03"
+purpose = "BUILTIN_GENERATED_GLOBS for the cohort Generated"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "6-E01-T03"
+purpose = "FileChange, codeowners and repoInfo"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/find-references"
+from_task = "6-E01-T06"
+purpose = "References in title, text and commits as candidates"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "6-E01-T06"
+purpose = "WorkItemReader.search and searchRelated"
+
+[[uses]]
+interface = "plugin-github-issues/issues-lesend"
+from_task = "6-E01-T06"
+purpose = "search of the GitHub plugin (if it delivers PRs, 10 item 7)"
+
+[[uses]]
+interface = "plugin-rahmen/capability-resolver"
+from_task = "6-E01-T06"
+purpose = "Capabilities RELATED_SEARCH, SET_LABELS and CHECK_RUN with fallback chain"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "6-E01-T07"
+purpose = "codeowners for reviewer suggestions"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "6-E01-T07"
+purpose = "propose_labels via the Effect Gateway"
+
+[[uses]]
+interface = "effekt-executoren/labels"
+from_task = "6-E01-T07"
+purpose = "Executor labels sets the labels"
+
+[[uses]]
+interface = "service-reviewer/manifest"
+from_task = "6-E01-T07"
+purpose = "Effect propose_labels in the manifest of the reviewer"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "6-E01-T07"
+purpose = "Policy test propose_labels only with summary.labels apply"
+
+[[uses]]
+interface = "reviewer-router-und-budget/router"
+from_task = "6-E01-T08"
+purpose = "riskScore of the router for riskLevelOf"
+
+[[uses]]
+interface = "reviewer-ausgabe/schattenbetrieb"
+from_task = "6-E01-T08"
+purpose = "Summary in shadow mode only in the eval log"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "6-E01-T08"
+purpose = "E2E with recorded GitHub responses"

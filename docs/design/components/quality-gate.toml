@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "quality-gate"
+title = "Platform gate quality-gate"
+kind = "package"
+path = "packages/quality-gate/"
+package = "@guildwork/quality-gate"
+stage = "2"
+purpose = "Decides from analyzer reports and metrics according to analysis.gate whether a head SHA passes the platform gate, and delivers the text of the check quality-gate; from stage 5 on, the merge gate reads the same decision. Not: running the analyzers (analyzer-runner) and not setting the check (coder via propose_check)."
+design = ["10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate"]
+built_by = ["2-E05-T07", "2-E05-T08"]
+
+[[provides]]
+name = "decide-api"
+kind = "ts-api"
+title = "decide, GateConfig, QualityGateDecision, conversion of lcov and Cobertura to new lines"
+defined_in = "10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate"
+from_task = "2-E05-T07"
+
+[[provides]]
+name = "quality-gate-schema"
+kind = "file"
+title = "JSON Schema QualityGateDecision under packages/contracts/schemas/artifacts/v1alpha1/"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E05-T07"
+
+[[provides]]
+name = "tabelle-quality-gate-decisions"
+kind = "table"
+title = "quality_gate_decisions (migration 0212)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E05-T07"
+
+[[provides]]
+name = "check-quality-gate"
+kind = "contract"
+title = "Check quality-gate at the head SHA of every agent PR (passed, failed, neutral with reason)"
+defined_in = "10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate"
+from_task = "2-E05-T07"
+
+[[provides]]
+name = "konfig-analysis-gate"
+kind = "config"
+title = "analysis.gate (GateConfig with starting values)"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E05-T07"
+
+[[provides]]
+name = "b1-fixtures"
+kind = "file"
+title = "Gate B1 fixtures eval/suites/quality-gate-b1/ per condition"
+defined_in = "10-planner-architect-coder.md#85-analyzer-and-platform-gate-2-e05"
+from_task = "2-E05-T08"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T07"
+purpose = "AnalyzerReport as input of decide"
+
+[[uses]]
+interface = "sarif/properties-beutel"
+from_task = "2-E05-T07"
+purpose = "MetricsBag with coverage and duplication"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E05-T07"
+purpose = "analysis.gate as GateConfig with x-qualification"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "2-E05-T07"
+purpose = "JSON Schema QualityGateDecision"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E05-T07"
+purpose = "Migration 0212 quality_gate_decisions"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E05-T07"
+purpose = "Repository quality_gate_decisions"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "2-E05-T07"
+purpose = "Check quality-gate at the head SHA"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "2-E05-T07"
+purpose = "Duplication tool as analyzer (OP-12)"
+
+[[uses]]
+interface = "reviewer-analyzer-ingest/quelle-run"
+from_task = "2-E05-T08"
+purpose = "Findings from run as verifier candidates in the reviewer"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "2-E05-T08"
+purpose = "B1 fixtures against the published gate definition"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E05-T07"
+purpose = "canonicalJson and sha256Hex for configHash"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E05-T07"
+purpose = "Result, ok and err as return values of the public functions"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E05-T07"
+purpose = "real Postgres per test file for the migrations and repositories"

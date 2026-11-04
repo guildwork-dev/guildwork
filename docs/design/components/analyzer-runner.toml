@@ -1,0 +1,166 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "analyzer-runner"
+title = "Analyzers in their own tool sandbox with baseline and offline databases"
+kind = "role"
+path = "apps/worker/src/analyzer-runner/"
+package = "@guildwork/worker"
+stage = "2"
+purpose = "Runs each analyzer in mode run in its own tool sandbox from its image (workspace read-only, rules from the base SHA, no network; from stage 10 on request only item_app or allowlist, 15 K9), compares with the baseline at the base SHA and maintains the offline databases. Not: the analyzer plugins themselves and not the gate decision (quality-gate)."
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins", "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"]
+built_by = ["2-E05-T02", "2-E05-T03", "2-E05-T05", "10-E04-T01", "10-E04-T02"]
+
+[[provides]]
+name = "analyzer-runner-dienst"
+kind = "ts-api"
+title = "Implementation of AnalyzerRunnerService.run with AnalyzerSandboxSpec; crash, timeout, invalid SARIF result in neutral with a reason"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T02"
+
+[[provides]]
+name = "tabelle-analyzer-runs"
+kind = "table"
+title = "analyzer_runs (migration 0211)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E05-T02"
+
+[[provides]]
+name = "konfig-analysis-timeout"
+kind = "config"
+title = "analysis.timeout_s"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E05-T02"
+
+[[provides]]
+name = "tabelle-analyzer-baselines"
+kind = "table"
+title = "analyzer_baselines (migration 0211), valid only with the same toolVersion and rulesHash"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E05-T03"
+
+[[provides]]
+name = "offline-db"
+kind = "ts-api"
+title = "Maintenance of the offline database volumes for osv-scanner and trivy (apps/worker/src/analyzer-runner/offline-db.ts), stale results in neutral"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T05"
+
+[[provides]]
+name = "analyzer-runs-endpunkt"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/analyzer-runs with AnalyzerRunReport[]"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E05-T02"
+
+[[provides]]
+name = "baseline-hinweis"
+kind = "ts-api"
+title = "envelope.inputs.analyzerBaselines and lookup function for controllers"
+defined_in = "10-planner-architect-coder.md#221-docking-points-of-the-worker-to-the-control-plane-stage-2"
+from_task = "2-E05-T03"
+
+[[provides]]
+name = "konfig-offline-db"
+kind = "config"
+title = "analysis.offline_db_refresh_h and analysis.offline_db_max_age_h (installation, FE-1075)"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E05-T05"
+
+[[provides]]
+name = "netz-item-app"
+kind = "contract"
+title = "AnalyzerSandboxSpec.network item_app: tool sandbox in the network of the item, only the app started there reachable, no internet (15 K9, FE-1525)"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "10-E04-T01"
+
+[[provides]]
+name = "netz-allowlist"
+kind = "contract"
+title = "AnalyzerSandboxSpec.network allowlist: only hosts from describe().network via the egress proxy, registration of the item with the proxy (15 K9, FE-1528)"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "10-E04-T02"
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E05-T02"
+purpose = "Implement AnalyzerRunnerService"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T02"
+purpose = "run and describe of the analyzer plugins"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E05-T02"
+purpose = "Tool sandbox per analyzer without network"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "2-E05-T02"
+purpose = "Load analyzer plugins, reject needsBuild"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "2-E05-T02"
+purpose = "analyzers_allowlist with image digest"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "2-E05-T02"
+purpose = "validateSarif and fingerprint"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E05-T02"
+purpose = "Migration 0211"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E05-T02"
+purpose = "Repositories analyzer_runs and analyzer_baselines"
+
+[[uses]]
+interface = "worker/work-api-client"
+from_task = "2-E05-T02"
+purpose = "Report analyzer-runs to the own lease (FE-1070)"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E05-T02"
+purpose = "Audit analyzer.neutral with a reason"
+
+[[uses]]
+interface = "worker-sandbox-phasen/eingabe-grants"
+from_task = "2-E05-T03"
+purpose = "Download of the base SARIF via the input grant baseline:<analyzerId>"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E05-T02"
+purpose = "newId (UUIDv7) for analyzerRunId and sha256Hex for rulesHash"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E05-T02"
+purpose = "New counters of stage 2 in the metric catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E05-T02"
+purpose = "Real Postgres per test file for the migrations and repositories"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "10-E04-T01"
+purpose = "Network of the E2E item for the tool sandbox (item_app)"
+
+[[uses]]
+interface = "egress-proxy/ctl-api"
+from_task = "10-E04-T02"
+purpose = "Registration of the tool sandbox with the allowlist from the manifest (allowlist)"
+
+[[uses]]
+interface = "egress-proxy/header-relay"
+from_task = "10-E04-T02"
+purpose = "headerRelay in the registration when api_key_ref is set (K16)"

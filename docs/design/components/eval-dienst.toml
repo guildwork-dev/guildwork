@@ -1,0 +1,369 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-dienst"
+title = "Eval service of the control plane: tables, admission, eval run, API, judge calls"
+kind = "role"
+path = "apps/control-plane/src/eval/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Server-side part of the eval in the control plane: eval tables, admission per case (origin, license, data path ADR-70), run and case state machine with platform runs in mode record, judge calls, scoring via eval-core and the eval API. Not for matrix, mode decision and adoption (eval-qualifikation) and not for statistics (eval-statistik)."
+design = [
+  "07-eval-and-qualification.md#26-eval-service-and-runner",
+  "07-eval-and-qualification.md#3-data",
+  "07-eval-and-qualification.md#41-sequence-of-an-eval-run",
+  "07-eval-and-qualification.md#42-states-of-an-eval-run",
+  "07-eval-and-qualification.md#43-states-of-a-case-per-arm-and-repetition",
+  "07-eval-and-qualification.md#44-admission-of-a-case-admissionts",
+  "07-eval-and-qualification.md#5-failure-and-abort-paths",
+  "07-eval-and-qualification.md#7-configuration",
+  "07-eval-and-qualification.md#2165-eval-service-and-reference-service",
+  "01-data-model.md#31a-migration-blocks-and-table-directory",
+  "07-eval-and-qualification.md#2172-start-of-the-case-runs",
+  "07-eval-and-qualification.md#2173-internal-services-eval-bare-and-eval-judge-worker-steps",
+  "07-eval-and-qualification.md#2174-scoring-scoringts",
+  "07-eval-and-qualification.md#2177-repo-mode-of-a-set-fe-756"
+]
+built_by = ["0-E20-T06", "0-E20-T07", "0-E20-T08", "0-E20-T09", "0-E20-T15", "0-E20-T16", "0-E20-T23", "7-E06-T01"]
+
+[[provides]]
+name = "tabellen-eval"
+kind = "table"
+title = "eval_suites, eval_cases, eval_runs, eval_case_results, eval_references (migration 0010, RLS per tenant_id)"
+defined_in = "07-eval-and-qualification.md#3-data"
+from_task = "0-E20-T06"
+
+[[provides]]
+name = "tabellen-qualifikation"
+kind = "table"
+title = "qualification, qualification_parts, qualification_adoptions, shadow_ratings (migration 0010, RLS per tenant_id)"
+defined_in = "07-eval-and-qualification.md#3-data"
+from_task = "0-E20-T06"
+
+[[provides]]
+name = "eval-repositories"
+kind = "ts-api"
+title = "Kysely repositories of the eval tables in packages/db/src/repos/eval/ (01 section 2.3)"
+defined_in = "07-eval-and-qualification.md#3-data"
+from_task = "0-E20-T06"
+
+[[provides]]
+name = "eval-run-service"
+kind = "ts-api"
+title = "EvalRunService (create, cancel, advance), EvalTriggerV1 and EvalRunStartV1 of the case runs (FE-746)"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T08"
+
+[[provides]]
+name = "eval-bare"
+kind = "contract"
+title = "Internal service eval-bare (bare arm, FE-717) with prompts eval/bare-prompts/<service>.md; eval-judge from 0-E20-T16 (FE-747)"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T08"
+
+[[provides]]
+name = "eval-konfig"
+kind = "config"
+title = "Section eval.* in installation.yaml (pool, concurrency, repetitions, deadlines, bootstrap, cache, allowlist, noncommercial, private sets, judge age, label length, advance interval)"
+defined_in = "07-eval-and-qualification.md#7-configuration"
+from_task = "0-E20-T08"
+
+[[provides]]
+name = "eval-api"
+kind = "http"
+title = "/admin/api/v1/eval/sets, /eval/sets/:id/cases, /eval/configs, /eval/runs, /eval/runs/:id, /cases, /cancel, /report, /eval/suite-runs (registerAdminRoutes, FE-745)"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T09"
+
+[[provides]]
+name = "qualification-api"
+kind = "http"
+title = "GET /admin/api/v1/qualification, GET /qualification/:key, POST /qualification/:key/evaluate (logic in matrix.ts, FE-743)"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T09"
+
+[[provides]]
+name = "audit-eval"
+kind = "event"
+title = "Audit actions eval.set.imported, eval.set.rejected, eval.case.rejected, eval.run.created, eval.run.cancelled, eval.run.failed, eval.reference.imported; eval.repo_gate.written from 7-E06-T01"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T09"
+
+[[provides]]
+name = "eval-metriken"
+kind = "metric"
+title = "Counters guildwork.eval.case_rejected, case_error, runs; alert rules eval_judge_calibration_stale, eval_judge_unavailable, eval_profile_drift"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T16"
+
+[[provides]]
+name = "eval-repo-modus"
+kind = "contract"
+title = "Repo mode: EvalRunRequest.repo_mode, cases via Scorer.repoCases from the repo of the installation, profile of the operation, row triage_t1 in repo_eval_gates (FE-756)"
+defined_in = "07-eval-and-qualification.md#2177-repo-mode-of-a-set-fe-756"
+from_task = "7-E06-T01"
+
+[[uses]]
+interface = "db-migrator/migrator"
+from_task = "0-E20-T06"
+purpose = "Apply migration 0010_eval.sql forward only"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E20-T06"
+purpose = "Header lines of the migration file 0010"
+
+[[uses]]
+interface = "db-migrator/tabellenverzeichnis"
+from_task = "0-E20-T06"
+purpose = "Eval tables in the directory 01 section 3.1a with migration 0010"
+
+[[uses]]
+interface = "db-schema-kern/sql-mandanten-funktionen"
+from_task = "0-E20-T06"
+purpose = "current_tenant() in the RLS policies of the eval tables"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "0-E20-T06"
+purpose = "Policy tenant_isolation with FORCE on every eval table"
+
+[[uses]]
+interface = "db/schema-typen"
+from_task = "0-E20-T06"
+purpose = "Extend the Kysely table types with the eval tables"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E20-T06"
+purpose = "Pattern of the repositories (insert, get, update, transaction as the first parameter)"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E20-T06"
+purpose = "Db and Tx in the repositories"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "0-E20-T06"
+purpose = "Foreign key shadow_ratings.effect_id to effects"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E20-T06"
+purpose = "Tests db.eval.* on a fresh Postgres container"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E20-T07"
+purpose = "withTenant for admission and run"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T07"
+purpose = "EvalCase, SetManifest, Origin, LicenseClass in admission.ts"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "0-E20-T07"
+purpose = "evaluateWorkItem: data path of the runtime and models per repo class (ADR-70)"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "0-E20-T07"
+purpose = "data_policy, operator_repos and runtime of the profile from the effective configuration"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E20-T07"
+purpose = "fresh repo class and visibility of private cases (FE-727)"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E20-T07"
+purpose = "Audit eval.case.rejected and further eval.* actions"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E20-T07"
+purpose = "Logs only with IDs and codes"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E20-T07"
+purpose = "Register the counters guildwork.eval.case_rejected, case_error, runs"
+
+[[uses]]
+interface = "eval-core/eval-run-request"
+from_task = "0-E20-T08"
+purpose = "EvalRunService.create takes EvalRunRequest"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "0-E20-T08"
+purpose = "qualification_key of the request against the snapshot of each case run (FE-731)"
+
+[[uses]]
+interface = "config-resolver/snapshot"
+from_task = "0-E20-T08"
+purpose = "Read profile and key per case run from config_snapshots"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "0-E20-T08"
+purpose = "Column profiles of the snapshot for the drift check"
+
+[[uses]]
+interface = "control-plane-orchestrator/create-run"
+from_task = "0-E20-T08"
+purpose = "Create case runs as platform runs with EvalRunStartV1 (FE-746)"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "0-E20-T08"
+purpose = "Evaluate the RunState of the case runs in the job eval-advance"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "0-E20-T08"
+purpose = "Hook in the controllers of the internal services eval-bare and eval-judge"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E20-T08"
+purpose = "Register the job eval-advance"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E20-T08"
+purpose = "Schedule eval-advance every eval.advance_interval_s"
+
+[[uses]]
+interface = "db-queue/send-in-tx"
+from_task = "0-E20-T08"
+purpose = "Send case runs within the transaction of the state change"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "0-E20-T08"
+purpose = "Read state, cost and duration of the case runs"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "0-E20-T08"
+purpose = "Ledger.status for ledger_before and ledger_after"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "0-E20-T08"
+purpose = "Read the eval log of the case runs (eval-log/...) for collect"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E20-T08"
+purpose = "BlobStore for case inputs, eval log and reports"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E20-T08"
+purpose = "put and get of the case inputs and reports"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "0-E20-T08"
+purpose = "defineService for eval-bare and eval-judge"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E20-T08"
+purpose = "Keys eval.* and qualification.remeasure.* in the installation schema"
+
+[[uses]]
+interface = "eval-fixture-provider/fixture-plugin"
+from_task = "0-E20-T08"
+purpose = "SCM and ticket responses of the case runs from the fixture (FE-748)"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "0-E20-T09"
+purpose = "Request schemas of the eval API"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "0-E20-T09"
+purpose = "Routes /admin/api/v1/eval/* and /admin/api/v1/qualification/* with session, role, CSRF (FE-745)"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "0-E20-T09"
+purpose = "AdminRole and Problem in the responses"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "0-E20-T09"
+purpose = "Route POST /qualification/:key/evaluate and read routes call matrix.ts (FE-743)"
+
+[[uses]]
+interface = "eval-adapter-harbor/adapter"
+from_task = "0-E20-T15"
+purpose = "Schedule check items harbor-verify in the run"
+
+[[uses]]
+interface = "eval-richter/richter-api"
+from_task = "0-E20-T16"
+purpose = "selectOwnJudge, parseJudgeSpec and calibrate in judging.ts"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "0-E20-T16"
+purpose = "Enqueue items model_call and check of the internal service eval-judge"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "0-E20-T16"
+purpose = "GenerateRequest with outputSchema for own judges"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "0-E20-T16"
+purpose = "Register the worker step eval-benchmark-judge (FE-747)"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "0-E20-T16"
+purpose = "Alert rules eval_judge_calibration_stale, eval_judge_unavailable, eval_profile_drift"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "0-E20-T23"
+purpose = "scoring.ts calls Scorer.score and Scorer.references"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "0-E20-T23"
+purpose = "decidePart per part and judge in scoring.ts"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "0-E20-T23"
+purpose = "loadGateFile, partSpec, combineGate, rulesHash in scoring.ts"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "0-E20-T23"
+purpose = "buildReport and renderMarkdown, storage in the BlobStore"
+
+[[uses]]
+interface = "dummy-service/manifest"
+from_task = "0-E20-T23"
+purpose = "Dummy service as the subject of the end-to-end run"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "0-E20-T23"
+purpose = "Run through the whole chain in the test"
+
+[[uses]]
+interface = "service-triage/tabelle-repo-eval-gates"
+from_task = "7-E06-T01"
+purpose = "Write the row triage_t1 per repo and qualification_key in repo mode (FE-756, 12 FE-1262)"

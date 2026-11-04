@@ -1,0 +1,656 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area bases of stage 0b. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/06-installation-operations-ui.md (sections 2.14, 2.15, 4.7)
+stage = "0b"
+
+[[epic]]
+id = "0b-E01"
+title = "Drivers azure-blob and azure-keyvault"
+goal = "Drivers with contract suites against the emulator or recordings"
+sources = ["01 section 13", "11 section 4"]
+depends_on = ["0-E03"]
+
+[[epic]]
+id = "0b-E02"
+title = "OpenTofu module generic-vm"
+goal = "Module with `validate` and `plan` green"
+sources = ["11 section 2.6"]
+depends_on = ["0-E18"]
+
+[[epic]]
+id = "0b-E03"
+title = "OpenTofu module azure"
+goal = "Module with `validate` and `plan` green; real apply only with owner go (O22)"
+sources = ["11 section 2.6", "O22"]
+depends_on = ["0b-E01", "0-E18"]
+
+# ---------------------------------------------------------------- 0b-E01 Azure drivers
+
+[[task]]
+id = "0b-E01-T01"
+title = "Check of Azurite and user delegation SAS"
+description = """Check at the source and record in 09 section 4 (11 open points 3 and 6): license of Azurite (LICENSE in the repo of the pinned version), which blob capabilities Azurite covers (SAS for presignPut and presignGet, blob versioning, version-level immutability), whether user delegation SAS works with managed identity (Azure docs with retrieval date). The result determines which cases of the contract suite run against Azurite and which against recordings."""
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"]
+result = "Entry in docs/architecture/09-decisions.md section 4, drivers/blob-azure/test/COVERAGE.md"
+done = [
+  "Entry in 09 section 4 with source and retrieval date per question, or 'unverified' with reason",
+  "COVERAGE.md assigns each case of the suite to Azurite or recording",
+  "Probe: Azurite container starts in CI and answers put and get (job log)",
+]
+sources = ["11 section 11 points 3 and 6", "09 section 4", "01 section 13"]
+depends_on = ["0-E03"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T01-S01"
+  title = "Read license and capabilities of Azurite and back them with a probe"
+  done = "Probe job green, sources noted"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T01-S02"
+  title = "Clarify user delegation SAS with managed identity, entry in 09"
+  done = "Entry in 09 section 4"
+  status = "open"
+
+[[task]]
+id = "0b-E01-T02"
+title = "Recording and replay for Azure SDK clients"
+description = """Own HttpClient for the Azure SDK clients (FE-628) in packages/testkit/src/azure-recorder: mode record writes request and response as a JSON fixture with redacted headers (Authorization, x-ms-*-token, SAS signatures sig=, AccountKey=), mode replay answers exclusively from fixtures and fails on an unknown request. Test that searches all fixtures for credentials."""
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"]
+result = "packages/testkit/src/azure-recorder/, tests"
+done = [
+  "Test 'azure recorder replay fails on unknown request' green",
+  "Test 'azure recorder scrubs credentials on record' green",
+  "Test 'fixtures.no-credentials' green over all fixtures under drivers/",
+]
+sources = ["01 section 13", "05 section 5"]
+depends_on = ["0-E13"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T02-S01"
+  title = "Tests for replay and redaction"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T02-S02"
+  title = "HttpClient with record and replay"
+  done = "both tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T02-S03"
+  title = "Credential search over all fixtures in make check"
+  done = "Test fixtures.no-credentials green"
+  status = "open"
+
+[[task]]
+id = "0b-E01-T03"
+title = "Driver azure-blob"
+description = """drivers/blob-azure per detailed design 06 section 2.15: BlobStore with put, get, list, delete, presignPut and presignGet (user delegation SAS, upper limit presignTtlMaxS), capabilities PRESIGN, VERSIONING, OBJECT_LOCK (retainUntil sets the version-level immutability, delete before that yields error permission), SSE_KMS none; sign-in via DefaultAzureCredential, connection string only for Azurite in tests. Manifest with SPDX license, distribution bundled. Contract suite from the harness (0-E13) against Azurite and recordings per COVERAGE.md; failure paths expired presign URL and deletion under Object Lock."""
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"]
+result = "drivers/blob-azure/src/, drivers/blob-azure/manifest.yaml, drivers/blob-azure/test/, .github/workflows/azure-drivers.yml"
+done = [
+  "Test 'contract.blob-azure.azurite' green in job azure-drivers",
+  "Test 'contract.blob-azure.recorded' green (for the recording cases, once 0b-E01-T05 delivers fixtures; until then kept as pending in the suite)",
+  "Test 'contract.blob-azure.object-lock-delete-denied' green",
+  "Test 'contract.blob-azure.presign-expired' green",
+  "License gate green for the Azure SDK packages",
+]
+sources = ["01 section 13", "11 section 4", "05 section 8", "ADR-41"]
+depends_on = ["0b-E01-T01", "0b-E01-T02", "0-E03", "0-E13"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T03-S01"
+  title = "Wire in contract suite, red against empty driver"
+  done = "Suite red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T03-S02"
+  title = "put, get, list, delete against Azurite"
+  done = "Basic cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T03-S03"
+  title = "presign with expiry"
+  done = "Test presign-expired green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T03-S04"
+  title = "Versioning and Object Lock"
+  done = "Test object-lock-delete-denied green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T03-S05"
+  title = "CI job azure-drivers"
+  done = "Job green, workflow policy green"
+  status = "open"
+
+[[task]]
+id = "0b-E01-T04"
+title = "Driver azure-keyvault"
+description = """drivers/secret-azure-keyvault per detailed design 06 section 2.15: SecretStore with get (version), put (capability WRITE, new version), sign (capability SIGN via Key Vault key, ES256 and RS256, the key never leaves the vault), ROTATION_EVENT none; mapping of secret://a/b to name a--b; sign-in via DefaultAzureCredential (DERIVED per 01 section 13). Contract suite fully against recordings, failure path unknown secret version."""
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"]
+result = "drivers/secret-azure-keyvault/src/, manifest.yaml, test/"
+done = [
+  "Test 'contract.secret-azure-keyvault.recorded' green (once fixtures from 0b-E01-T05 are available; until then against synthetic fixtures in the recording format, marked as such)",
+  "Test 'contract.secret-azure-keyvault.unknown-version' green",
+  "Test 'contract.secret-azure-keyvault.sign-es256' green (signature verified with the public key)",
+  "Test 'keyvault ref mapping roundtrip' green",
+]
+sources = ["01 section 13", "05 section 5", "ADR-22", "ADR-41"]
+depends_on = ["0b-E01-T02", "0-E03", "0-E13"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T04-S01"
+  title = "Wire in contract suite, red"
+  done = "Suite red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T04-S02"
+  title = "get, put, mapping of names"
+  done = "Tests mapping and unknown-version green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T04-S03"
+  title = "sign via Key Vault key"
+  done = "Test sign-es256 green"
+  status = "open"
+
+[[task]]
+id = "0b-E01-T05"
+title = "Owner: recording against real Azure"
+description = """Real Azure calls cost money and need an account (O22). The agent delivers the recording script (tofu mini stack with a storage account with versioning and immutability and a Key Vault, recording in mode record, destroy) and a decision sheet (costs, effect, risks); the owner starts it locally with their own account (the environment azure-apply from 0b-E03 only comes into existence afterwards). After that the redacted fixtures are in the repo, and the 'recorded' cases of both drivers run against real responses."""
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault", "06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"]
+result = "drivers/*/test/fixtures/*.json (redacted), recording log, cost query"
+done = [
+  "Fixtures in the repo, test 'fixtures.no-credentials' green",
+  "Tests 'contract.blob-azure.recorded' and 'contract.secret-azure-keyvault.recorded' green against the real recordings",
+  "Destroy log and cost query afterwards in the PR",
+]
+sources = ["O22", "11 section 9", "01 section 13"]
+depends_on = ["0b-E01-T03", "0b-E01-T04"]
+owner = "owner"
+estimate_h = 2
+status = "open"
+note = "Owner step because of account and costs; the agent prepares script and decision sheet."
+
+  [[task.part]]
+  id = "0b-E01-T05-S01"
+  title = "Recording script and decision sheet (agent)"
+  done = "Script with plan against fakes green, sheet in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T05-S02"
+  title = "Recording and destroy (owner)"
+  done = "Fixtures and log in the PR"
+  status = "open"
+
+[[task]]
+id = "0b-E01-T06"
+title = "Azure drivers in installation configuration and doctor"
+description = """Schema entries blob.driver azure-blob and secrets.driver azure-keyvault in installation.schema.json with AzureBlobConfig and AzureKeyVaultConfig; resolver rule: audit_anchor sink blob requires OBJECT_LOCK (given for azure-blob); doctor D08 and D09 check the Azure drivers with the same probes; docs section in docs/ops/azure.md."""
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault", "06-installation-operations-ui.md#25-doctor-checks"]
+result = "installation.schema.json (Azure drivers), docs/ops/azure.md"
+done = [
+  "Test 'config azure drivers validate against schema' green",
+  "Tests 'doctor.D08-blobstore.ok' and 'doctor.D09-secretstore.ok' green with Azure drivers against Azurite or replay",
+]
+sources = ["04 section 7", "11 section 3 profile azure"]
+depends_on = ["0b-E01-T03", "0b-E01-T04", "0-E18"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T06-S01"
+  title = "Schema and resolver rule"
+  done = "Schema test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E01-T06-S02"
+  title = "doctor probes and docs"
+  done = "doctor tests green, docs/ops/azure.md"
+  status = "open"
+
+# ---------------------------------------------------------------- 0b-E02 OpenTofu generic-vm
+
+[[task]]
+id = "0b-E02-T01"
+title = "Module generic-vm: scaffold, variables, outputs, pins, state encryption"
+description = """deploy/tofu/generic-vm per detailed design 06 section 2.14 (FE-629): versions.tf with exact OpenTofu and provider version (only terraform_data and templatefile, no cloud providers), .terraform.lock.hcl for linux amd64 and arm64, variables.tf with validations (version never latest, checksums 64 hex), outputs.tf (cloud_init, install_dir, admin_url, version; nothing secret), README with example and state encryption (back it with the OpenTofu docs with retrieval date, open point 15)."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "deploy/tofu/generic-vm/{versions.tf,variables.tf,outputs.tf,main.tf,README.md,.terraform.lock.hcl}"
+done = [
+  "tofu fmt -check and tofu validate green",
+  "Test 'tofu.generic-vm.variable-validation' green (tofu test: latest and wrong checksum rejected)",
+  "README backs state encryption with reference and retrieval date",
+]
+sources = ["11 section 2.6", "ADR-42"]
+depends_on = ["0-E18"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T01-S01"
+  title = "tofu test for variable validation"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T01-S02"
+  title = "Scaffold, variables, outputs, lock file"
+  done = "validate and test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T01-S03"
+  title = "README with state encryption"
+  done = "Reference in the README"
+  status = "open"
+
+[[task]]
+id = "0b-E02-T02"
+title = "generic-vm: cloud-init and SSH mode"
+description = """Mode cloud_init: templatefile generates cloud-init with user guildwork, download and verification of CLI and bundle by checksum, host-prepare.sh (the root step runs here in the cloud-init that the operator starts with their VM), guildwork install --yes with the options from the variables; role worker installs the worker package without pool key. Mode ssh: terraform_data with provisioner remote-exec via ssh-agent (no key as a variable), uploads the same steps as a script. No secret in variables, outputs or rendered cloud-init."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "deploy/tofu/generic-vm/main.tf, templates/cloud-init.yaml.tftpl, templates/install.sh.tftpl"
+done = [
+  "Test 'tofu.generic-vm.cloud-init-renders-without-secrets' green (tofu test checks the rendered YAML for secret patterns)",
+  "Test 'tofu.generic-vm.worker-role-has-no-pool-key' green",
+  "tofu plan in mode ssh without connection green",
+]
+sources = ["11 sections 2.6 and 2.7", "05 section 1"]
+depends_on = ["0b-E02-T01", "0-E18-T18", "0-E21-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T02-S01"
+  title = "tofu tests for rendered cloud-init"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T02-S02"
+  title = "Templates for full and worker"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T02-S03"
+  title = "SSH mode with ssh-agent"
+  done = "plan in mode ssh green"
+  status = "open"
+
+[[task]]
+id = "0b-E02-T03"
+title = "CI workflow tofu for generic-vm"
+description = """.github/workflows/tofu.yml, path filter deploy/tofu/**: tofu fmt -check, init -backend=false, validate, test and plan per module; OpenTofu version pinned, setup action by SHA; part of the required check ci-ok. For generic-vm additionally the apply test from 0b-E02-T04."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = ".github/workflows/tofu.yml"
+done = [
+  "Job 'tofu (generic-vm)' green in a probe PR (job log)",
+  "Workflow policy and actionlint green",
+]
+sources = ["11 section 9 row OpenTofu modules", "12 section 5.1"]
+depends_on = ["0b-E02-T02", "R-E03"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T03-S01"
+  title = "Workflow with matrix per module"
+  done = "Job green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T03-S02"
+  title = "Inclusion in ci-ok"
+  done = "ci-ok red when the job is red (probe)"
+  status = "open"
+
+[[task]]
+id = "0b-E02-T04"
+title = "generic-vm real apply in SSH mode on the runner"
+description = """Cost-free real apply: on a fresh ubuntu-24.04 runner the job starts an SSH service on localhost with a throwaway key in the ssh-agent, tofu apply in mode ssh installs the bundle on the runner itself, then guildwork doctor --strict (D21 excluded) and a probe run of the dummy in shadow; tofu destroy removes only the terraform_data state. Proves 'generic-vm supported' per 11 section 10."""
+design = ["06-installation-operations-ui.md#811-opentofu-and-azure-drivers"]
+result = ".github/workflows/tofu.yml (job generic-vm-apply)"
+done = [
+  "Test 'tofu.generic-vm.ssh-apply-localhost' green (job log with doctor --json and probe run result)",
+]
+sources = ["11 section 10 row OpenTofu", "11 section 2.6"]
+depends_on = ["0b-E02-T03", "0-E21-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T04-S01"
+  title = "SSH on localhost with throwaway key in the job"
+  done = "ssh connection in the job"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T04-S02"
+  title = "Apply, doctor, probe run"
+  done = "Job green"
+  status = "open"
+
+[[task]]
+id = "0b-E02-T05"
+title = "Guide Hetzner via Compose with generic-vm"
+description = """Extend docs/ops/hetzner.md with the path using generic-vm (cloud-init as user_data of a cloud server, firewall only 443 and 80, SSH only from own networks); status Community per 11 section 10; note that Hetzner Cloud, according to a third-party report, offers no /dev/kvm (11 open point 1) and therefore gVisor or Sysbox applies."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "docs/ops/hetzner.md"
+done = [
+  "Text rules from R-E02 green",
+  "Command blocks checked with tools/doc_commands_check.py in dry-run mode",
+]
+sources = ["11 section 10 row hetzner", "11 section 3 profile hetzner"]
+depends_on = ["0b-E02-T02", "0-E18-T20"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T05-S01"
+  title = "Write the guide"
+  done = "File in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E02-T05-S02"
+  title = "Check the commands"
+  done = "Dry run green"
+  status = "open"
+
+# ---------------------------------------------------------------- 0b-E03 OpenTofu azure
+
+[[task]]
+id = "0b-E03-T01"
+title = "Module azure: network, NSG, control plane VM, identity"
+description = """deploy/tofu/azure per detailed design 06 section 2.14 (FE-626): azurerm and random pinned exactly, resource group optional, VNet with subnets control, worker, postgres (delegated), endpoints, NSG per subnet (only 443 and 80 to the control plane, SSH only from ssh_source_cidrs, workers outbound only), public IP, Linux VM of the control plane with cloud-init from module.generic_vm (role full, Postgres external), user-assigned managed identity. Container Apps not in 0b."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "deploy/tofu/azure/{versions.tf,network.tf,control.tf,identity.tf,variables.tf,outputs.tf}"
+done = [
+  "tofu validate green",
+  "Test 'tofu.azure.nsg-only-443-80' green (tofu test with mock provider or plan evaluation)",
+  "Test 'tofu.azure.control-uses-generic-vm-cloud-init' green",
+]
+sources = ["11 section 2.6", "11 section 3 profile azure", "06 section 2"]
+depends_on = ["0b-E02-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T01-S01"
+  title = "tofu tests for network rules"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T01-S02"
+  title = "Network, NSG, public IP"
+  done = "Test nsg-only-443-80 green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T01-S03"
+  title = "Control plane VM with generic-vm and identity"
+  done = "Test control-uses-generic-vm-cloud-init green"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T02"
+title = "Module azure: Flexible Server with vector"
+description = """azurerm_postgresql_flexible_server (pg_version default 17, private access via delegated subnet and private DNS zone), configuration azure.extensions = VECTOR, password via random_password directly as Key Vault secret postgres-url (FE-627), never a variable or output. Note in the README: the extension is created in the database with CREATE EXTENSION by migrate, pgvector version per 11 section 3 (0.8.2)."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "deploy/tofu/azure/postgres.tf"
+done = [
+  "Test 'tofu.azure.vector-allowlisted' green",
+  "Test 'tofu.azure.no-secret-outputs' green (no output needs to be sensitive, password only in azurerm_key_vault_secret)",
+]
+sources = ["11 section 3 profile azure", "11 section 2.6"]
+depends_on = ["0b-E03-T01", "0b-E03-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T02-S01"
+  title = "tofu tests vector and secrets"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T02-S02"
+  title = "Flexible Server, extension, password into the Key Vault"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T03"
+title = "Module azure: storage, Key Vault, roles"
+description = """Storage account with container guildwork (blob versioning) and container audit-anchor with version-level immutability (for driver azure-blob with OBJECT_LOCK and the daily audit anchor), Key Vault in RBAC mode, role assignments for the managed identity (Storage Blob Data Contributor on guildwork, restricted on audit-anchor, Key Vault Secrets Officer, Key Vault Crypto User for SIGN). installation.yaml excerpt as an output without secret (driver configuration)."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "deploy/tofu/azure/storage.tf, keyvault.tf, rbac.tf"
+done = [
+  "Test 'tofu.azure.anchor-container-immutable' green",
+  "Test 'tofu.azure.identity-least-privilege' green (exactly the named roles, no Owner or Contributor role)",
+]
+sources = ["11 section 3 profile azure", "05 section 8", "ADR-29"]
+depends_on = ["0b-E03-T01", "0b-E01-T03", "0b-E01-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T03-S01"
+  title = "tofu tests storage and roles"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T03-S02"
+  title = "Storage, Key Vault, roles"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T04"
+title = "Module azure: worker VM pool"
+description = """worker_count Linux VMs in subnet worker with a size that has nested virtualization (series per 0b-E03-T09), cloud-init from module.generic_vm with role worker (worker package, no pool key; the operator registers via guildwork worker register), no public ingress; output worker_private_ips. Docs: the worker reports its verified capabilities at claim time, not the configuration (ADR-48)."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules"]
+result = "deploy/tofu/azure/workers.tf"
+done = [
+  "Test 'tofu.azure.workers-no-public-ip' green",
+  "Test 'tofu.azure.workers-role-worker' green",
+]
+sources = ["11 section 3 profile azure", "11 section 2.7", "ADR-48"]
+depends_on = ["0b-E03-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T04-S01"
+  title = "tofu tests worker"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T04-S02"
+  title = "Worker VMs with cloud-init role worker"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T05"
+title = "azure: validate, test and plan with fakes in CI"
+description = """Check and prove (open point 12): does the pinned OpenTofu version support mock_provider in tofu test for azurerm and random? Does azurerm plan with fake credentials without a real sign-in? Depending on the result: job 'tofu (azure)' with fmt, validate, test (mock) and plan, or plan only in the environment azure-apply with justification in the README. All tests from 0b-E03-T01 to T04 run in the job."""
+design = ["06-installation-operations-ui.md#214-opentofu-modules", "06-installation-operations-ui.md#811-opentofu-and-azure-drivers"]
+result = ".github/workflows/tofu.yml (matrix azure), deploy/tofu/azure/tests/*.tftest.hcl, README section on checks"
+done = [
+  "Job 'tofu (azure)' green (job log)",
+  "Evidence on mock_provider and plan with fakes, with version and source in the README",
+  "tofu validate and plan for azure green per 08 stage 0b (or plan in the environment with owner go, if fakes are not enough, then with justification)",
+]
+sources = ["08 stage 0b done criterion", "11 section 9"]
+depends_on = ["0b-E03-T02", "0b-E03-T03", "0b-E03-T04", "0b-E02-T03"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T05-S01"
+  title = "Check of mock_provider and fake plan"
+  done = "Evidence in the README"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T05-S02"
+  title = "Job tofu (azure)"
+  done = "Job green"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T06"
+title = "Workflow azure-apply with apply, smoke, destroy"
+description = """.github/workflows/azure-apply.yml per sequence 4.7: workflow_dispatch only, environment azure-apply with required reviewer, sign-in via OIDC federated credential (no secret), tofu apply into a throwaway resource group named after the run ID, smoke (doctor over SSH, probe run of the dummy in shadow), tofu destroy with if always(), log as artifact, cost query via the Cost Management API 24 h later as a second job. The workflow is only checked by a probe without the environment (dry_run up to before apply); a real run is 0b-E03-T08."""
+design = ["06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"]
+result = ".github/workflows/azure-apply.yml"
+done = [
+  "Workflow policy and actionlint green",
+  "Probe run with dry_run ends before apply with a green plan against fakes or without sign-in (job log)",
+  "Test 'azure apply workflow destroys on failure' green (workflow analysis: destroy job with always())",
+]
+sources = ["11 section 9", "O22"]
+depends_on = ["0b-E03-T05", "0-E21-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T06-S01"
+  title = "Workflow with environment, OIDC, dry_run"
+  done = "Probe run green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T06-S02"
+  title = "Smoke, destroy always, cost query"
+  done = "Workflow analysis test green"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T07"
+title = "Owner: set up Azure account and environment azure-apply"
+description = """Decision sheet (agent): subscription, federated credential for the workflow azure-apply (only environment azure-apply), role only on the throwaway resource groups, budget alert as a measurement (O22, no stop), GitHub environment azure-apply with required reviewer owner. The owner sets it up; the agent verifies via read access that the environment requires the reviewer."""
+design = ["06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"]
+result = "GitHub environment azure-apply, federated credential, entry in the ops repo"
+done = [
+  "Environment azure-apply with required reviewer (API query as evidence)",
+  "Federated credential only for the environment (evidence in the ops repo)",
+]
+sources = ["O22", "11 section 9"]
+depends_on = ["0b-E03-T06"]
+owner = "owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T07-S01"
+  title = "Decision sheet (agent)"
+  done = "Sheet in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T07-S02"
+  title = "Setup (owner) and check (agent)"
+  done = "Evidence available"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T08"
+title = "Owner: real apply with destroy"
+description = """One real run of azure-apply in a throwaway environment with owner go (O22): apply, smoke (doctor, probe run in shadow), destroy, cost query. Proves 'azure supported after first real apply' (11 section 10) and delivers measurements for the cost estimate per run."""
+design = ["06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"]
+result = "Job log, cost query, entry in docs/berichte/stufe-0b.md"
+done = [
+  "Job log with apply, smoke and destroy green",
+  "Cost query afterwards in the report",
+  "no resource of the run ID after destroy (query as evidence)",
+]
+sources = ["08 stage 0b done criterion", "11 sections 9 and 10", "O22"]
+depends_on = ["0b-E03-T07", "0b-E03-T09", "0-E21-T09"]
+owner = "owner"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T08-S01"
+  title = "Owner approves the run"
+  done = "Run green"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T08-S02"
+  title = "Report with costs and proof of deletion"
+  done = "Entry in the report"
+  status = "open"
+
+[[task]]
+id = "0b-E03-T09"
+title = "Check of nested virtualization and Container Apps"
+description = """Before the real apply, check against the Microsoft Learn pages (11 open point 2): which VM series offer nested virtualization (for MicroVM later, for /dev/kvm probes); set the default of worker_vm_size accordingly. Additionally M98: add Container Apps as the location of the control plane (long-poll timeout of the ingress, continuous operation of the orchestrator, scaling to zero) as an open point in 11 section 11; the module stays with the VM (FE-626)."""
+design = ["06-installation-operations-ui.md#10-open-items"]
+result = "Entry in docs/architecture/11-installation-and-hosting.md section 11 and 09 section 4, default worker_vm_size"
+done = [
+  "Source with retrieval date per checked series in 09 section 4",
+  "11 section 11 names Container Apps and Fargate as open (M98)",
+]
+sources = ["11 section 11 points 2 and 5", "backlog M98"]
+depends_on = ["0b-E03-T04"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+note = "M98 done with the entry in 11 and FE-626."
+
+  [[task.part]]
+  id = "0b-E03-T09-S01"
+  title = "Prove series with nested virtualization"
+  done = "Entry in 09"
+  status = "open"
+
+  [[task.part]]
+  id = "0b-E03-T09-S02"
+  title = "Container Apps and Fargate as open points in 11"
+  done = "Text change in the PR"
+  status = "open"

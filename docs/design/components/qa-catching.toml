@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "qa-catching"
+title = "Sub-stage 3b Catching"
+kind = "service"
+path = "services/qa/src/steps/catch.ts"
+package = "@guildwork/service-qa"
+stage = "3"
+purpose = "Sub-stage 3b: diff-aware catch tests that pass on the base and fail on the head, checker from rules and a fresh model, findings in findings with source qa:catch instead of test commits, mode off, shadow, live and fact catchOpen for C04; never a test commit."
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts", "11-qa-prfix-automerge.md#42-catching-and-mutant-hint", "11-qa-prfix-automerge.md#7-configuration", "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"]
+built_by = ["3-E05-T01", "3-E05-T02", "3-E05-T03"]
+
+[[provides]]
+name = "agent-stufe-catch"
+kind = "prompt"
+title = "Agent stage qa.catch with prompt catch"
+defined_in = "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts"
+from_task = "3-E05-T01"
+
+[[provides]]
+name = "catch-pruefer"
+kind = "ts-api"
+title = "Catch checker catch-judge.ts with rules and CatchJudgeVerdict"
+defined_in = "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts"
+from_task = "3-E05-T02"
+
+[[provides]]
+name = "prompt-catch-judge"
+kind = "prompt"
+title = "Single call models.catch_judge with prompt catch-judge"
+defined_in = "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts"
+from_task = "3-E05-T02"
+
+[[provides]]
+name = "befunde-qa-catch"
+kind = "contract"
+title = "Rows in findings with source qa:catch and request_human_input for P0/P1 true_bug"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E05-T02"
+
+[[provides]]
+name = "catch-open"
+kind = "ts-api"
+title = "Mode off, shadow, live with Gate B per part and fact catchOpen for C04"
+defined_in = "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"
+from_task = "3-E05-T03"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "3-E05-T01"
+purpose = "Agent stage qa.catch with outputSchema CandidateList"
+
+[[uses]]
+interface = "qa-unit-und-repro/kandidaten-schema"
+from_task = "3-E05-T01"
+purpose = "CandidateTest as output of the catch stage"
+
+[[uses]]
+interface = "qa-unit-und-repro/check-qa-base-head"
+from_task = "3-E05-T01"
+purpose = "Runs on base and head (green_base_red_head, 3 runs)"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "3-E05-T01"
+purpose = "Prompts catch and catch-judge with prompt_v"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "3-E05-T02"
+purpose = "fresh model models.catch_judge without generator context"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "3-E05-T02"
+purpose = "CatchFinding as finding with source qa:catch"
+
+[[uses]]
+interface = "reviewer-befunde/fingerprint-v1"
+from_task = "3-E05-T02"
+purpose = "Fingerprint of the catch findings"
+
+[[uses]]
+interface = "reviewer-befunde/befund-repositories"
+from_task = "3-E05-T02"
+purpose = "Upsert of the catch findings"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "3-E05-T02"
+purpose = "request_human_input for P0/P1 true_bug as a write request of the controller"
+
+[[uses]]
+interface = "effekt-executoren/human-input"
+from_task = "3-E05-T02"
+purpose = "Clarifying question with evidence on the PR"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "3-E05-T03"
+purpose = "live only with green Q4 per part or a marked deviation"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "3-E05-T03"
+purpose = "effective mode of the part catch"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "3-E05-T03"
+purpose = "shadow writes findings only to the eval log"
+
+[[uses]]
+interface = "service-qa/controller"
+from_task = "3-E05-T01"
+purpose = "Phases catch and catch_judge in the controller"
+
+[[uses]]
+interface = "contracts-artefakte/qa-report"
+from_task = "3-E05-T01"
+purpose = "CatchFinding in the QAReport"
+
+[[uses]]
+interface = "service-qa/konfig-services-qa"
+from_task = "3-E05-T01"
+purpose = "qa.catch.mode and max_candidates"

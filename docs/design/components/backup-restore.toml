@@ -1,0 +1,187 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "backup-restore"
+title = "Backup and restore: role ops, backup, restore, restore test"
+kind = "role"
+path = "apps/control-plane/src/ops/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Role ops in the image control-plane with backup schedule, automatic restore test into a throwaway database and the commands guildwork backup and restore including PITR evidence; not the table backup_runs (DDL in 01, migration from 0-E02) and not the profiles s3 and pitr (compose-buendel)."
+design = ["06-installation-operations-ui.md#211-backup-and-restore", "06-installation-operations-ui.md#244-guildwork-backup", "06-installation-operations-ui.md#245-guildwork-restore", "06-installation-operations-ui.md#45-backup-and-restore-test", "06-installation-operations-ui.md#46-states"]
+built_by = ["0-E18-T04", "0-E18-T10", "0-E18-T11", "0-E22-T06"]
+
+[[provides]]
+name = "ops-blob-init-pitr"
+kind = "cli"
+title = "Subcommands ops blob-init (bucket, versioning, Object Lock where available) and ops pitr (pgBackRest with WAL archive) of the image control-plane"
+defined_in = "06-installation-operations-ui.md#2111-subcommands-ops-blob-init-and-ops-pitr"
+from_task = "0-E18-T04"
+
+[[provides]]
+name = "rolle-ops"
+kind = "cli"
+title = "Image argument ops: pg-boss schedules ops-backup per backup.schedule and ops-restore-test per backup.restore_test.schedule, completion of hanging runs, health 127.0.0.1:9464"
+defined_in = "06-installation-operations-ui.md#211-backup-and-restore"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "cmd-backup"
+kind = "cli"
+title = "guildwork backup [--secrets --passphrase-file] [--target] [--kind manual|pre_upgrade]"
+defined_in = "06-installation-operations-ui.md#244-guildwork-backup"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "ops-locks"
+kind = "table"
+title = "Table ops_locks; the backup run holds the lock retention, the deletion job then deletes nothing (FE-610)"
+defined_in = "06-installation-operations-ui.md#31-tables-of-this-area"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "retention-hold"
+kind = "ts-api"
+title = "opsRetentionHold(tenantId) in apps/control-plane/src/ops/retention-hold.ts: holder of the lock ops_locks retention for MaintenanceDeps.retentionHold (FE-610)"
+defined_in = "06-installation-operations-ui.md#211-backup-and-restore"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "backup-manifest"
+kind = "file"
+title = "BackupManifest gw-backup/1 in the restic snapshot, reference in backup_runs.manifest_ref"
+defined_in = "06-installation-operations-ui.md#211-backup-and-restore"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "backup-konfig"
+kind = "config"
+title = "backup.schedule, backup.retention, backup.targets (BackupTarget), backup.max_duration_min, backup.restore_test.schedule, ops.database_url_ref (role guildwork_ops, FE-648)"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "internal-cli.backup-status"
+kind = "cli"
+title = "internal-cli backup status: latest successful backup, latest restore test, targets with appendOnly"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T10"
+
+[[provides]]
+name = "cmd-restore"
+kind = "cli"
+title = "guildwork restore --snapshot <id|latest> [--target] [--secrets] [--replace-existing] [--verify-only]"
+defined_in = "06-installation-operations-ui.md#245-guildwork-restore"
+from_task = "0-E18-T11"
+
+[[provides]]
+name = "pitr-beleg"
+kind = "file"
+title = "Evidence of PITR and logical restore docs/berichte/stufe-0-restore.md with commands and outputs"
+defined_in = "06-installation-operations-ui.md#211-backup-and-restore"
+from_task = "0-E22-T06"
+
+[[uses]]
+interface = "control-plane/aufruf"
+from_task = "0-E18-T04"
+purpose = "Subcommands ops blob-init and ops pitr"
+
+[[uses]]
+interface = "driver-blob-s3/blob-store"
+from_task = "0-E18-T04"
+purpose = "Bucket, versioning and Object Lock in ops blob-init"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "0-E18-T10"
+purpose = "Commands guildwork backup and restore"
+
+[[uses]]
+interface = "cli/compose-client"
+from_task = "0-E18-T10"
+purpose = "docker compose run --rm ops"
+
+[[uses]]
+interface = "container-images/image.control-plane"
+from_task = "0-E18-T10"
+purpose = "pg_dump, pg_restore, psql and restic in the image"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.backup-runs"
+from_task = "0-E18-T10"
+purpose = "Rows per backup run and restore test"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit"
+from_task = "0-E18-T10"
+purpose = "Latest audit entry in the manifest"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E18-T10"
+purpose = "Migration 0015 ops_locks"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E18-T10"
+purpose = "Connection of the role ops"
+
+[[uses]]
+interface = "db/wartung"
+from_task = "0-E18-T10"
+purpose = "Set MaintenanceDeps.retentionHold = opsRetentionHold (reads ops_locks retention) when registering the job db-retention, so that runRetention deletes nothing during a backup (FE-610)"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E18-T10"
+purpose = "Schedules ops-backup and ops-restore-test"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E18-T10"
+purpose = "Register the queues ops-backup and ops-restore-test"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E18-T10"
+purpose = "BlobStore.list and reading objects"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E18-T10"
+purpose = "Audit ops.backup.*"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "0-E18-T10"
+purpose = "Required alert backup_failed from backup_runs"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E18-T10"
+purpose = "backup.* in installation.yaml"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E18-T10"
+purpose = "Checksums of dump and object list"
+
+[[uses]]
+interface = "audit-kette/verify-chain"
+from_task = "0-E18-T11"
+purpose = "Check the audit chain after the restore"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E18-T11"
+purpose = "Restore across Postgres 17 to 18 in the test"
+
+[[uses]]
+interface = "compose-buendel/profil-pitr"
+from_task = "0-E22-T06"
+purpose = "Point-in-time restore with pgBackRest"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "0-E22-T06"
+purpose = "Logical restore from the portability test as evidence"

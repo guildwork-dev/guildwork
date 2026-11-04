@@ -1,0 +1,787 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area automerge of stage 5. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "5"
+
+[[epic]]
+id = "5-E01"
+title = "Merge gate"
+goal = "Deterministic merge gate in the orchestrator with all conditions from 03 section 1a including 12 provenance, blocking `auto` for `external_code`, evidence of branch protection, waiting window, and every evaluation as a row in `merge_gate_decisions`"
+sources = ["03 section 1a", "ADR-60"]
+depends_on = ["3-E07", "4-E06"]
+
+[[task]]
+id = "5-E01-T01"
+title = "Types, table merge_gate_decisions, pure evaluation"
+description = """MergeGateConditionId, ConditionResult, MergeGateFacts, MergeGateResult and evaluateMergeGate as a pure function without I/O per detailed design 11 section 2.5 (FE-1140); repository for the table merge_gate_decisions from migration 0006 (all columns from section 3.1 and the append-only trigger have been there since stage 0, detailed design 01 section 3.7; no migration of its own); gate version as a constant; contracts type MergeGateDecision for admin UI and eval."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#31-tables"]
+result = "apps/control-plane/src/orchestrator/merge-gate/evaluate.ts, packages/contracts/src/artifacts/merge-gate.ts, packages/db/src/repositories/merge-gate.ts, tests"
+done = ["Test 'only C09 open yields wait_veto' green", "Test 'one condition not met yields human' green", "Test 'UPDATE on merge_gate_decisions other than superseded_by is rejected' green (real Postgres)", "Test 'evaluateMergeGate performs no I/O' green"]
+sources = ["03 section 1a", "03 section 5", "08 section 4 stage 0 item 1", "ADR-36"]
+depends_on = ["0-E02", "0-E05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T01-S01"
+  title = "Test: decision logic and append-only"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T01-S02"
+  title = "Types and pure evaluation"
+  done = "Evaluation tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T01-S03"
+  title = "Repository merge_gate_decisions and trigger test"
+  done = "Migration and trigger test green"
+  status = "open"
+
+[[task]]
+id = "5-E01-T02"
+title = "Load facts, fail closed"
+description = """facts.ts: MergeGateFacts from the DB (run, snapshot, profiles, effects, findings, artifacts, approvals, budget, repo_overrides) and fresh provider reads (mergeStatus, checkEvidence, compare, repoInfo, reviews, getPermission); every read error makes the affected condition not met with reason read_failed:<plugin>; foreign text never goes into the facts (only IDs, SHAs, counters). The fact branchProtection stays unknown until 5-E03-T03, so C13 is not met (fail closed, no auto-merge before then)."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#6-security"]
+result = "apps/control-plane/src/orchestrator/merge-gate/facts.ts, tests with recorded provider responses"
+done = ["Test 'read error of a fact yields not met' green", "Test 'facts contain no comment text' green", "Test 'repoInfo is read fresh on every evaluation' green"]
+sources = ["03 section 1a", "05 section 2 item 5", "ADR-65"]
+depends_on = ["5-E01-T01", "0-E14"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T02-S01"
+  title = "Test: fail closed and no foreign text"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T02-S02"
+  title = "Facts from the DB"
+  done = "DB facts tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T02-S03"
+  title = "Fresh provider reads"
+  done = "all facts tests green"
+  status = "open"
+
+[[task]]
+id = "5-E01-T03"
+title = "Conditions C00, C01, C02"
+description = """C00 repo class per claim (no auto for external_code, ADR-60); C01 autonomy full and merge.mode auto on all layers, no tightening repo_override, S7 evidence for the combination and the repo minimum count (FE-1149; creates the table autonomy_qualification and the computation of combination_key for this, it is maintained in 5-E03-T01 and 5-E03-T02); C02 every contributing service (artifact, commit, approval, starter) live with a qualified row for exactly its qualification_key, no operator deviation, no shadow, gate B open does not count."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"]
+result = "apps/control-plane/src/orchestrator/merge-gate/conditions/c00-repo-class.ts, c01-config.ts, c02-qualification.ts, migration autonomy_qualification, merge-gate/combination-key.ts, tests"
+done = ["Test 'repo that has since become public fails C00' green", "Test 'repo_override human fails C01 despite repo file auto' green", "Test 'PR fixer live only via deviation fails C02' green", "Test 'swapped verifier model fails C02' green", "Test 'service with gate B open in the run fails C02' green"]
+sources = ["03 section 1a conditions 1 and 2", "ADR-47", "ADR-60", "ADR-66", "10 section 1.2"]
+depends_on = ["5-E01-T02", "0-E06"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T03-S01"
+  title = "Test: met and not met per condition"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T03-S02"
+  title = "C00 repo class"
+  done = "C00 tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T03-S03"
+  title = "C01 configuration and S7 evidence"
+  done = "C01 tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T03-S04"
+  title = "C02 qualification per contributing service"
+  done = "C02 tests green"
+  status = "open"
+
+[[task]]
+id = "5-E01-T04"
+title = "Conditions C03 to C07"
+description = """C03 reviewer run at head with 0 open findings in block_on_severity; C04 QAReport pass at head (validity rule FE-1106) or QA off with skip, no open catch P0/P1 true_bug, all required checks of the hoster green except agent-approval-check; C05 self-check green, hard gates 0, quality-gate at head green as soon as analyzers run; C06 no protected_path, or G4 by a CODEOWNER at the current SHA; C07 diff below max_diff_lines, new dependencies with a green osv match."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"]
+result = "apps/control-plane/src/orchestrator/merge-gate/conditions/c03..c07, tests"
+done = ["per condition one test 'met' and at least one test 'not met' green", "Test 'QA flake fails C04' green", "Test 'catch P1 true_bug fails C04' green", "Test 'G4 at old SHA fails C06' green"]
+sources = ["03 section 1a conditions 3 to 7", "02 section 5", "ADR-36", "ADR-40", "ADR-64"]
+depends_on = ["5-E01-T02", "3-E04-T04", "3-E05-T03", "2-E05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T04-S01"
+  title = "Test: C03 to C07"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T04-S02"
+  title = "C03 and C04"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T04-S03"
+  title = "C05, C06, C07"
+  done = "all tests green"
+  status = "open"
+
+[[task]]
+id = "5-E01-T05"
+title = "Conditions C08, C10, C11"
+description = """C08 no human request changes, no stop, no hold (flag on the run, FE-1147), no open handoff, budget not exhausted, mergeable without conflict; C10 agent PR on agent/*, in the repo or in the agent fork, no other fork; C11 every commit between base and head is a SHA pushed by the Effect Gateway (effects), a foreign commit sends the run to awaiting_human_review."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"]
+result = "apps/control-plane/src/orchestrator/merge-gate/conditions/c08, c10, c11, tests"
+done = ["Test 'foreign commit by a human with write access fails C11' green", "Test 'PR from a foreign fork fails C10' green", "Test 'request changes after the decision fails C08' green", "Test 'handed_off fails C08' green"]
+sources = ["03 section 1a conditions 8, 10, 11", "ADR-59", "03 section 2.4"]
+depends_on = ["5-E01-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T05-S01"
+  title = "Test: C08, C10, C11"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T05-S02"
+  title = "C08 and C10"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T05-S03"
+  title = "C11 SHA chain from effects"
+  done = "all tests green"
+  status = "open"
+
+[[task]]
+id = "5-E01-T06"
+title = "Condition C12 provenance"
+description = """C12 per ADR-60: all untrusted inputs from people that a service of the run has seen (ticket, comments, PR text, thread replies, linked issues, and from QA and PR fixer per 3-E01-T08 and 4-E01-T03) come from people with write access and from the state before the trigger; otherwise foreign_input_seen and G2/G3."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#6-security"]
+result = "apps/control-plane/src/orchestrator/merge-gate/conditions/c12-provenance.ts, tests"
+done = ["Test 'comment without write access, seen by coder and reviewer, fails C12' green", "Test 'ticket text edited after the trigger fails C12' green", "Test 'thread reply without write access, seen only by the PR fixer, fails C12' green"]
+sources = ["03 section 1a condition 12", "05 section 8", "ADR-60"]
+depends_on = ["5-E01-T02", "2-E01", "3-E01-T08", "4-E01-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T06-S01"
+  title = "Test: provenance cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T06-S02"
+  title = "C12 via foreign_input_seen of all stages"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "5-E01-T07"
+title = "Condition C09: waiting window and re-check"
+description = """window.ts per FE-1142: if all conditions except C09 are met, the gate writes window_ends_at, updates the status comment with the time and a hint about @agent hold, and schedules the mandatory event deadline of the state merge_gate as a pg-boss job; on deadline a full re-check at the then current head; a different head yields verifying; hold within the window yields awaiting_human_review."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#47-merge-gate-waiting-window-and-merge"]
+result = "apps/control-plane/src/orchestrator/merge-gate/window.ts, tests"
+done = ["Test 'hold within the window yields awaiting_human_review' green", "Test 'new head at window end yields verifying' green", "Test 'control plane restarted: window end is still triggered' green", "Test 'status comment names the window end' green"]
+sources = ["03 section 1a condition 9", "03 section 2.1 merge_gate deadline", "ADR-67"]
+depends_on = ["5-E01-T03", "5-E01-T04", "5-E01-T05", "5-E01-T06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "5-E01-T07-S01"
+  title = "Test: window, hold, new head, restart"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T07-S02"
+  title = "Scheduling of the deadline job"
+  done = "Restart test green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E01-T07-S03"
+  title = "Re-check and status comment"
+  done = "all window tests green"
+  status = "open"
+
+[[epic]]
+id = "5-E02"
+title = "Merge via the SCM contract"
+goal = "`merge` with profile `merge`, waiting window, `@agent hold`, revert PR, fallback to `human`; merge token only at the checked SHA"
+sources = ["01 section 5", "05 section 2"]
+depends_on = ["5-E01"]
+
+[[task]]
+id = "5-E02-T01"
+title = "SCM method merge in the GitHub plugin, verification task merge queue"
+description = """plugins/github/src/scm/merge.ts: merge(t, ref, { expectedHeadSha, method, viaQueue: false, idempotencyKey }) via the merge API with sha; mapping of 409 to rejected head_moved, 405 to not_mergeable; capability MERGE_SHA_GUARDED native, MERGE_QUEUE none (FE-1144). Contract suite against recorded responses 200, 405, 409. Verification task from 09 section 4: does the merge path need the merge queue; repos with a mandatory queue in the ruleset stay human (doctor hint); result in the detailed design."""
+design = ["11-qa-prfix-automerge.md#9-rulings", "11-qa-prfix-automerge.md#10-open-points"]
+result = "plugins/github/src/scm/merge.ts, plugins/github/test/merge.contract.test.ts, entry in the detailed design"
+done = ["Contract test merge 200, 405, 409 green", "Test 'merge without expectedHeadSha cannot be called' green (type and runtime)", "Verification task merge queue completed with source in detailed design section 10"]
+sources = ["01 section 5", "03 section 1a merge", "09 section 4", "ADR-14"]
+depends_on = ["0-E14"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "5-E02-T01-S01"
+  title = "Test: contract cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T01-S02"
+  title = "merge with sha and error mapping"
+  done = "Contract tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T01-S03"
+  title = "Verification task merge queue and doctor hint"
+  done = "Result in the detailed design, doctor test green"
+  status = "open"
+
+[[task]]
+id = "5-E02-T02"
+title = "Effects of the orchestrator: agent-approval-check and merge with fencing"
+description = """execute.ts per FE-1141, FE-1143, FE-1150: in one step read hold, stop and request changes fresh, platform effect check agent-approval-check success at the checked SHA, effect merge with decisionId (executor in 5-E02-T07); policy rules orchestrator.agent_approval_check and orchestrator.merge_gate_passed (latest decision, same SHA, decision merge, age below max_decision_age_s); no service write request of the kind merge is ever accepted. The Credential Broker mints profile merge only at execution time for exactly one repo; revocation of the token after the call (unverified, check against the docs and contract test)."""
+design = ["11-qa-prfix-automerge.md#33-effects-of-the-orchestrator", "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"]
+result = "apps/control-plane/src/orchestrator/merge-gate/execute.ts, apps/control-plane/src/effects/policy/orchestrator-merge.ts, broker profile merge, tests"
+done = ["Test 'fencing rejects stale decision' green", "Test 'agent-approval-check before merge' green", "Test 'write request merge from a service is rejected' green", "Test 'token profile merge only for one repo' green", "Revocation of the token checked and noted in the detailed design"]
+sources = ["03 section 1a merge", "05 section 2 item 5 and permission profiles", "ADR-36"]
+depends_on = ["5-E01-T07", "5-E02-T01", "0-E09", "0-E10"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M113 (effects of the orchestrator without policy provenance) is resolved here for merge and agent-approval-check."
+
+  [[task.part]]
+  id = "5-E02-T02-S01"
+  title = "Test: fencing, order, rejection"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T02-S02"
+  title = "Policy rules of the orchestrator"
+  done = "Policy tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T02-S03"
+  title = "Merge step with fresh read and fencing"
+  done = "Step tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T02-S04"
+  title = "Broker profile merge and revocation"
+  done = "Profile test green, revocation noted"
+  status = "open"
+
+[[task]]
+id = "5-E02-T03"
+title = "States merge_gate and merging in the orchestrator"
+description = """Add events from table 4.9 to the state machine table (ADR-67): verifying green with auto -> merge_gate; decision human -> awaiting_human_review with the conditions not met in the status comment; new push -> verifying; hold -> awaiting_human_review (flag stays, FE-1147); merging 200 -> merged; 409 -> merge_gate (phase recheck_409, if a reviewer or QA run is missing at the new SHA -> verifying); 405 -> awaiting_human_review; error_after_retries -> awaiting_human_review, never merging; stop before the merge call -> cancelled."""
+design = ["11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21"]
+result = "state machine table (rows merge_gate, merging), apps/control-plane/src/orchestrator/merge-gate/transitions.ts, tests"
+done = ["Test '409 leads to merge_gate' green", "Test '405 leads to awaiting_human_review' green", "Test 'stop before the merge call yields cancelled, PR stays open' green", "S6 completeness of the cells merge_gate and merging green"]
+sources = ["03 section 2.1", "03 section 5", "ADR-67"]
+depends_on = ["5-E02-T02", "5-E02-T07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "5-E02-T03-S01"
+  title = "Test: transitions per table 4.9"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T03-S02"
+  title = "Rows in the state machine table"
+  done = "Transition tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T03-S03"
+  title = "S6 completeness merge_gate and merging"
+  done = "S6 cases green"
+  status = "open"
+
+[[task]]
+id = "5-E02-T04"
+title = "Post-merge watch and revert PR"
+description = """post-merge.ts with table post_merge_watches per FE-1145: after merged, watch the required checks at the merge SHA until post_merge.ci_timeout_min; red check -> revert job as a deterministic worker step revert (FE-1146: git revert without LLM, effect change with bundle on agent/revert/<pr>-<short-sha> as a draft PR, then ready_for_review and request_reviewers with the responsible people from CODEOWNERS; detailed design 04 FE-429), notification via the effect notify; revert conflict -> no PR, notification with reason; effects with policy rule orchestrator.revert_after_red_target; the revert PR never goes through the merge gate."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#48-post-merge-follow-up-and-revert", "11-qa-prfix-automerge.md#33-effects-of-the-orchestrator"]
+result = "migration post_merge_watches, apps/control-plane/src/orchestrator/merge-gate/post-merge.ts, apps/worker/src/steps/revert.ts, tests"
+done = ["Test 'red required check creates revert PR' green", "Test 'revert conflict creates notification without PR' green", "Test 'timeout creates only a hint' green", "Test 'revert PR never runs through the merge gate' green", "Failure path: alarm post_merge_red and audit entry checked"]
+sources = ["03 section 1a post-merge watch", "03 section 5", "ADR-36"]
+depends_on = ["5-E02-T03", "0-E12", "0-E19", "0-E09-T09", "2-E01-T15", "2-E01-T16", "1-E05-T11"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+note = "M113 (revert without an executor) is resolved here; 02 section 0 should reference detailed design 11 section 3.3 in the next architecture run."
+
+  [[task.part]]
+  id = "5-E02-T04-S01"
+  title = "Test: post-merge watch cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T04-S02"
+  title = "Migration and watching the checks"
+  done = "Watch tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T04-S03"
+  title = "Revert step in the worker without LLM"
+  done = "Revert step test green, also with squash merge"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T04-S04"
+  title = "Revert PR, reviewers, notification"
+  done = "all post-merge watch tests green"
+  status = "open"
+
+[[task]]
+id = "5-E02-T05"
+title = "Fallback to human via repo_overrides"
+description = """After a red target branch, the orchestrator writes repo_overrides key merge.mode value human with source orchestrator_post_merge_red and the merge SHA; the resolver applies it after all layers and only as a tightening (04 section 1 rule 7); lifting it only by an admin in the admin UI with an audit entry; display in the admin UI and the status comment."""
+design = ["11-qa-prfix-automerge.md#31-tables"]
+result = "apps/control-plane/src/orchestrator/merge-gate/override.ts, apps/admin-ui/src/pages/repo-overrides.tsx, tests"
+done = ["Test 'repo file with auto does not lift the override' green", "Test 'lifting without role admin is rejected' green", "Test 'lifting creates an audit entry' green", "Test 'override never loosens' green"]
+sources = ["03 section 1a post-merge watch", "04 section 1 rule 7", "05 section 7"]
+depends_on = ["5-E02-T04", "1-E08", "0-E06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "5-E02-T05-S01"
+  title = "Test: fallback and lifting"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T05-S02"
+  title = "Writing the override and resolver"
+  done = "Resolver tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T05-S03"
+  title = "Admin UI with audit"
+  done = "UI and audit tests green"
+  status = "open"
+
+[[task]]
+id = "5-E02-T06"
+title = "Permission test against the real app: merge only at the checked SHA"
+description = """Permission test against the real app on a test repo of the project: merge token only profile merge for exactly this repo, merge with sha of the checked head, a push in between yields 409, no bypass, no administration permissions. Real API call with external effect (merge in the test repo), therefore with owner go-ahead; the agent builds the test against recordings and delivers a decision sheet."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "plugins/github/test/rights/merge.rights.test.ts, report with command and output"
+done = ["Test against recording green", "Run against the real app with owner go-ahead: 409 on moved head proven (command and output)", "App permissions without workflows, administration and bypass proven"]
+sources = ["08 stage 5", "05 section 2", "ADR-14"]
+depends_on = ["5-E02-T02"]
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "5-E02-T06-S01"
+  title = "Test against recording and decision sheet"
+  done = "Test green, sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E02-T06-S02"
+  title = "Run against the real app (owner go-ahead)"
+  done = "Evidence in the report"
+  status = "open"
+
+[[task]]
+id = "5-E02-T07"
+title = "Executor merge with fencing"
+description = """`apps/control-plane/src/effects/executors/merge.ts` per detailed design 04 section 2.1.5 and detailed design 11 FE-1143: fencing before the call (latest decision of the run, `decision = merge`, same SHA, age below `max_decision_age_s`), token profile `merge` only now, `merge(t, ref, { expectedHeadSha, method, viaQueue: false, idempotencyKey })`, token discarded afterwards; reconciliation via `getChange().state`. Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/merge.ts, apps/control-plane/test/effects/executors/merge.test.ts"
+done = [
+  "Test 'effects/executors/merge live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/merge failure path stores audits and logs' green (failure path: 409 head_moved yields failed and decision superseded_by; 405 yields failed and run awaiting_human_review; fencing not met yields rejected_policy without a call; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/merge reconcile finds merged state' green (no second merge)",
+  "Catalog entry merge with executor file, stage and usedIn; guard test from 0-E09-T10 green without merge in the planned list",
+]
+sources = ["03 section 1a (merge gate)", "05 section 2 (profile merge)", "ADR-36", "ADR-14"]
+depends_on = ["5-E02-T01", "5-E02-T02", "0-E09-T04"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "5-E02-T07-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "5-E02-T07-S02"
+  title = "Executor merge with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["5-E02-T07-S01"]
+
+  [[task.part]]
+  id = "5-E02-T07-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["5-E02-T07-S02"]
+
+[[epic]]
+id = "5-E03"
+title = "Autonomous run"
+goal = "`autonomy: full`, `merge.mode` first `shadow`, then `auto` per repo with S7 evidence per combination; branch protection without bypass clarified as a verification task and checked per repo in `doctor`"
+sources = ["03 section 1a", "ADR-35, ADR-36"]
+depends_on = ["5-E02"]
+
+[[task]]
+id = "5-E03-T01"
+title = "Resolver and evidence for autonomy full and merge.mode"
+description = """Resolver: merge.mode shadow or auto only below installation merge.max_mode, auto only with autonomy full, never for external_code (on load via SCMProvider), docs pipelines always human; maintenance of the table autonomy_qualification (created in 5-E01-T03, FE-1149) from S7 runs and shadow counts; S7 evidence expires when combination_key changes."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#31-tables", "11-qa-prfix-automerge.md#7-configuration"]
+result = "packages/config/src/rules/merge-mode.ts, apps/control-plane/src/orchestrator/merge-gate/autonomy-qualification.ts, tests"
+done = ["S2 case 'merge.mode auto on external_code is rejected on load' green", "Test 'auto without autonomy full is rejected' green", "Test 'changed qualification_key expires the evidence' green", "Test 'repo with 19 shadow cases stays human' green"]
+sources = ["03 section 1a", "04 section 1 rule 1", "07 sections 2 and 5", "ADR-60", "ADR-66"]
+depends_on = ["5-E01-T03", "0-E06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M119 (S7 restart on every model change) is not changed: the rule is in 07 and 10, loosening it needs an architecture run."
+
+  [[task.part]]
+  id = "5-E03-T01-S01"
+  title = "Test: resolver rules and expiry"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T01-S02"
+  title = "Resolver rules merge.mode"
+  done = "Resolver tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T01-S03"
+  title = "Maintenance of autonomy_qualification and expiry"
+  done = "Expiry and minimum count tests green"
+  status = "open"
+
+[[task]]
+id = "5-E03-T02"
+title = "Shadow mode of the merge gate"
+description = """shadow.ts per FE-1148: with merge.mode shadow, evaluation as a side computation on entry into awaiting_human_review and per new head, simulated waiting window with hold; recording of the human outcome in shadow_outcomes (merged_unchanged, merged_after_foreign_commits, closed_unmerged, changes_requested, reverted within revert_window_days); report per repo and combination with the number of cases and the bound per the rule of three; view in the admin UI."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#31-tables"]
+result = "migration shadow_outcomes, apps/control-plane/src/orchestrator/merge-gate/shadow.ts, apps/admin-ui/src/pages/merge-gate-shadow.tsx, tests"
+done = ["one test per human_outcome green", "Test 'rule of three: 0 out of 100 yields bound 3 %' green", "Test 'shadow never merges' green", "Report per repo in the admin UI (test)"]
+sources = ["03 section 1a shadow mode", "07 section 5 S7 c", "10 section 14"]
+depends_on = ["5-E01-T07", "1-E08"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "5-E03-T02-S01"
+  title = "Test: outcomes and bound"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T02-S02"
+  title = "Side computation and simulated window"
+  done = "Side computation tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T02-S03"
+  title = "Recording of the human outcome"
+  done = "Outcome tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T02-S04"
+  title = "Report and admin UI"
+  done = "Report test green"
+  status = "open"
+
+[[task]]
+id = "5-E03-T03"
+title = "Verification task branch protection without bypass and condition C13"
+description = """Open question from 05 section 2 item 5 and 09 section 4: can a GitHub ruleset bind the required check agent-approval-check to the app as its source, allow push to agent/* only for the app, and can mandatory approval for human PRs and merge without approval for agent PRs after the merge gate be combined in one repo, without bypass and without bot approval? Read the docs, then a contract test on a test repo (owner go-ahead because of a real ruleset change). Result: variants approve_required (repo stays human) or checks_only with the three obligations; doctor checks per repo and fills branchProtection for C13; without evidence the repo stays human."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#10-open-points"]
+result = "apps/cli/src/doctor/branch-protection.ts, apps/control-plane/src/orchestrator/merge-gate/conditions/c13-branch-protection.ts, verification report with sources, entry in 09 section 4 as a proposal"
+done = ["Verification report with sources and result of the contract test (command and output)", "Test 'without binding to the app fails C13' green", "Test 'workflow in the repo sets agent-approval-check green, gate detects foreign source' green", "doctor reports the variant per repo"]
+sources = ["05 section 2 item 5", "03 section 1a branch protection", "09 section 4", "08 stage 5"]
+depends_on = ["5-E01-T02", "0-E18"]
+owner = "agent+owner"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "5-E03-T03-S01"
+  title = "Read the docs and decision sheet for the test"
+  done = "Sheet with sources in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T03-S02"
+  title = "Test: C13 and foreign source of the check"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T03-S03"
+  title = "C13 and doctor check"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E03-T03-S04"
+  title = "Contract test on the test repo (owner go-ahead)"
+  done = "Result in the verification report and in the detailed design"
+  status = "open"
+
+[[epic]]
+id = "5-E04"
+title = "Watch mode on human PRs"
+goal = "Opt-in per PR by the author, can be locked by the org (O9); delivery as a stacked PR, never a commit on the human branch (FE-1127)"
+sources = ["O9", "02 section 6"]
+depends_on = ["4-E04"]
+
+[[task]]
+id = "5-E04-T01"
+title = "Opt-in via @agent fix watch and unwatch"
+description = """Arguments watch and unwatch of the command fix per FE-1128: only the author of the PR with write access, no fork PR; the org locks with prfixer.watch.on_human_prs off and lock; subscription kind human_opt_in in watch_subscriptions with opted_in_sha; delivery per round into the stacked PR agent/fix/<pr>-watch; a PR touched this way then counts as an agent PR for approve (01 section 5). The contradiction with the reading 'commits on human PRs' is in detailed design section 10."""
+design = ["11-qa-prfix-automerge.md#410-watch-subscription", "11-qa-prfix-automerge.md#9-rulings", "11-qa-prfix-automerge.md#10-open-points"]
+result = "services/prfixer/src/watch-human.ts, route arguments fix watch and unwatch, tests"
+done = ["Test 'opt-in by non-author is rejected' green", "Test 'fork PR cannot opt in' green", "Test 'org lock ends active subscriptions' green", "Test 'delivery always stacked PR, never push to the human branch' green"]
+sources = ["O9", "02 section 6", "01 section 5", "ADR-59"]
+depends_on = ["4-E04-T02", "4-E01-T07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Since the consistency run 2026-11-01, FE-1127 is architecture (ADR-71, O9 adjusted): delivery always as a stacked PR, never a commit on the human branch."
+
+  [[task.part]]
+  id = "5-E04-T01-S01"
+  title = "Test: permissions, fork, lock, delivery path"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E04-T01-S02"
+  title = "Command arguments and subscription"
+  done = "Opt-in tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E04-T01-S03"
+  title = "Org lock and delivery"
+  done = "all tests green"
+  status = "open"
+
+[[task]]
+id = "5-E04-T02"
+title = "Security cases watch on human PRs"
+description = """S1 and S2 cases: injection in a comment by a stranger on a PR with watch creates no effect outside the command; opt-in by a non-author yields 0 runs; org lock yields 0 runs; the agent PR marker is set after the first fix, so that approve on this PR yields 0 approvals (case for the permission test from stage 6)."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/suites/s1/watch-human.test.ts, eval/suites/s2/watch-human.test.ts"
+done = ["S1 case green", "S2 cases with 0 runs green", "Test 'PR after watch fix is an agent PR for approve' green"]
+sources = ["07 section 5 S1 and S2", "08 stage 6", "ADR-61"]
+depends_on = ["5-E04-T01", "0-E20-T21"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "5-E04-T02-S01"
+  title = "S1 case injection"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E04-T02-S02"
+  title = "S2 cases and agent PR marker"
+  done = "Cases green"
+  status = "open"
+
+[[epic]]
+id = "5-E05"
+title = "S7, shadow period and acceptance of stage 5"
+goal = "S7 fully green (a to d), E2E ticket to merge on a test repo, at least 100 agent PRs in shadow with 0 wrong decisions and a stated error bound, release"
+sources = ["07 section 5", "08 stage 5"]
+depends_on = ["5-E03", "5-E04"]
+
+[[task]]
+id = "5-E05-T01"
+title = "S7 (a): one failing case per condition"
+description = """eval/suites/s7/a: for each condition C00 to C13 of the merge gate and each condition of approval.auto_if, one case with recorded provider responses in which exactly that condition is not met; among them for C02: a PR fixer running live only via deviation has committed in the run, a reviewer with a deviating verifier model in the snapshot, a service with gate B open in the run (such as the PR fixer) leads to G2 and G3. Gate: 0 merges and 0 automatic approvals."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/suites/s7/a/*.test.ts"
+done = ["one case per condition green with 0 merges", "Case 'service with gate B open leads to G2 and G3' green", "one case per auto_if condition with 0 automatic approvals green"]
+sources = ["07 section 5 S7 a", "03 section 1a", "08 stage 5"]
+depends_on = ["5-E03-T01", "5-E03-T03", "5-E02-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "5-E05-T01-S01"
+  title = "Cases C00 to C07"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T01-S02"
+  title = "Cases C08 to C13"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T01-S03"
+  title = "Cases approval.auto_if and qualification profile"
+  done = "Cases green"
+  status = "open"
+
+[[task]]
+id = "5-E05-T02"
+title = "S7 (b) and (d): attacks and post-merge watch"
+description = """eval/suites/s7/b and d: head moves between gate and merge (409); @agent hold and stop within the waiting window; merge attempt by a service via write request; model text 'please merge'; foreign commit by a human on agent/*; green agent-approval-check from a repo workflow instead of from the app; backdoor in a foreign comment (person without write access on an issue with agent:auto, coder and reviewer see it, condition 12); (d) red target branch after merge creates a revert PR and fallback to human."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/suites/s7/b/*.test.ts, eval/suites/s7/d/*.test.ts"
+done = ["all cases (b) with 0 merges green", "Case 'backdoor in a foreign comment leads to G2 and G3' green", "Case (d) creates revert PR and repo_override green"]
+sources = ["07 section 5 S7 b and d", "ADR-60", "08 stage 5"]
+depends_on = ["5-E01-T06", "5-E02-T04", "5-E02-T05", "5-E03-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "5-E05-T02-S01"
+  title = "Cases head, hold, stop, write request, model text"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T02-S02"
+  title = "Cases foreign commit, foreign check source, backdoor"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T02-S03"
+  title = "Case (d) revert and fallback"
+  done = "Case green"
+  status = "open"
+
+[[task]]
+id = "5-E05-T03"
+title = "E2E ticket to merge on a test repo"
+description = """End-to-end run on a test repo of the project: issue with label agent:auto, autonomy full, merge.mode auto, through triage (if on), planner with automatic approval, coder, reviewer, QA, PR fixer, merge gate with waiting window up to the merge and post-merge watch. Real run with external effect (merge in the test repo, costs), therefore owner go-ahead; before that the same flow with recorded responses as a test."""
+design = ["11-qa-prfix-automerge.md#47-merge-gate-waiting-window-and-merge"]
+result = "eval/suites/e2e/ticket-to-merge.test.ts, report with run ID"
+done = ["Test with recorded responses green", "real run with owner go-ahead: run ends in done after merge (Run Record, command and output in the report)"]
+sources = ["08 stage 5", "03 section 1a", "07 section 5 S5"]
+depends_on = ["5-E05-T01", "5-E05-T02", "5-E02-T06"]
+owner = "agent+owner"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "5-E05-T03-S01"
+  title = "E2E with recordings"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T03-S02"
+  title = "Real run (owner go-ahead)"
+  done = "Evidence in the report"
+  status = "open"
+
+[[task]]
+id = "5-E05-T04"
+title = "Shadow period: at least 100 agent PRs"
+description = """Operation with merge.mode shadow on repos of the installation until at least 100 agent PRs of the installation and combination exist, of which at least 20 per repo that is to get auto; S7 (c): 0 cases 'gate says merge, human would not have'; report with the achieved error bound (rule of three) per repo. Needs a running installation, repos and humans who merge, therefore owner; the agent delivers the evaluation and report. The duration depends on the PR volume."""
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"]
+result = "shadow report in the ops repo, autonomy_qualification row"
+done = ["at least 100 agent PRs counted, 0 wrong decisions (report)", "upper error bound of about 3 % stated in the report", "at least 20 cases per repo with auto"]
+sources = ["07 section 5 S7 c", "10 section 14", "08 stage 5"]
+depends_on = ["5-E03-T02", "5-E03-T01"]
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+note = "estimate_h without the waiting time for 100 PRs; the waiting time depends on the PR volume of the installation (unverified)."
+
+  [[task.part]]
+  id = "5-E05-T04-S01"
+  title = "Switch on shadow mode (owner)"
+  done = "merge.mode shadow on the repos"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T04-S02"
+  title = "Evaluation and report"
+  done = "Report with bound"
+  status = "open"
+
+[[task]]
+id = "5-E05-T05"
+title = "Stage report and release of stage 5"
+description = """Stage report: S7 complete with evidence, result of the branch protection check, permission test, E2E, shadow report with error bound, gate B status of the services involved (PR fixer open, so runs with a PR fixer contribution go to G2 and G3); release with S8 and upgrade test including promotion of waiting runs in merge_gate and awaiting_human_review (03 section 6)."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "stage report in the ops repo, release"
+done = ["Stage report with all evidence", "S8 and upgrade test with a waiting run in merge_gate green", "Release run green", "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)"]
+sources = ["08 principles 1, 2, 5", "03 section 6", "ADR-67"]
+depends_on = ["5-E05-T03", "5-E05-T04", "5-E04-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "5-E05-T05-S01"
+  title = "Upgrade test with waiting runs"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "5-E05-T05-S02"
+  title = "Stage report and release"
+  done = "Report and release"
+  status = "open"

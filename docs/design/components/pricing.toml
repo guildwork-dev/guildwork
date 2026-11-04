@@ -1,0 +1,141 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "pricing"
+title = "Price tables per provider"
+kind = "package"
+path = "packages/pricing/"
+package = "@guildwork/pricing"
+stage = "8"
+purpose = "Versioned price tables per provider with source and retrieval date, loader into price_entries (role migrate only) with operator overrides, and lookup for reservation, billing and eval reports (FE-1230, FE-1255, FE-1360 to FE-1362). Never loads from the network at runtime; plugins and workers do not import the package."
+design = [
+  "13-stage-8-providers-and-bases.md#26-price-tables-8-e06",
+  "13-stage-8-providers-and-bases.md#49-loading-prices-and-booking-costs",
+  "13-stage-8-providers-and-bases.md#32-tables-of-stage-8",
+  "13-stage-8-providers-and-bases.md#86-price-tables-qualification-acceptance-8-e06",
+]
+built_by = ["8-E06-T01"]
+
+[[provides]]
+name = "preistabellen"
+kind = "file"
+title = "packages/pricing/tables/<provider>.json (PriceTableFile with PriceEntry) for anthropic, bedrock, vertex, foundry, openai and tables/reference-models.json"
+defined_in = "13-stage-8-providers-and-bases.md#33-envelopes-and-file-formats"
+from_task = "8-E06-T01"
+
+[[provides]]
+name = "price-lookup"
+kind = "ts-api"
+title = "PriceLookup: price(provider, model, at, region) with origin and tableVersion, cost(usage, entry); types PriceTableFile, PriceEntry"
+defined_in = "13-stage-8-providers-and-bases.md#26-price-tables-8-e06"
+from_task = "8-E06-T01"
+
+[[provides]]
+name = "loader"
+kind = "ts-api"
+title = "loadReleaseTables(dir) with schema check, syncPriceEntries(db, files, overrides) in one transaction (called only by the role migrate), referenceModels(dir)"
+defined_in = "13-stage-8-providers-and-bases.md#26-price-tables-8-e06"
+from_task = "8-E06-T01"
+
+[[provides]]
+name = "tabelle-price-entries"
+kind = "table"
+title = "price_entries installation-wide without tenant_id (origin release or operator_override), migration 0803_price_entries.sql; writing only guildwork_migrate"
+defined_in = "13-stage-8-providers-and-bases.md#32-tables-of-stage-8"
+from_task = "8-E06-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "pricing.overrides (list of PriceEntry with provider); pricing.max_age_days is provided by plugin-model-anthropic/preis-alter, only used here"
+defined_in = "13-stage-8-providers-and-bases.md#7-configuration"
+from_task = "8-E06-T01"
+
+[[provides]]
+name = "audit"
+kind = "event"
+title = "Audit pricing.price_missing (once per model and day) and pricing.tables_synced"
+defined_in = "13-stage-8-providers-and-bases.md#34-events-and-audit-actions"
+from_task = "8-E06-T01"
+
+[[provides]]
+name = "metrik-price-missing"
+kind = "metric"
+title = "guildwork.pricing.price_missing with provider (model only in the audit pricing.price_missing)"
+defined_in = "13-stage-8-providers-and-bases.md#51-metrics-of-this-area"
+from_task = "8-E06-T01"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "8-E06-T01"
+purpose = "Migration 0803_price_entries.sql"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "8-E06-T01"
+purpose = "syncPriceEntries after the migrations in the role migrate"
+
+[[uses]]
+interface = "db/connect"
+from_task = "8-E06-T01"
+purpose = "Kysely instance of the role migrate or app"
+
+[[uses]]
+interface = "db/schema-typen"
+from_task = "8-E06-T01"
+purpose = "Table type price_entries"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "8-E06-T01"
+purpose = "Audit pricing.tables_synced and pricing.price_missing"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "8-E06-T01"
+purpose = "Metric price_missing_total"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "8-E06-T01"
+purpose = "Key pricing.overrides"
+
+[[uses]]
+interface = "plugin-model-anthropic/preis-alter"
+from_task = "8-E06-T01"
+purpose = "pricing.max_age_days for the hint on an old table in doctor and admin UI; from 8-E06-T01 the only evaluation (FE-1364)"
+
+[[uses]]
+interface = "plugin-model-anthropic/preistabelle"
+from_task = "8-E06-T01"
+purpose = "The Anthropic table is merged into tables/anthropic.json; the plugin keeps models.yaml without prices (FE-1362, FE-1364)"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "8-E06-T01"
+purpose = "Reservation with price(); without a price upper bound usd_run"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "8-E06-T01"
+purpose = "Cost source price_table in the booking"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "8-E06-T01"
+purpose = "Billing at complete for cost.source price_table without usd"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "8-E06-T01"
+purpose = "Hint on an old table in doctor"
+
+[[uses]]
+interface = "ui-betrieb/status-api"
+from_task = "8-E06-T01"
+purpose = "Hint price missing or old table in the admin UI"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "8-E06-T01"
+purpose = "Tests of syncPriceEntries with a real database"

@@ -1,0 +1,220 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-claude-code"
+title = "AgentRuntime claude-code: manifest, run, event stream, contract suite, resume and steer"
+kind = "plugin"
+path = "plugins/claude-code/"
+package = "@guildwork/plugin-claude-code"
+stage = "0"
+purpose = "AgentRuntime for the unmodified Claude Code CLI in the worker: installs the pinned harness with checksum into the sandbox, starts it via the hardened start path, translates the NDJSON stream into RuntimeEvents without plaintext and delivers AgentRunResult with usage, cost and limits; from stage 2 resume and steer. The start path per credential kind is in claude-code-startwege; the worker provides sandbox, relay and snapshot."
+design = [
+  "05-plugins-and-contracts.md#215-runtime-claude-code",
+  "05-plugins-and-contracts.md#2151-manifest-capabilities-supports",
+  "05-plugins-and-contracts.md#2152-installation-at-the-operator-adr-39-ruling-fe-521-fe-522",
+  "05-plugins-and-contracts.md#2154-run-event-stream-result",
+  "05-plugins-and-contracts.md#2155-otel",
+  "05-plugins-and-contracts.md#2157-resume-and-steer-stage-2-ruling-fe-546",
+  "05-plugins-and-contracts.md#35-transcripts-of-the-runtime-pluginsclaude-codecontracttranscripts",
+  "05-plugins-and-contracts.md#45-run-of-the-runtime-in-the-worker",
+  "05-plugins-and-contracts.md#48-states",
+]
+built_by = [
+  "0-E15-T01",
+  "0-E15-T02",
+  "0-E15-T04",
+  "0-E15-T06",
+  "0-E15-T07",
+  "2-E04-T09",
+  "2-E04-T10",
+]
+
+[[provides]]
+name = "install"
+kind = "contract"
+title = "AgentRuntime.install(sb, pin): download via ctx.http, SHA-256 check, entry in the harness cache on the worker host with lock, rename and .verified, copyIn to /opt/guildwork/harness (read-only), version probe (FE-553)"
+defined_in = "05-plugins-and-contracts.md#2152-installation-at-the-operator-adr-39-ruling-fe-521-fe-522"
+from_task = "0-E15-T02"
+
+[[provides]]
+name = "harness-cache-werte"
+kind = "file"
+title = "Structure of a cache entry <cache_dir>/claude-code/<version>/<sha256>/ with .verified and lock <entry>.lock, target in the sandbox /opt/guildwork/harness/claude-code/<version>/<sha256>/; the key runtimes.claude_code.cache_dir is defined by worker/worker-yaml, the plugin receives it as the instance key cache_dir (FE-553, 03 FE-333)"
+defined_in = "05-plugins-and-contracts.md#2152-installation-at-the-operator-adr-39-ruling-fe-521-fe-522"
+from_task = "0-E15-T02"
+
+[[provides]]
+name = "audit-harness"
+kind = "event"
+title = "Audit actions harness.installed and harness.pin_mismatch (with alert)"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "0-E15-T02"
+
+[[provides]]
+name = "eingebautes-paket"
+kind = "ts-api"
+title = "BuiltinPluginPackage claude-code with manifest.json (operator_supplied, FE-520), capabilities per instance (FE-537) and supports (FE-529)"
+defined_in = "05-plugins-and-contracts.md#2151-manifest-capabilities-supports"
+from_task = "0-E15-T04"
+
+[[provides]]
+name = "run"
+kind = "contract"
+title = "AgentRuntime.run(task, sb, sink, signal): spawn via the worker's wrapper, RuntimeEvents with hashes only, budget and abort, result table, usage, cost.source per kind, OTel with TRACEPARENT"
+defined_in = "05-plugins-and-contracts.md#2154-run-event-stream-result"
+from_task = "0-E15-T04"
+
+[[provides]]
+name = "laufwerte"
+kind = "config"
+title = "Named value claude_code.kill_grace_ms (pause between SIGTERM and SIGKILL)"
+defined_in = "05-plugins-and-contracts.md#7-configuration"
+from_task = "0-E15-T04"
+
+[[provides]]
+name = "transkript"
+kind = "file"
+title = "Redacted NDJSON transcript as a worker-local file (transcriptRef local:), uploaded by the worker to the BlobStore as transcripts/<run>/<item>.ndjson (FE-550)"
+defined_in = "05-plugins-and-contracts.md#32-artifacts-in-the-blobstore"
+from_task = "0-E15-T04"
+
+[[provides]]
+name = "contract-attestation"
+kind = "file"
+title = "Transcripts under plugins/claude-code/contract/transcripts/ with argv companion files and contract-attestation.json (provisional from the spike, real after 0-E15-T07)"
+defined_in = "05-plugins-and-contracts.md#35-transcripts-of-the-runtime-pluginsclaude-codecontracttranscripts"
+from_task = "0-E15-T06"
+
+[[provides]]
+name = "resume"
+kind = "contract"
+title = "AgentRuntime.resume via --resume from the restored configuration directory, capability RESUME after a green contract test (FE-546)"
+defined_in = "05-plugins-and-contracts.md#2157-resume-and-steer-stage-2-ruling-fe-546"
+from_task = "2-E04-T09"
+
+[[provides]]
+name = "steer"
+kind = "contract"
+title = "AgentRuntime.steer via stdin of a process started with --input-format stream-json, capability STEER after a green contract test (FE-546)"
+defined_in = "05-plugins-and-contracts.md#2157-resume-and-steer-stage-2-ruling-fe-546"
+from_task = "2-E04-T10"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E15-T02"
+purpose = "AgentRuntime.install and PinnedVersion"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E15-T02"
+purpose = "SandboxHandle.exec for visibility check and version probe"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E15-T02"
+purpose = "Download via ctx.http, audit via ctx.audit"
+
+[[uses]]
+interface = "config-resolver-regeln/harness-pins"
+from_task = "0-E15-T02"
+purpose = "PinnedVersion from harness_pins of the installation"
+
+[[uses]]
+interface = "worker-harness-umgebung/harness-cache"
+from_task = "0-E15-T02"
+purpose = "Harness cache directory on the worker host, copied in via copyIn (FE-553, 03 FE-333)"
+
+[[uses]]
+interface = "claude-code-startwege/launch-export"
+from_task = "0-E15-T04"
+purpose = "buildLaunch and applyLaunchFiles for run"
+
+[[uses]]
+interface = "claude-code-startwege/sandbox-dateien"
+from_task = "0-E15-T04"
+purpose = "Managed settings, mcp.json, system.md, prompt.md"
+
+[[uses]]
+interface = "worker-harness-umgebung/build-harness-env"
+from_task = "0-E15-T04"
+purpose = "Credential environment via the worker's spawn wrapper (FE-550)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E15-T04"
+purpose = "manifest.json operator_supplied"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "0-E15-T04"
+purpose = "capabilities per instance"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E15-T04"
+purpose = "BuiltinPluginPackage claude-code"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E15-T04"
+purpose = "Redact the transcript line by line"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E15-T04"
+purpose = "AgentRuntime suite with FakeSandboxHandle"
+
+[[uses]]
+interface = "contract-harness/fake-claude"
+from_task = "0-E15-T04"
+purpose = "Tests run.<transcript> with fake-claude"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "0-E15-T06"
+purpose = "make contract PLUGIN=claude-code"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "0-E15-T06"
+purpose = "contract-attestation.json and fixturesHash in the manifest"
+
+[[uses]]
+interface = "worker-harness-umgebung/read-subscription-token"
+from_task = "0-E15-T07"
+purpose = "Token only from the host file in the real run"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "0-E15-T07"
+purpose = "Real sandbox with spawn"
+
+[[uses]]
+interface = "worker/item-lebenszyklus"
+from_task = "0-E15-T07"
+purpose = "Real item run in the worker"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "0-E15-T07"
+purpose = "Harness reaches the platform MCP from mcp.json"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "0-E15-T07"
+purpose = "Secret scan over tables, envelopes, snapshots, logs and BlobStore"
+
+[[uses]]
+interface = "sicherheits-scans/gitleaks-toml"
+from_task = "0-E15-T07"
+purpose = "gitleaks rule for sk-ant-oat"
+
+[[uses]]
+interface = "arbeitsstand-snapshot/work-snapshot-dienst"
+from_task = "2-E04-T09"
+purpose = "Configuration directory with session restored before resume"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "0-E15-T02"
+purpose = "Key runtimes.claude_code.cache_dir only used, not defined (FE-553)"

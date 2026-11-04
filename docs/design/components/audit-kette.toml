@@ -1,0 +1,210 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "audit-kette"
+title = "Audit with hash chain, check tool audit-verify and daily anchor"
+kind = "role"
+path = "apps/control-plane/src/audit/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Tamper-evident trail of the installation: writes every audit entry into a hash chain within the transaction of the domain change, checks chain and anchors and anchors the head daily outside the database. Not here: tables, triggers and the functions audit_head and audit_insert (migration in area 01) and the redaction rules (core)."
+design = [
+  "04-effects-audit-credentials.md#22-audit",
+  "04-effects-audit-credentials.md#221-writer",
+  "04-effects-audit-credentials.md#222-check-tool",
+  "04-effects-audit-credentials.md#223-daily-anchor",
+  "04-effects-audit-credentials.md#224-anchor-via-scmprovider-platform-effect-audit_anchor-m123",
+  "04-effects-audit-credentials.md#43-audit-entry-and-daily-anchor",
+  "04-effects-audit-credentials.md#25-metrics",
+  "04-effects-audit-credentials.md#7-configuration",
+]
+built_by = [
+  "0-E08-T02",
+  "0-E08-T03",
+  "0-E08-T04",
+  "0-E09-T06",
+]
+
+[[provides]]
+name = "audit-writer"
+kind = "ts-api"
+title = "AuditWriter.append(tx, entry) with AuditActor, AuditEntryInput and the catalog of actions (dot notation)"
+defined_in = "04-effects-audit-credentials.md#221-writer"
+from_task = "0-E08-T02"
+
+[[provides]]
+name = "konfig-audit"
+kind = "config"
+title = "installation.yaml: audit.details_inline_max_bytes"
+defined_in = "04-effects-audit-credentials.md#7-configuration"
+from_task = "0-E08-T02"
+
+[[provides]]
+name = "details-ablage"
+kind = "file"
+title = "Large audit details in the BlobStore under audit-details/<sha256> (content-addressed)"
+defined_in = "04-effects-audit-credentials.md#221-writer"
+from_task = "0-E08-T02"
+
+[[provides]]
+name = "verify-chain"
+kind = "ts-api"
+title = "verifyChain(db, blob, anchors, options) with VerifyReport and VerifyFinding; anchor comparison from 0-E08-T04"
+defined_in = "04-effects-audit-credentials.md#222-check-tool"
+from_task = "0-E08-T03"
+
+[[provides]]
+name = "audit-verify-cli"
+kind = "cli"
+title = "Subcommand audit-verify of the image control-plane: --from, --to, --no-anchors, --json; exit codes 0, 1, 2"
+defined_in = "04-effects-audit-credentials.md#222-check-tool"
+from_task = "0-E08-T03"
+
+[[provides]]
+name = "anchor-sink"
+kind = "ts-api"
+title = "AnchorSink (write, read) and AnchorDocV1; sink blob with Object Lock"
+defined_in = "04-effects-audit-credentials.md#223-daily-anchor"
+from_task = "0-E08-T04"
+
+[[provides]]
+name = "anker-dokument"
+kind = "file"
+title = "AnchorDocV1 as JSON under audit-anchors/<installation>/<YYYY>/<MM>/<DD>.json with retainUntil"
+defined_in = "04-effects-audit-credentials.md#223-daily-anchor"
+from_task = "0-E08-T04"
+
+[[provides]]
+name = "queue-audit-anchor"
+kind = "queue"
+title = "pg-boss schedule audit-anchor (daily at audit_anchor.at_utc)"
+defined_in = "04-effects-audit-credentials.md#223-daily-anchor"
+from_task = "0-E08-T04"
+
+[[provides]]
+name = "doctor-pruefungen"
+kind = "ts-api"
+title = "checkAnchorSink in audit/checks.ts for doctor and admin UI (not anchored, not tamper-proof)"
+defined_in = "04-effects-audit-credentials.md#223-daily-anchor"
+from_task = "0-E08-T04"
+
+[[provides]]
+name = "konfig-audit-anchor"
+kind = "config"
+title = "installation.yaml: audit_anchor.sink, .repo, .branch, .at_utc, .retention_days"
+defined_in = "04-effects-audit-credentials.md#7-configuration"
+from_task = "0-E08-T04"
+
+[[provides]]
+name = "metrik-anker-alter"
+kind = "metric"
+title = "guildwork.audit.anchor_age (gauge, s), source of the required alert audit_chain"
+defined_in = "04-effects-audit-credentials.md#25-metrics"
+from_task = "0-E08-T04"
+
+[[provides]]
+name = "senke-scm"
+kind = "file"
+title = "Sink scm: anchor branch guildwork-audit-anchor with latest.json and anchors.jsonl (implementation audit/sinks/scm.ts via the platform effect audit_anchor)"
+defined_in = "04-effects-audit-credentials.md#224-anchor-via-scmprovider-platform-effect-audit_anchor-m123"
+from_task = "0-E09-T06"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E08-T02"
+purpose = "Redact details before hashing"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E08-T02"
+purpose = "canonicalJson and sha256Hex for the hash and details_sha256 (FE-408)"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E08-T02"
+purpose = "Clock for at"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E08-T02"
+purpose = "append in the caller's tx"
+
+[[uses]]
+interface = "db/sperren"
+from_task = "0-E08-T02"
+purpose = "AUDIT_CHAIN_LOCK via audit_head()"
+
+[[uses]]
+interface = "db/audit-port"
+from_task = "0-E08-T02"
+purpose = "Fulfill DbAuditSink so that db writes audit entries"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit"
+from_task = "0-E08-T02"
+purpose = "audit_head and audit_insert, triggers against UPDATE and DELETE"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E08-T02"
+purpose = "Large details under audit-details/<sha256>"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E08-T02"
+purpose = "Keys audit.* and audit_anchor.* in the schema"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E08-T02"
+purpose = "Real database for chain and concurrency"
+
+[[uses]]
+interface = "testkit/postgres-rollen"
+from_task = "0-E08-T02"
+purpose = "Owner role in the test 'audit/update and delete are rejected'"
+
+[[uses]]
+interface = "control-plane/aufruf"
+from_task = "0-E08-T03"
+purpose = "Subcommand audit-verify of the image control-plane"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E08-T04"
+purpose = "Schedule audit-anchor"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E08-T04"
+purpose = "HandlerRegistration for audit-anchor"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit-anchors"
+from_task = "0-E08-T04"
+purpose = "Row per day after a successful write"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "0-E08-T04"
+purpose = "Artifact audit_anchor per anchor document"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E08-T04"
+purpose = "Check the capability OBJECT_LOCK of the BlobStore at startup"
+
+[[uses]]
+interface = "driver-blob-s3/blob-store"
+from_task = "0-E08-T04"
+purpose = "Test with Object Lock against an S3 service"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E08-T04"
+purpose = "guildwork.audit.anchor_age and guildwork.audit.chain_ok"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "0-E09-T06"
+purpose = "Submit the platform effect audit_anchor via submitPlatform"

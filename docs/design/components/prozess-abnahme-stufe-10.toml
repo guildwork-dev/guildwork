@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-10"
+title = "Owner assessment of Renovate, license requests, stage report and release for stage 10"
+kind = "process"
+path = "-"
+stage = "10"
+purpose = "Owner steps and acceptance of stage 10: license request for CodeWikiBench and DocAgent, legal assessment of Renovate, stage report with evidence per done criterion, S8 with upgrade and signed release. No product code; no agent gives legal advice, it only prepares drafts and decision sheets."
+design = [
+  "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06",
+  "15-stage-10-edge-layers.md#86-suites-and-acceptance-10-e06",
+  "15-stage-10-edge-layers.md#10-open-points",
+]
+built_by = ["10-E01-T06", "10-E02-T04", "10-E06-T01"]
+
+[[provides]]
+name = "lizenzanfragen"
+kind = "file"
+title = "Status of the license requests CodeWikiBench (DO2) and DocAgent (DO3) in the stage report"
+defined_in = "15-stage-10-edge-layers.md#10-open-points"
+from_task = "10-E01-T06"
+
+[[provides]]
+name = "entscheidung-renovate"
+kind = "file"
+title = "Decision with date in the ops repo on whether Renovate may run as an unmodified upstream image next to the platform"
+defined_in = "15-stage-10-edge-layers.md#10-open-points"
+from_task = "10-E02-T04"
+
+[[provides]]
+name = "stufenbericht"
+kind = "file"
+title = "Stage report docs/berichte/stufe-10.md with evidence per done criterion, note FE-1237, S8 and release with SBOM"
+defined_in = "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06"
+from_task = "10-E06-T01"
+
+[[uses]]
+interface = "lizenz-gate/lizenz-listen"
+from_task = "10-E02-T04"
+purpose = "License allowlist: assess AGPL-3.0 only as an unmodified third-party image"
+
+[[uses]]
+interface = "abnahme-werkzeug/abnahme-matrix"
+from_task = "10-E06-T01"
+purpose = "tools/acceptance/stage-10.toml with tests and task per criterion"
+
+[[uses]]
+interface = "abnahme-werkzeug/acceptance-check"
+from_task = "10-E06-T01"
+purpose = "Collective run of the criteria of stage 10"
+
+[[uses]]
+interface = "abnahme-werkzeug/contracts-report"
+from_task = "10-E06-T01"
+purpose = "Contract suites of the new plugins in the report"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "10-E06-T01"
+purpose = "Suites of stage 10 including S8"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-bericht"
+from_task = "10-E06-T01"
+purpose = "Suite report as evidence"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "10-E06-T01"
+purpose = "S8 with upgrade from the previous release"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "10-E06-T01"
+purpose = "signed release with SBOM"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "10-E06-T01"
+purpose = "BUILT_STAGES extended by 10"
+
+[[uses]]
+interface = "eval-saetze-docs/bericht"
+from_task = "10-E06-T01"
+purpose = "DO1 to DO4 and Gate B open"
+
+[[uses]]
+interface = "prfixer-modi/satz-f4"
+from_task = "10-E06-T01"
+purpose = "F4 green"
+
+[[uses]]
+interface = "prfixer-modi/satz-cd1"
+from_task = "10-E06-T01"
+purpose = "Gate A report ci_doctor"
+
+[[uses]]
+interface = "plugin-incident-handoff/e2e-faelle"
+from_task = "10-E06-T01"
+purpose = "E2E incident-handoff with signed fixture"
+
+[[uses]]
+interface = "plugin-analyzer-git-cliff/an1-fixtures"
+from_task = "10-E06-T01"
+purpose = "AN1 git-cliff"
+
+[[uses]]
+interface = "plugin-analyzer-axe/an1-fixtures"
+from_task = "10-E06-T01"
+purpose = "AN1 axe"
+
+[[uses]]
+interface = "plugin-analyzer-infracost/an1-fixtures"
+from_task = "10-E06-T01"
+purpose = "AN1 infracost"
+
+[[uses]]
+interface = "kampagnen/kettenfaelle"
+from_task = "10-E06-T01"
+purpose = "S5 and S6 cases of the campaigns"

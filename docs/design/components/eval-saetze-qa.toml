@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-saetze-qa"
+title = "Sets Q1 to Q5, filter suite, adapters TDD-Bench and SWT-bench"
+kind = "eval"
+path = "eval/sets/q1/"
+stage = "3"
+purpose = "Eval sets Q1 to Q5 and the measurement set qa-filters of the QA in the set format from 07 under eval/sets/<id>/ (FE-1153) with the adapters TDD-Bench Verified and SWT-bench; measures gate A and gate B of the QA and delivers the reports, builds nothing on the service."
+design = ["11-qa-prfix-automerge.md#8-tests", "11-qa-prfix-automerge.md#9-rulings", "11-qa-prfix-automerge.md#10-open-points", "11-qa-prfix-automerge.md#21-directories"]
+built_by = ["3-E07-T01", "3-E07-T02", "3-E07-T03", "3-E07-T04", "3-E07-T05", "3-E07-T06", "3-E07-T08"]
+
+[[provides]]
+name = "adapter-tdd-bench"
+kind = "file"
+title = "eval/adapters/tdd-bench; data via declarative pin in eval/sets/q1/set.json (07 FE-703)"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T01"
+
+[[provides]]
+name = "satz-q1"
+kind = "file"
+title = "eval/sets/q1 (set.json with pin), reference value Q1 in eval/references/qa.json (FE-1153)"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T01"
+
+[[provides]]
+name = "saetze-q2-q5"
+kind = "file"
+title = "eval/sets/q2 and q5; code of the Q2 modules in the own public repo via git pin"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T03"
+
+[[provides]]
+name = "satz-q3"
+kind = "file"
+title = "eval/sets/q3 with counting of false healing; web app in the own public repo via git pin"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T04"
+
+[[provides]]
+name = "satz-q4"
+kind = "file"
+title = "eval/sets/q4 for catch precision (only references and own labels)"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T05"
+
+[[provides]]
+name = "suite-qa-filters"
+kind = "file"
+title = "eval/sets/qa-filters: filters, discovery and flake rate over 20 runs"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T06"
+
+[[provides]]
+name = "adapter-swt-bench"
+kind = "file"
+title = "eval/adapters/swt-bench with publication block"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "3-E07-T08"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "3-E07-T01"
+purpose = "Sets q1 to q5 in the format eval/sets"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "3-E07-T01"
+purpose = "Adapter tdd-bench with prepare and collect"
+
+[[uses]]
+interface = "eval-adapter-harbor/adapter"
+from_task = "3-E07-T01"
+purpose = "TDD-Bench in the Harbor format"
+
+[[uses]]
+interface = "eval-runner/cli-fetch"
+from_task = "3-E07-T01"
+purpose = "Download with pinned commit and checksum"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "3-E07-T01"
+purpose = "Create runs and retrieve reports"
+
+[[uses]]
+interface = "eval-dienst/eval-bare"
+from_task = "3-E07-T01"
+purpose = "Arm bare harness with the same model"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "3-E07-T01"
+purpose = "paired evaluation and margin per 10 section 1.4"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "3-E07-T01"
+purpose = "Gate file eval/gates/qa.gates.json"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "3-E07-T01"
+purpose = "Eval report with cost and duration per case"
+
+[[uses]]
+interface = "eval-core/bezugswert"
+from_task = "3-E07-T01"
+purpose = "Reference value Q1 with source and read date"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "3-E07-T03"
+purpose = "Scorer for mutation score and unit tests"
+
+[[uses]]
+interface = "eval-runner/check-eval-data"
+from_task = "3-E07-T03"
+purpose = "only references and own labels in the eval package"
+
+[[uses]]
+interface = "container-images/image.sandbox-e2e"
+from_task = "3-E07-T04"
+purpose = "own web app starts in the E2E image"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "3-E07-T05"
+purpose = "Case schema with license per case"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "3-E07-T06"
+purpose = "Suite qa-filters"
+
+[[uses]]
+interface = "eval-core/eval-report-format"
+from_task = "3-E07-T08"
+purpose = "Publication block for SWT-bench results without license note"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "3-E07-T01"
+purpose = "Case runs of the QA via the eval service"

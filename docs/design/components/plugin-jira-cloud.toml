@@ -1,0 +1,353 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-jira-cloud"
+title = "Jira Cloud: TriggerSource and WorkItemProvider"
+kind = "plugin"
+path = "plugins/jira-cloud/"
+package = "@guildwork/plugin-jira-cloud"
+stage = "8"
+purpose = "One plugin with the kinds TriggerSource (ingress via admin webhook or automation relay, catch-up via JQL) and WorkItemProvider (read tickets and write them via the Effect Gateway) for Jira Cloud (ADR-09). Not included: identity linking, permission AND check and visibility of ticket targets (control plane) and ADF conversion (@guildwork/adf)."
+design = [
+  "13-stage-8-providers-and-bases.md#211-package-manifest-and-capabilities",
+  "13-stage-8-providers-and-bases.md#212-triggersource-jira-cloud",
+  "13-stage-8-providers-and-bases.md#213-workitemprovider-jira-cloud-reading",
+  "13-stage-8-providers-and-bases.md#214-workitemprovider-jira-cloud-writing",
+  "13-stage-8-providers-and-bases.md#218-ask-and-control-commands-from-jira",
+  "13-stage-8-providers-and-bases.md#219-spike-fixtures-and-recording",
+  "13-stage-8-providers-and-bases.md#41-jira-ingress-to-inbox",
+  "13-stage-8-providers-and-bases.md#42-jira-mention-to-ticket-to-pr",
+  "13-stage-8-providers-and-bases.md#81-jira-8-e01",
+]
+# 8-E01-T10 added: the E2E proof "Jira mention equals GitHub mention" is the acceptance of this plugin
+# (eval/suites/s5/jira); otherwise the task would belong to no component.
+built_by = ["8-E01-T02", "8-E01-T04", "8-E01-T05", "8-E01-T06", "8-E01-T09", "8-E01-T10"]
+
+[[provides]]
+name = "fixtures"
+kind = "file"
+title = "Recorded Jira responses and webhook fixtures (contract/fixtures, targets/test-site.yaml, recording script record-guard with target check) and spike report eval/reports/spike-jira.md"
+defined_in = "13-stage-8-providers-and-bases.md#219-spike-fixtures-and-recording"
+from_task = "8-E01-T02"
+
+[[provides]]
+name = "manifest"
+kind = "file"
+title = "manifest.json with kind TriggerSource and WorkItemProvider, secrets, egress {config.site}, contract attestation; capability table"
+defined_in = "13-stage-8-providers-and-bases.md#211-package-manifest-and-capabilities"
+from_task = "8-E01-T04"
+
+[[provides]]
+name = "triggersource"
+kind = "contract"
+title = "TriggerSource jira-cloud: verify on the raw body (webhook HMAC strong, relay HMAC or shared secret weak with IP allowlist), parse to TriggerEvent, isSelf, poll and reconcile via JQL cursor, ackDeadlineMs"
+defined_in = "13-stage-8-providers-and-bases.md#212-triggersource-jira-cloud"
+from_task = "8-E01-T04"
+
+[[provides]]
+name = "konfig-trigger"
+kind = "config"
+title = "plugins.triggers[jira-cloud]: JiraTriggerConfig (site, mode, verify, secretRef, workItems, botAccountId, handle, projectAllowlist, poll, auth, ipAllowlist)"
+defined_in = "13-stage-8-providers-and-bases.md#212-triggersource-jira-cloud"
+from_task = "8-E01-T04"
+
+[[provides]]
+name = "relay-koerper"
+kind = "file"
+title = "RelayBodyV1 (relayV 1, webhookEvent, issue.key, comment.id, relayId): body of the automation rule Send web request"
+defined_in = "13-stage-8-providers-and-bases.md#33-envelopes-and-file-formats"
+from_task = "8-E01-T04"
+
+[[provides]]
+name = "audit-poll-truncated"
+kind = "event"
+title = "Audit jira.poll_truncated when poll.maxPages is reached (instance, cursor)"
+defined_in = "13-stage-8-providers-and-bases.md#34-events-and-audit-actions"
+from_task = "8-E01-T04"
+
+[[provides]]
+name = "metrik-poll"
+kind = "metric"
+title = "guildwork.jira.poll_events: events caught up via poll or reconcile"
+defined_in = "13-stage-8-providers-and-bases.md#51-metrics-of-this-area"
+from_task = "8-E01-T04"
+
+[[provides]]
+name = "workitems-lesen"
+kind = "contract"
+title = "WorkItemProvider jira-cloud reading: getItem, getComments, search, getAttachments, getLinks, userPermission (FE-1226, FE-1307), whoami, renderMention, rateLimitState, capabilities"
+defined_in = "13-stage-8-providers-and-bases.md#213-workitemprovider-jira-cloud-reading"
+from_task = "8-E01-T05"
+
+[[provides]]
+name = "konfig-workitems"
+kind = "config"
+title = "plugins.work_items[jira-cloud]: JiraWorkItemConfig (site, auth, projectAllowlist, statusMapping, remoteLinkGlobalIdPrefix, acceptanceCriteriaField, permissionCacheS)"
+defined_in = "13-stage-8-providers-and-bases.md#213-workitemprovider-jira-cloud-reading"
+from_task = "8-E01-T05"
+
+[[provides]]
+name = "workitems-schreiben"
+kind = "contract"
+title = "WorkItemProvider jira-cloud writing: addComment with marker, updateComment, transition via status_mapping, linkExternal via globalId, assign, setLabels, linkItems, createItem; mapping to the executors from 04"
+defined_in = "13-stage-8-providers-and-bases.md#214-workitemprovider-jira-cloud-writing"
+from_task = "8-E01-T06"
+
+[[provides]]
+name = "kommentar-marker"
+kind = "file"
+title = "Marker on Jira comments and issues: property guildwork.marker or last paragraph gw-marker:<marker>, content { v: 1, marker }"
+defined_in = "13-stage-8-providers-and-bases.md#33-envelopes-and-file-formats"
+from_task = "8-E01-T06"
+
+[[provides]]
+name = "suite-s5-jira"
+kind = "file"
+title = "E2E suite eval/suites/s5/jira with the cases S5-jira-mention-equals-github-mention and S5-jira-control-commands and the ask path up to the route"
+defined_in = "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8"
+from_task = "8-E01-T10"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-8/jira-testsite"
+from_task = "8-E01-T02"
+purpose = "Documentation cassettes and fixtures for spike and contract suite; test site only from the optional owner run"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "8-E01-T02"
+purpose = "Extend RecordingHttp by the target check in record-guard.ts"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "8-E01-T02"
+purpose = "contract/targets/test-site.yaml with allowed site and projects"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "8-E01-T02"
+purpose = "Recorded Jira responses as cassettes"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "8-E01-T02"
+purpose = "make contract-record PLUGIN=jira-cloud with --allow-writes only for test targets"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "8-E01-T04"
+purpose = "Contract TriggerSource with verify, parse, poll, reconcile, isSelf"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "8-E01-T04"
+purpose = "Result, PluginError, WorkItemRef, Actor, PermissionLevel, StatusCategory, SecretRef"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "8-E01-T04"
+purpose = "Comment and ticket text as untrusted with origin jira:comment:<id>"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "8-E01-T04"
+purpose = "PluginContext with EgressHttp, AuditSink and Clock"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E01-T04"
+purpose = "Check manifest.json with validateManifest"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "8-E01-T04"
+purpose = "Report capabilities of TriggerSource and WorkItemProvider"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "8-E01-T04"
+purpose = "parse delivers TriggerEvent or Skipped"
+
+[[uses]]
+interface = "event-schema/dedupe-key"
+from_task = "8-E01-T04"
+purpose = "dedupeKey unchanged without delivery ID (FE-1302)"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "8-E01-T04"
+purpose = "Recognize the command after the mention (FE-1310)"
+
+[[uses]]
+interface = "adf/adf-zu-markdown"
+from_task = "8-E01-T04"
+purpose = "Read comment and ticket ADF as Markdown, bot mention as @<handle>"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "8-E01-T04"
+purpose = "secretRef and service account access via ctx.secrets.resolve"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "8-E01-T04"
+purpose = "Ingress POST /v1/ingress/{instanceId} for admin webhook and automation relay"
+
+[[uses]]
+interface = "control-plane-ingress/konfig-trigger"
+from_task = "8-E01-T04"
+purpose = "poll.intervalS follows trigger.poll_interval"
+
+[[uses]]
+interface = "compose-buendel/caddy-routen"
+from_task = "8-E01-T04"
+purpose = "Header x-guildwork-peer with the source IP for the IP allowlist in mode weak"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "8-E01-T04"
+purpose = "Metric jira_poll_events_total in the catalog"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "8-E01-T04"
+purpose = "Registration as BuiltinPluginPackage with two kinds"
+
+[[uses]]
+interface = "plugin-rahmen/attestation-pruefung"
+from_task = "8-E01-T04"
+purpose = "Contract attestation as a load condition"
+
+[[uses]]
+interface = "plugin-rahmen/kein-direktes-netz"
+from_task = "8-E01-T04"
+purpose = "Network only via ctx.http, egress {config.site}"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "8-E01-T04"
+purpose = "Required cases of the suite TriggerSource against the fixtures"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "8-E01-T04"
+purpose = "contract-attestation.json with fixturesHash"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "8-E01-T05"
+purpose = "WorkItemReader and WorkItemWriter per 01 section 4 (FE-1303)"
+
+[[uses]]
+interface = "plugin-rahmen/with-retry"
+from_task = "8-E01-T05"
+purpose = "Test of the chain plugin plus withRetry on 429"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "8-E01-T05"
+purpose = "Test: router reads getItem and getComments fresh instead of the payload"
+
+[[uses]]
+interface = "adf/markdown-zu-adf"
+from_task = "8-E01-T06"
+purpose = "Comment body as ADF with mentions and code block fallback"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "8-E01-T06"
+purpose = "ScopedToken with weak and profile for write methods (FE-1308)"
+
+[[uses]]
+interface = "plugin-rahmen/transport"
+from_task = "8-E01-T06"
+purpose = "Write methods only with caller effect_gateway"
+
+[[uses]]
+interface = "opengrep-regeln/regel-schreibweg-executors"
+from_task = "8-E01-T06"
+purpose = "Write methods fall under the lint rule single write path"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-process"
+from_task = "8-E01-T09"
+purpose = "Tests: retries end at the inbox, parsing in the job ingress-process"
+
+[[uses]]
+interface = "control-plane-ingress/trigger-queues"
+from_task = "8-E01-T09"
+purpose = "Test: catch-up via trigger-poll and trigger-reconcile"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.event-dedupe"
+from_task = "8-E01-T09"
+purpose = "Test: poll and webhook hit the same dedupeKey"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "8-E01-T09"
+purpose = "Test: at most one run per object (ADR-68)"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "8-E01-T09"
+purpose = "Real database for the ordering tests"
+
+[[uses]]
+interface = "identitaetsverknuepfung/identity-link-service"
+from_task = "8-E01-T10"
+purpose = "E2E with linked Jira and GitHub account"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "8-E01-T10"
+purpose = "Cases of the suite S5 with defineSuiteCase"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "8-E01-T10"
+purpose = "Cases S5-jira-* with from_stage 8 in the catalog"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "8-E01-T10"
+purpose = "Stack for the E2E run up to the draft PR"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "8-E01-T10"
+purpose = "Recorded Jira and GitHub responses in E2E"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/pipeline-runner"
+from_task = "8-E01-T10"
+purpose = "ticket-to-pr from Jira as from GitHub Issues"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/befehl-code"
+from_task = "8-E01-T10"
+purpose = "@agent code from Jira starts ticket-to-pr"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/befehl-approve-plan"
+from_task = "8-E01-T10"
+purpose = "approve plan from Jira leads from G1 to coding"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/suite-s5"
+from_task = "8-E01-T10"
+purpose = "Comparison with the GitHub mention (same state sequence and effects)"
+
+[[uses]]
+interface = "effekt-executoren/status-comment"
+from_task = "8-E01-T10"
+purpose = "Status comment in ADF via the executor status_comment"
+
+[[uses]]
+interface = "effekt-executoren/ticket-transition"
+from_task = "8-E01-T10"
+purpose = "Transition started and in_review with remote link to the PR"
+
+[[uses]]
+interface = "control-plane-router/skip-gruende"
+from_task = "8-E01-T10"
+purpose = "ask without indexer ends with service_disabled and a reply"

@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "workflow-policy"
+title = "Workflow policy with actionlint and zizmor"
+kind = "tool"
+path = "tools/ci/check_workflows.py"
+stage = "R"
+purpose = "Checks every GitHub workflow against the policy of the repo (runners, SHA pins, rights, triggers, expressions, concurrency, job count) and runs actionlint and zizmor. Not workflow-guard (stage 2), which checks foreign repos."
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"]
+built_by = ["R-E02-T05"]
+
+[[provides]]
+name = "policy-toml"
+kind = "file"
+title = "quality/ci/policy.toml: allowed_runners, max_timeout_minutes, max_jobs_per_run, job_permissions, public_only_workflows, push_workflows"
+defined_in = "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"
+from_task = "R-E02-T05"
+
+[[provides]]
+name = "make-workflows"
+kind = "cli"
+title = "make workflows: check_workflows.py (14 rules), actionlint, zizmor --offline"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E02-T05"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/tools-toml"
+from_task = "R-E02-T05"
+purpose = "actionlint binary with checksum"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E02-T05"
+purpose = "zizmor from uv.lock; check_workflows.py under ruff and mypy"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E02-T05"
+purpose = "Register gate workflows"

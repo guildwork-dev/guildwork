@@ -1,0 +1,654 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area edge of stage 10. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/15-stage-10-edge-layers.md (12-expansion.md refers there for stage 10). Stage 10 depends on 3 and 4, not on 6, 7a, 7, 8, 9.
+stage = "10"
+
+[[epic]]
+id = "10-E01"
+title = "Docs service"
+goal = "Docstrings, docs sync after merge, release notes deterministic plus readable text, drift check `docs-drift`; DO1 to DO4; Gate B open until the license is clarified"
+sources = ["02 section 10", "ADR-46", "10 section 11"]
+depends_on = ["3-E07", "4-E06"]
+
+[[task]]
+id = "10-E01-T01"
+title = "docs scaffold and drift check"
+description = """services/docs: manifest (commands docs and release, write requests propose_change only on docs.paths and docstrings, propose_check docs-drift, propose_comment), DocsRequest and DocsArtifact per 15-stage-10-edge-layers.md section 2.3.2, drift check on PRs (code references in docs against the head, findings with quote), check only success or neutral, never blocking without configuration; pipelines with docs always merge.mode human."""
+design = ["15-stage-10-edge-layers.md#231-manifest-and-commands", "15-stage-10-edge-layers.md#233-drift-check-mode-drift", "15-stage-10-edge-layers.md#81-docs-10-e01"]
+result = "services/docs/src/manifest.ts, services/docs/src/controller/, services/docs/src/jobs/drift.handler.ts, services/docs/tool/ (gw-docs-scan refs)"
+done = [
+  "Test `docs drift check nie blockierend ohne konfiguration` green",
+  "Test `docs pipeline nur mit merge mode human` green (resolver)",
+  "S4 case 'docs alone on' green",
+]
+sources = ["02 section 10", "04 section 3", "03 section 2.1"]
+depends_on = []
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "10-E01-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E01-T01-S02"
+  title = "Manifest, controller, schemas"
+  done = "Manifest test green"
+
+  [[task.part]]
+  id = "10-E01-T01-S03"
+  title = "Drift check"
+  done = "all tests green"
+
+[[task]]
+id = "10-E01-T02"
+title = "Mode docstrings"
+description = """Touched symbols without a docstring via ast-grep, style from existing docstrings, order by dependencies from L1 if fresh, otherwise its own ast-grep pass (FE-1238), build and linter green in the sandbox, follow-up PR against the originating branch, never a commit on the PR."""
+design = ["15-stage-10-edge-layers.md#234-mode-docstrings", "15-stage-10-edge-layers.md#237-verifier", "15-stage-10-edge-layers.md#42-docstrings"]
+result = "services/docs/src/jobs/docstrings.handler.ts, services/docs/src/verify/, services/docs/tool/ (gaps, order, comments-only, entities)"
+done = [
+  "Test `docstrings nur für berührte symbole` green",
+  "Test `docstrings ohne kb nutzen eigenen ast grep pass` green",
+  "DO3 rule: build 100 % green, 0 invented entities on the suite",
+]
+sources = ["02 section 10", "07 section 3.10"]
+depends_on = ["10-E01-T01"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "10-E01-T02-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E01-T02-S02"
+  title = "Gap search and order"
+  done = "Order test green"
+
+  [[task.part]]
+  id = "10-E01-T02-S03"
+  title = "Generation, build, follow-up PR"
+  done = "all tests green"
+
+[[task]]
+id = "10-E01-T03"
+title = "Mode sync"
+description = """Pipeline docs-after-merge on change.merged (04 section 3): touched docs locations from docs.paths, docs PR to a human, never merge gate; fallback chain comment for SCMs without a branch workflow."""
+design = ["15-stage-10-edge-layers.md#235-mode-sync", "15-stage-10-edge-layers.md#43-docs-sync-after-merge"]
+result = "services/docs/src/jobs/sync.handler.ts, pipeline docs-after-merge"
+done = [
+  "Test `sync öffnet doku pr an menschen` green",
+  "Test `sync ändert nur docs paths` green",
+]
+sources = ["02 section 10", "03 section 1a (post-merge)"]
+depends_on = ["10-E01-T01"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E01-T03-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E01-T03-S02"
+  title = "Pipeline and docs PR"
+  done = "Tests green"
+
+[[task]]
+id = "10-E01-T04"
+title = "Mode release with git-cliff"
+description = """License check of git-cliff and release-please (09 section 4), analyzer analyzer-git-cliff for version, date and breaking list deterministically from Conventional Commits and labels, readable text from the model (notes_model), the verifier maps every line to a PR and lets no invented version or invented date through; @agent release creates a PR or draft, only a human publishes."""
+design = ["15-stage-10-edge-layers.md#236-mode-release-and-analyzer-git-cliff", "15-stage-10-edge-layers.md#237-verifier", "15-stage-10-edge-layers.md#44-release"]
+result = "plugins/analyzer-git-cliff/, services/docs/src/jobs/release.handler.ts, services/docs/src/controller/release-prs.ts"
+done = [
+  "License of git-cliff read from LICENSE and in the manifest",
+  "Test `release notes ohne zeile ohne pr` green (0 lines without PR)",
+  "Test `release notes ohne erfundene version oder datum` green",
+  "AN1 for analyzer-git-cliff green",
+]
+sources = ["02 section 10", "09 section 4", "ADR-40", "ADR-50"]
+depends_on = ["10-E01-T01"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "10-E01-T04-S01"
+  title = "License check"
+  done = "Note"
+
+  [[task.part]]
+  id = "10-E01-T04-S02"
+  title = "Analyzer git-cliff with AN1"
+  done = "AN1 green"
+
+  [[task.part]]
+  id = "10-E01-T04-S03"
+  title = "Readable text and verifier"
+  done = "Tests green"
+
+[[task]]
+id = "10-E01-T05"
+title = "Sets DO1 to DO4 and Gate A"
+description = """DO1 (drift from public repos, references instead of copies), DO3 (docstrings per DocAgent scoring, license unverified, internal only until clarified), DO4 (tag pairs with Conventional Commits), DO2 CodeWikiBench as a report part after the license is clarified; Gate A precision of the drift check against a simple prompt; rules DO3 and DO4 100 % each."""
+design = ["15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06", "15-stage-10-edge-layers.md#86-suites-and-acceptance-10-e06"]
+result = "eval/sets/do1/, eval/sets/do3/, eval/sets/do4/, eval/adapters/docs/, eval/gates/docs.gates.json, eval/reports/stufe-10-docs.md"
+done = [
+  "DO1 Gate A measured and green per 10 section 1.4",
+  "DO3: build 100 % green, 0 invented entities",
+  "DO4: 0 lines without PR, 0 invented versions or dates, breaking list complete",
+  "docs in the stage report as 'done with Gate B open' with the status of the license request",
+]
+sources = ["07 section 3.10", "10 section 11", "08 stage 10"]
+depends_on = ["10-E01-T02", "10-E01-T03", "10-E01-T04"]
+owner = "agent"
+estimate_h = 14
+note = "Also complete backlog M26 (set IDs docs) when creating the sets"
+
+  [[task.part]]
+  id = "10-E01-T05-S01"
+  title = "Build DO1"
+  done = "Set in the repo"
+
+  [[task.part]]
+  id = "10-E01-T05-S02"
+  title = "Build DO3 and DO4"
+  done = "Sets in the repo"
+
+  [[task.part]]
+  id = "10-E01-T05-S03"
+  title = "Runs and report"
+  done = "Report in the PR"
+
+[[task]]
+id = "10-E01-T06"
+title = "Owner: license request CodeWikiBench and DocAgent"
+description = """Owner step with external effect per 10 section 11: request to the authors of CodeWikiBench and DocAgent about the data license; agents prepare the drafts."""
+design = ["15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06", "15-stage-10-edge-layers.md#10-open-points"]
+result = "Requests sent, status in the stage report"
+done = [
+  "Status of every request in the stage report of stage 10",
+]
+sources = ["10 sections 1.2 item 6 and 11", "08 stage 10"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+
+  [[task.part]]
+  id = "10-E01-T06-S01"
+  title = "Drafts (agent)"
+  done = "Drafts in the ops repo"
+
+  [[task.part]]
+  id = "10-E01-T06-S02"
+  title = "Send requests (owner)"
+  done = "Status noted"
+
+[[epic]]
+id = "10-E02"
+title = "PR fixer modes dependency_update and ci_doctor"
+goal = "Two further modes of the PR fixer; F4 green; `ci_doctor` keeps updating the same issue"
+sources = ["02 section 6"]
+depends_on = ["4-E06"]
+
+[[task]]
+id = "10-E02-T01"
+title = "Profile dependency_update"
+description = """Input: PR of a bot from prfixer.bot_allowlist with red CI; the agent changes only code; the package manager in the worker generates manifest and lockfile deterministically and only for the affected packages; delivery as a stacked PR onto the update branch; prohibitions as in 02 section 6 with the exception of this profile."""
+design = ["15-stage-10-edge-layers.md#241-profile-dependency_update", "15-stage-10-edge-layers.md#45-dependency_update"]
+result = "services/prfixer/src/modes/dependency-update.ts"
+done = [
+  "Test `manifest und lockfile nur durch den paketmanager` green",
+  "Test `dependency update liefert stacked pr` green",
+  "Test `nur bots aus der allowlist lösen aus` green",
+]
+sources = ["02 section 6", "10 section 15"]
+depends_on = []
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "10-E02-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E02-T01-S02"
+  title = "Input and code fix"
+  done = "Input tests green"
+
+  [[task.part]]
+  id = "10-E02-T01-S03"
+  title = "Package manager step and stacked PR"
+  done = "all tests green"
+
+[[task]]
+id = "10-E02-T02"
+title = "Mode ci_doctor"
+description = """Red CI on the default branch: cause and propose_issue, continuing the same issue via the marker guildwork:ci-doctor:<workflow>:<job>, no push. The effect runs via the executor issue from 10-E02-T05, which also ensures the method createItem (FE-1239)."""
+design = ["15-stage-10-edge-layers.md#242-mode-ci_doctor", "15-stage-10-edge-layers.md#46-ci_doctor"]
+result = "services/prfixer/src/modes/ci-doctor.ts"
+done = [
+  "Test `ci doctor schreibt dasselbe issue fort` green",
+  "Test `ci doctor pusht nie` green",
+  "Gate A: cause confirmed by hand on an own set (10 section 15), report in the PR",
+]
+sources = ["02 section 6", "10 section 15", "05 section 2 (profile labels)"]
+depends_on = ["10-E02-T05"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E02-T02-S01"
+  title = "Check whether CREATE_ISSUE exists"
+  done = "Note in the PR"
+
+  [[task.part]]
+  id = "10-E02-T02-S02"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E02-T02-S03"
+  title = "Mode with continuation"
+  done = "Tests green"
+
+[[task]]
+id = "10-E02-T03"
+title = "Set F4 and gate"
+description = """F4 per 07 section 3.6: BUMP subset (check the data license, download only) plus own cases from Renovate PRs with red CI; rule manifest and lockfile only through the package manager; Gate A against the bare harness; Gate B per 10 section 8."""
+design = ["15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06", "15-stage-10-edge-layers.md#82-pr-fixer-modes-and-executor-issue-10-e02"]
+result = "eval/sets/f4/, eval/reports/stufe-10-f4.md"
+done = [
+  "F4 green (08 stage 10)",
+  "Data license of BUMP noted as VERIFIED or open",
+]
+sources = ["07 section 3.6", "10 section 8", "08 stage 10"]
+depends_on = ["10-E02-T01"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "10-E02-T03-S01"
+  title = "Build the set"
+  done = "Set in the repo"
+
+  [[task.part]]
+  id = "10-E02-T03-S02"
+  title = "Run and report"
+  done = "Report in the PR"
+
+[[task]]
+id = "10-E02-T04"
+title = "Owner: assessment of Renovate (AGPL)"
+description = """Legal assessment of whether Renovate may be operated as an unmodified upstream image in its own container next to the platform (09 section 4, ADR-50); no legal advice by agents, only a decision sheet with references."""
+design = ["15-stage-10-edge-layers.md#10-open-points"]
+result = "Decision in the ops repo"
+done = [
+  "Decision with date in the ops repo; docs keep naming Renovate only as an operator choice",
+]
+sources = ["09 section 4", "06 section 1", "ADR-50"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+
+  [[task.part]]
+  id = "10-E02-T04-S01"
+  title = "Decision sheet (agent)"
+  done = "Sheet in the ops repo"
+
+  [[task.part]]
+  id = "10-E02-T04-S02"
+  title = "Decision (owner)"
+  done = "Note"
+
+[[task]]
+id = "10-E02-T05"
+title = "Executor issue"
+description = """`apps/control-plane/src/effects/executors/issue.ts` per detailed design 04 section 2.1.5: search for an open issue with `marker`; if found: `addComment` on it (continuation), otherwise `createItem` with marker. `createItem` is built by 7-E05-T03; stage 7 does not come before stage 10 in the stage graph, so this task builds the method per detailed design 12 section 2.7 if it is not merged at build time. Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["15-stage-10-edge-layers.md#243-executor-issue", "04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/issue.ts, apps/control-plane/test/effects/executors/issue.test.ts"
+done = [
+  "Test 'effects/executors/issue live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/issue failure path stores audits and logs' green (failure path: without CREATE_ISSUE unsupported, the PR fixer reports the cause only in the status comment; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/issue reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry issue with executor file, stage and usedIn; guard test from 0-E09-T10 green without issue in the planned list",
+]
+sources = ["02 section 0 (prfixer ci_doctor)", "05 section 2 (profile labels)", "ADR-06"]
+depends_on = ["0-E09-T04"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "10-E02-T05-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E02-T05-S02"
+  title = "Executor issue with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["10-E02-T05-S01"]
+
+  [[task.part]]
+  id = "10-E02-T05-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["10-E02-T05-S02"]
+
+[[epic]]
+id = "10-E03"
+title = "Input incident-handoff"
+goal = "Sentry Seer and a generic signed webhook (Standard Webhooks, FE-1240), no own SRE agent; code runs only via a route with a named responsible person (FE-1249)"
+sources = ["ADR-49"]
+depends_on = ["4-E06"]
+
+[[task]]
+id = "10-E03-T01"
+title = "Generic signed webhook incident-handoff"
+description = """plugins/incident-handoff as TriggerSource: Standard Webhooks signature with a time window of 5 minutes and dedupe via webhook-id (FE-1240), body { v, title, cause, plan?, links[], repo, severity } as untrusted, event alert or incident with handoff; actor app without write permission; route with actor integration and responsible (FE-1249)."""
+design = ["15-stage-10-edge-layers.md#251-plugin-incident-handoff", "15-stage-10-edge-layers.md#253-route-with-a-responsible-person-and-handover", "15-stage-10-edge-layers.md#47-incident-handoff"]
+result = "plugins/incident-handoff/"
+done = [
+  "Test `incident handoff wiederholung wird abgelehnt` green",
+  "Test `incident handoff falsche signatur vor dem parsen abgelehnt` green",
+  "Test `ohne route nur ein ticket` green",
+  "Contract suite incident-handoff green",
+]
+sources = ["ADR-49", "01 sections 2 and 3", "03 section 5"]
+depends_on = ["10-E02-T05"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E03-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E03-T01-S02"
+  title = "Signature and parse"
+  done = "Signature tests green"
+
+  [[task.part]]
+  id = "10-E03-T01-S03"
+  title = "Route with responsible person"
+  done = "all tests green"
+
+[[task]]
+id = "10-E03-T02"
+title = "TriggerSource sentry"
+description = """plugins/sentry for Seer events: check the signature header (unverified, to be verified against the docs and a recording), mapping to the same event as incident-handoff; contract suite against cassettes from the public docs (detailed design 05 FE-564), because the project has no Sentry account (O28); an account for recordings is an optional owner run."""
+design = ["15-stage-10-edge-layers.md#252-plugin-sentry"]
+result = "plugins/sentry/"
+done = [
+  "Signature method of Sentry VERIFIED (reference in the docs or recording from the optional owner run)",
+  "Contract suite sentry green",
+]
+sources = ["ADR-49", "10 section 15"]
+depends_on = ["10-E03-T01"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E03-T02-S01"
+  title = "Check and recording"
+  done = "Note and fixtures"
+
+  [[task.part]]
+  id = "10-E03-T02-S02"
+  title = "Plugin"
+  done = "Suite green"
+
+[[task]]
+id = "10-E03-T03"
+title = "Handoff to coder and prfixer, E2E"
+description = """An event creates at most one ticket or one fix job to coder or prfixer with the same permission, limit and policy checks as every input (against the responsible person of the route); E2E with a signed fixture up to the draft PR or ticket."""
+design = ["15-stage-10-edge-layers.md#253-route-with-a-responsible-person-and-handover", "15-stage-10-edge-layers.md#83-incident-handoff-10-e03"]
+result = "eval/suites/s5/incident-handoff/"
+done = [
+  "E2E `incident handoff mit signiertem fixture` green",
+  "S2 case: responsible person without write permission yields 0 code runs",
+]
+sources = ["ADR-49", "08 stage 10", "07 section 5"]
+depends_on = ["10-E03-T01", "10-E03-T02"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "10-E03-T03-S01"
+  title = "E2E scaffold"
+  done = "Test red"
+
+  [[task.part]]
+  id = "10-E03-T03-S02"
+  title = "Handoff and S2 case"
+  done = "Tests green"
+
+[[epic]]
+id = "10-E04"
+title = "Analyzers axe-core and Infracost"
+goal = "Two analyzers with AN1"
+sources = ["01 section 12", "10 section 15"]
+depends_on = ["3-E07"]
+
+[[task]]
+id = "10-E04-T01"
+title = "Analyzer axe-core"
+description = """plugins/analyzer-axe (MPL-2.0, bundled) in the E2E stage of QA against the started app with Chromium in the container, output SARIF with rule ID and selector, baseline by the platform, crash yields neutral. In addition, in the analyzer runner of the worker, the network kind item_app (15 K9, FE-1525; 10 section 2.14): the tool sandbox is attached to the network of the E2E item and reaches only the app started there, never the internet; the loader allows item_app from this task on."""
+design = ["15-stage-10-edge-layers.md#261-analyzer-axe", "15-stage-10-edge-layers.md#263-shared-rules-of-the-three-new-analyzers"]
+result = "plugins/analyzer-axe/, apps/worker/src/analyzer-runner/ (network kind item_app)"
+done = [
+  "Contract suite analyzer-axe green",
+  "License gate green",
+  "Crash and timeout end neutral with reason (test)",
+  "Tool sandbox with item_app reaches only the app of the item, no other host (test)",
+]
+sources = ["01 section 12", "02 section 5", "ADR-40", "ADR-50"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E04-T01-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "10-E04-T01-S02"
+  title = "Analyzer and SARIF mapping"
+  done = "Cases green"
+
+[[task]]
+id = "10-E04-T02"
+title = "Analyzer Infracost"
+description = """Check whether price data needs an account (backlog M35), then cost free or byo_license; plugins/analyzer-infracost produces a cost diff for IaC in the properties bag guildwork/cost-diff@1 with its own schema (01 section 12 rule 6) as context for the reviewer. In addition, three extensions outside the plugin (15 section 2.2): in the analyzer runner the network kind allowlist with registration at the egress proxy (K9, FE-1528); in the egress proxy the header relay ItemRegistration.headerRelay on port 3130 in the item network, value from api_key_ref only in the memory of the proxy, never in the sandbox (K16, FE-1545); in the reviewer services/reviewer post/summary.ts the section tool context, which renders guildwork/cost-diff@1 deterministically and never in the prompt (K12, FE-1528)."""
+design = ["15-stage-10-edge-layers.md#262-analyzer-infracost", "15-stage-10-edge-layers.md#263-shared-rules-of-the-three-new-analyzers"]
+result = "plugins/analyzer-infracost/, apps/worker/src/analyzer-runner/ (network kind allowlist), apps/egress-proxy (headerRelay), services/reviewer post/summary.ts (tool context)"
+done = [
+  "Account question VERIFIED with reference (M35)",
+  "Contract suite analyzer-infracost green",
+  "Tool sandbox with allowlist reaches only the hosts from the manifest via the egress proxy (test)",
+  "Test `infracost schlüssel erreicht die sandbox nie` green (header relay K16)",
+  "Reviewer summary shows the cost diff in the tool context section, prompt_v stays unchanged (test)",
+]
+sources = ["01 section 12", "10 section 15", "backlog M35"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+note = "Backlog M35 (Infracost account)"
+
+  [[task.part]]
+  id = "10-E04-T02-S01"
+  title = "Check the account question"
+  done = "Note"
+
+  [[task.part]]
+  id = "10-E04-T02-S02"
+  title = "Analyzer and properties schema"
+  done = "Suite green"
+
+[[task]]
+id = "10-E04-T03"
+title = "AN1 per analyzer"
+description = """AN1 per 07 section 3.8 for axe-core and Infracost: 20 fixture repos each, SARIF of our execution against a direct call of the same version, same fingerprints, failure paths end neutral."""
+design = ["15-stage-10-edge-layers.md#264-an1", "15-stage-10-edge-layers.md#84-analyzers-10-e04"]
+result = "packages/testkit/src/contract/fixtures/analyzer-an1/axe/, packages/testkit/src/contract/fixtures/analyzer-an1/infracost/"
+done = [
+  "AN1 per new analyzer green (100 % same fingerprints)",
+]
+sources = ["07 section 3.8", "10 sections 13 and 15", "08 stage 10"]
+depends_on = ["10-E04-T01", "10-E04-T02"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E04-T03-S01"
+  title = "Fixture repos"
+  done = "40 fixtures in the repo"
+
+  [[task.part]]
+  id = "10-E04-T03-S02"
+  title = "Parity run"
+  done = "AN1 green"
+
+[[epic]]
+id = "10-E05"
+title = "Campaigns across many repos"
+goal = "Campaigns per sketch: parent run with recipe list, one normal pipeline run per repo (FE-1236), budget key `campaign`, abort at a failure rate, no auto-merge"
+sources = ["03 section 7"]
+depends_on = ["4-E06"]
+
+[[task]]
+id = "10-E05-T01"
+title = "Campaign model and ledger key"
+description = """Tables campaigns and campaign_children, column runs.campaign_id via expand migration (15-stage-10-edge-layers.md section 3.1), parent run with plan and recipe list (G1 for the parent plan), child runs as normal pipeline runs, ledger key campaign with a reservation per child in addition to the other keys."""
+design = ["15-stage-10-edge-layers.md#271-types-and-recipe", "15-stage-10-edge-layers.md#272-controller-ledger-automaton", "15-stage-10-edge-layers.md#31-tables-of-stage-10-ddl"]
+result = "packages/db/migrations/1001_campaigns.sql, apps/control-plane/src/campaigns/*.ts"
+done = [
+  "Test `kampagnen budget greift über alle kinder` green",
+  "Test `kind run durchläuft alle gates` green",
+]
+sources = ["03 section 7", "04 section 6"]
+depends_on = ["3-E04-T04"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "10-E05-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E05-T01-S02"
+  title = "Migrations"
+  done = "Migration test green"
+
+  [[task.part]]
+  id = "10-E05-T01-S03"
+  title = "Parent run and children"
+  done = "Gate test green"
+
+  [[task.part]]
+  id = "10-E05-T01-S04"
+  title = "Ledger key campaign"
+  done = "Budget test green"
+
+[[task]]
+id = "10-E05-T02"
+title = "Abort rule, status and admin UI"
+description = """States per 15-stage-10-edge-layers.md section 4.9 (halted_failure_rate, halted_budget, stopped, done), campaign.max_failure_rate and min_children_for_rate, no auto-merge for child runs, status on the parent run and view in the admin UI."""
+design = ["15-stage-10-edge-layers.md#272-controller-ledger-automaton", "15-stage-10-edge-layers.md#273-admin-api-and-admin-ui", "15-stage-10-edge-layers.md#49-states"]
+result = "apps/control-plane/src/campaigns/state.ts, apps/admin-ui/src/pages/campaigns/"
+done = [
+  "Test `kampagne hält bei fehlerquote an` green",
+  "Test `kampagne ohne auto merge` green",
+  "stop on the parent run ends running children (test)",
+]
+sources = ["03 section 7", "03 section 2.1"]
+depends_on = ["10-E05-T01"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "10-E05-T02-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "10-E05-T02-S02"
+  title = "States and abort"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "10-E05-T02-S03"
+  title = "Admin UI"
+  done = "UI test green"
+
+[[task]]
+id = "10-E05-T03"
+title = "Failure path and chain tests"
+description = """S5 and S6 cases for campaigns: child fails, budget exhausted, stop, upgrade with a running campaign (raising of open runs, ADR-67)."""
+design = ["15-stage-10-edge-layers.md#5-failure-and-abort-paths", "15-stage-10-edge-layers.md#85-campaigns-10-e05"]
+result = "eval/suites/s5/campaigns/, eval/suites/s6/campaigns/"
+done = [
+  "S5 and S6 cases of the campaigns green",
+]
+sources = ["07 section 5", "03 section 6", "ADR-67"]
+depends_on = ["10-E05-T02"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "10-E05-T03-S01"
+  title = "Cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "10-E05-T03-S02"
+  title = "Corrections"
+  done = "Cases green"
+
+[[epic]]
+id = "10-E06"
+title = "Acceptance stage 10"
+goal = "Done criteria of stage 10 with evidence, stage report and release (new epic, FE-1241: stage 10 had no acceptance epic); decision on deep scan recorded (FE-1237)"
+sources = ["08 stage 10", "10 section 1.2 item 6"]
+depends_on = ["10-E01", "10-E02", "10-E03", "10-E04", "10-E05"]
+
+[[task]]
+id = "10-E06-T01"
+title = "Stage report and release stage 10"
+description = """Collects the done criteria from 08 stage 10: DO1 to DO4 (release notes 0 lines without PR), docs done with Gate B open including the status of the license request, F4 green, E2E incident-handoff with a signed fixture, AN1 per new analyzer; S8 with upgrade from the previous release; note on FE-1237 (no deep scan in stages 0 to 10) in the report and in 09 section 4 as a follow-up list."""
+design = ["15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06", "15-stage-10-edge-layers.md#86-suites-and-acceptance-10-e06"]
+result = "docs/berichte/stufe-10.md, release"
+done = [
+  "every done criterion from 08 stage 10 with evidence",
+  "S8 green with upgrade",
+  "signed release with SBOM",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 10", "07 section 5", "09 section 4"]
+depends_on = ["0-E22-T05"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "10-E06-T01-S01"
+  title = "Collect criteria"
+  done = "List with evidence"
+
+  [[task.part]]
+  id = "10-E06-T01-S02"
+  title = "S8 and release"
+  done = "Release"
+
+  [[task.part]]
+  id = "10-E06-T01-S03"
+  title = "Stage report"
+  done = "Report in the repo"

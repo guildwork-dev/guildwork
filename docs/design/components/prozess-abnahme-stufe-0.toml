@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-0"
+title = "Acceptance, first signed release and stage report for stage 0"
+kind = "process"
+path = "-"
+stage = "0"
+purpose = "Work without own code to complete stage 0: the owner clarifies the public, free registry, approves the first signed release v0.1.0, and the stage report proves every done criterion from 08 with check.py; release and registry have an external effect and run only with the owner's go."
+design = ["06-installation-operations-ui.md#212-supply-chain-and-release", "06-installation-operations-ui.md#810-acceptance-matrix", "06-installation-operations-ui.md#10-open-items"]
+built_by = ["0-E21-T09", "0-E21-T10", "0-E22-T07"]
+
+[[provides]]
+name = "registry-oeffentlich"
+kind = "config"
+title = "Public image packages in the hoster's registry, evidence with source and date in architecture 12"
+defined_in = "06-installation-operations-ui.md#10-open-items"
+from_task = "0-E21-T10"
+
+[[provides]]
+name = "release-v0-1-0"
+kind = "file"
+title = "First GitHub Release v0.1.0 with release.json, bundle, CLI, SHA256SUMS with signature, SBOMs, attestations (previous version for upgrade tests N-1)"
+defined_in = "06-installation-operations-ui.md#212-supply-chain-and-release"
+from_task = "0-E21-T09"
+
+[[provides]]
+name = "stufenbericht-0"
+kind = "file"
+title = "docs/berichte/stufe-0.md with evidence per done criterion"
+defined_in = "06-installation-operations-ui.md#810-acceptance-matrix"
+from_task = "0-E22-T07"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "0-E21-T10"
+purpose = "first image as a probe for the anonymous pull"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "0-E21-T09"
+purpose = "Release run v0.1.0"
+
+[[uses]]
+interface = "release-werkzeuge/release-json"
+from_task = "0-E21-T09"
+purpose = "Identity for cosign verify"
+
+[[uses]]
+interface = "portabilitaetstest/airgap-telemetrie-jobs"
+from_task = "0-E21-T09"
+purpose = "Air gap and telemetry green before the release"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/ruleset-und-release"
+from_task = "0-E21-T09"
+purpose = "Owner go in the environment release"
+
+[[uses]]
+interface = "abnahme-werkzeug/acceptance-check"
+from_task = "0-E22-T07"
+purpose = "check.py --stage 0 without a gap"
+
+[[uses]]
+interface = "abnahme-werkzeug/contracts-report"
+from_task = "0-E22-T07"
+purpose = "Contract report in the stage report"
+
+[[uses]]
+interface = "backup-restore/pitr-beleg"
+from_task = "0-E22-T07"
+purpose = "Evidence for PITR and restore"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "0-E22-T07"
+purpose = "BUILT_STAGES extended by stage 0"

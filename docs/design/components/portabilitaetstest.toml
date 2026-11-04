@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "portabilitaetstest"
+title = "Portability test: installation, upgrade N-1, backup and restore, air gap, PITR"
+kind = "tool"
+path = "tools/portability/"
+stage = "0"
+purpose = "Reusable workflow portability.yml with scripts that installs, checks, upgrades, backs up and restores every release candidate on fresh runners (amd64, arm64; gVisor, Sysbox) using only documented commands, plus air gap, telemetry default and PITR; only checks, delivers nothing."
+design = ["06-installation-operations-ui.md#213-portability-test-and-s8", "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"]
+built_by = ["0-E21-T05", "0-E21-T06", "0-E21-T08", "0-E22-T06"]
+
+[[provides]]
+name = "portability-workflow"
+kind = "file"
+title = "portability.yml (workflow_call from release.yml): matrix amd64 gvisor, arm64 gvisor, amd64 sysbox; host-prepare, install, doctor --strict, smoke; log as an artifact"
+defined_in = "06-installation-operations-ui.md#213-portability-test-and-s8"
+from_task = "0-E21-T05"
+
+[[provides]]
+name = "smoke"
+kind = "cli"
+title = "tools/portability/smoke.py: signed webhook, run done, effect shadowed, Run Record complete"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E21-T05"
+
+[[provides]]
+name = "upgrade-backup-jobs"
+kind = "file"
+title = "Jobs upgrade and backup-restore in portability.yml with seed_runs.py and compare.py; upgrade part also in every PR with a migration"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E21-T06"
+
+[[provides]]
+name = "airgap-telemetrie-jobs"
+kind = "file"
+title = "Jobs air-gap (amd64) and telemetry-default in portability.yml with counting log"
+defined_in = "06-installation-operations-ui.md#213-portability-test-and-s8"
+from_task = "0-E21-T08"
+
+[[provides]]
+name = "pitr-check"
+kind = "cli"
+title = "tools/portability/pitr_check.sh: point-in-time recovery with profile pitr"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E22-T06"
+
+[[uses]]
+interface = "compose-buendel/host-prepare"
+from_task = "0-E21-T05"
+purpose = "Step 1 on the fresh runner"
+
+[[uses]]
+interface = "cli/sea-binary"
+from_task = "0-E21-T05"
+purpose = "CLI from the release candidate"
+
+[[uses]]
+interface = "release-werkzeuge/buendel"
+from_task = "0-E21-T05"
+purpose = "Bundle and SHA256SUMS from the release candidate"
+
+[[uses]]
+interface = "release-werkzeuge/release-json"
+from_task = "0-E21-T05"
+purpose = "Digests of the candidate"
+
+[[uses]]
+interface = "cli-install/cmd-install"
+from_task = "0-E21-T05"
+purpose = "Installation with the documented options"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0-E21-T05"
+purpose = "doctor --strict"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server-container"
+from_task = "0-E21-T05"
+purpose = "Fixture server as SCM for the smoke run"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "0-E21-T05"
+purpose = "Signed webhook to /v1/ingress/{instanceId}"
+
+[[uses]]
+interface = "dummy-service/befehl-dummy"
+from_task = "0-E21-T05"
+purpose = "Smoke run with @agent dummy smoke"
+
+[[uses]]
+interface = "betreiber-doku/doc-commands-check"
+from_task = "0-E21-T05"
+purpose = "Workflow uses only commands from docs/ops/install.md"
+
+[[uses]]
+interface = "betreiber-doku/doku-install-betrieb"
+from_task = "0-E21-T05"
+purpose = "Documented commands as the source"
+
+[[uses]]
+interface = "cli/cmd-upgrade"
+from_task = "0-E21-T06"
+purpose = "upgrade --to N --backup"
+
+[[uses]]
+interface = "backup-restore/cmd-backup"
+from_task = "0-E21-T06"
+purpose = "Backup before deleting the volumes"
+
+[[uses]]
+interface = "backup-restore/cmd-restore"
+from_task = "0-E21-T06"
+purpose = "restore --snapshot latest --replace-existing"
+
+[[uses]]
+interface = "control-plane-orchestrator/upgrade-lift"
+from_task = "0-E21-T06"
+purpose = "Raised runs per waiting state"
+
+[[uses]]
+interface = "cli-install/install-air-gap"
+from_task = "0-E21-T08"
+purpose = "Installation with --air-gap"
+
+[[uses]]
+interface = "cli-install/airgap-env"
+from_task = "0-E21-T08"
+purpose = "Test environment without egress"
+
+[[uses]]
+interface = "testkit/telemetry-sink"
+from_task = "0-E21-T08"
+purpose = "Capture sink in the job telemetry-default"
+
+[[uses]]
+interface = "compose-buendel/profil-pitr"
+from_task = "0-E22-T06"
+purpose = "pitr_check.sh with profile pitr"
+
+[[uses]]
+interface = "cli/cmd-admin-login"
+from_task = "0-E21-T05"
+purpose = "S8 session with guildwork admin session --role admin --out <file> before guildwork-eval suites (06 section 2.13 step 9, FE-657)"

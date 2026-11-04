@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-rahmen"
+title = "Plugin framework: registry, loader, load conditions, capability resolver, retry, in-process transport"
+kind = "package"
+path = "packages/contracts/src/host/"
+package = "@guildwork/contracts"
+stage = "0"
+purpose = "Loads built-in plugin and driver packages per instance with the load conditions 1 to 15, runs the state machine of the instance, decides on capabilities and fallback levels, retries calls at the caller and wraps every plugin with time limit, error encapsulation and write protection. Persists nothing itself (the control plane writes plugin_instances) and starts no subprocess plugins in stage 0 (FE-536)."
+design = [
+  "05-plugins-and-contracts.md#25-loader-and-load-conditions",
+  "05-plugins-and-contracts.md#26-capabilities",
+  "05-plugins-and-contracts.md#27-error-and-rate-limit-model",
+  "05-plugins-and-contracts.md#28-transport-in-process-and-subprocess",
+  "05-plugins-and-contracts.md#29-plugincontext-and-egress",
+  "05-plugins-and-contracts.md#41-loading-a-plugin-instance",
+  "05-plugins-and-contracts.md#5-failure-and-abort-paths",
+]
+built_by = ["0-E13-T06", "0-E13-T09", "0-E13-T10"]
+
+[[provides]]
+name = "plugin-registry"
+kind = "ts-api"
+title = "PluginRegistry (register, load, get, list, unload), BuiltinPluginPackage, InstanceDecl, InstallationPolicy, LoaderDeps, LoadedInstance, InstanceState, LoadError with LoadErrorCode"
+defined_in = "05-plugins-and-contracts.md#25-loader-and-load-conditions"
+from_task = "0-E13-T06"
+
+[[provides]]
+name = "attestation-pruefung"
+kind = "ts-api"
+title = "Check of contract-attestation.json and the recomputed fixtures hash as load condition 8 (host/attestation.ts, FE-504)"
+defined_in = "05-plugins-and-contracts.md#25-loader-and-load-conditions"
+from_task = "0-E13-T06"
+
+[[provides]]
+name = "capability-resolver"
+kind = "ts-api"
+title = "CapabilityResolver.require (Skipped capability_missing:<cap>) and FallbackRecorder.record (audit capability.fallback, run summary)"
+defined_in = "05-plugins-and-contracts.md#26-capabilities"
+from_task = "0-E13-T09"
+
+[[provides]]
+name = "with-retry"
+kind = "ts-api"
+title = "withRetry(op, policy, clock, onRetry) and RetryPolicy: full jitter, retryAfterMs as the lower bound, no retry for non-retryable codes (FE-507)"
+defined_in = "05-plugins-and-contracts.md#27-error-and-rate-limit-model"
+from_task = "0-E13-T09"
+
+[[provides]]
+name = "transport"
+kind = "ts-api"
+title = "PluginTransport, InProcessTransport, withCaller and currentCaller (write protection via caller role effect_gateway), WRITE_METHODS (from stage 8 with WorkItemSession); plugin-host delivers the second implementation subprocess_grpc in stage 9 (FE-561)"
+defined_in = "05-plugins-and-contracts.md#28-transport-in-process-and-subprocess"
+from_task = "0-E13-T10"
+
+[[provides]]
+name = "plugins-werte"
+kind = "config"
+title = "Named values plugins.init_timeout_ms, plugins.call_timeout_ms, plugins.health_interval_s, plugins.uncaught_window_s, plugins.uncaught_max, plugins.retry.max_attempts, base_ms, max_ms"
+defined_in = "05-plugins-and-contracts.md#7-configuration"
+from_task = "0-E13-T10"
+
+[[provides]]
+name = "audit-plugin"
+kind = "event"
+title = "Audit actions plugin.loaded, plugin.rejected, plugin.health_changed, plugin.disabled, plugin.egress_denied, capability.fallback"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "0-E13-T06"
+
+[[provides]]
+name = "metriken-plugin"
+kind = "metric"
+title = "plugin_load_failed{code}, plugin_call_seconds{plugin,method}, plugin_call_errors{plugin,method,code}, alert plugin_unhealthy"
+defined_in = "05-plugins-and-contracts.md#28-transport-in-process-and-subprocess"
+from_task = "0-E13-T10"
+
+[[provides]]
+name = "kein-direktes-netz"
+kind = "config"
+title = "Biome rule noRestrictedImports and test plugins.no-direct-network for plugins/** (FE-508): every plugin uses only ctx.http"
+defined_in = "05-plugins-and-contracts.md#29-plugincontext-and-egress"
+from_task = "0-E13-T10"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E13-T06"
+purpose = "validateManifest as load condition 2"
+
+[[uses]]
+interface = "contracts/attestation-und-fixtures-hash"
+from_task = "0-E13-T06"
+purpose = "Read the attestation, recompute the fixtures hash, check the suite version (load condition 8, FE-552)"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E13-T06"
+purpose = "PluginContext, AuditSink and PluginBase for init, capabilities, health, dispose"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "0-E13-T06"
+purpose = "Required methods per kind and known capabilities (load conditions 12 and 15)"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E13-T06"
+purpose = "TenantRef, HealthReport, CapabilitySet in LoadedInstance"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E13-T06"
+purpose = "Log error on a load failure"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E13-T06"
+purpose = "plugin_load_failed, plugin_call_seconds, plugin_call_errors in the metric catalog"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E13-T06"
+purpose = "Metrics and span per plugin call"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E13-T09"
+purpose = "Clock.sleep and randomness for withRetry"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "0-E13-T09"
+purpose = "FakeClock in the tests of withRetry and the loader"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E13-T10"
+purpose = "Write methods of the SCMProvider for WRITE_METHODS and the write protection"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "0-E13-T10"
+purpose = "Write methods of the WorkItemProvider for WRITE_METHODS"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "0-E13-T10"
+purpose = "TriggerSource.ack under the write protection"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E13-T10"
+purpose = "Biome rule noRestrictedImports for plugins/** in biome.json"

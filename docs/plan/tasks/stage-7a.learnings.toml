@@ -1,0 +1,652 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area learnings of stage 7a. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "7a"
+
+[[epic]]
+id = "7a-E01"
+title = "Learnings store and lifecycle"
+goal = "Scope, PR binding, approval delay, voting, expiry, secret redaction, citation check, import and export, metrics; KnowledgeStore `pg-kb` with capability `LEARNINGS` as a binding contract"
+sources = ["02 section 7"]
+depends_on = ["6-E03"]
+
+[[epic]]
+id = "7a-E02"
+title = "Indexer L0 and L5 and retrieval in the reviewer"
+goal = "Retrieval per repo and path without vector search, integration into the reviewer's context"
+sources = ["02 section 7", "10 section 10"]
+depends_on = ["7a-E01"]
+
+[[epic]]
+id = "7a-E03"
+title = "Qualification and acceptance 7a"
+goal = "Learnings tests, citation validity 100 %, S1 with injection via learnings"
+sources = ["08 stage 7"]
+depends_on = ["7a-E02"]
+
+# ---------------------------------------------------------------- 7a-E01 store and lifecycle
+
+[[task]]
+id = "7a-E01-T01"
+title = "Migration of the lifecycle tables"
+description = """Tables learning_votes, learning_uses, learning_imports and kb_layer_state per detailed design 09 section 3.1 with RLS; add indexes on learnings where 6-E03-T05 did not create them. Readiness check: compare tables with 01-data-model.md (09 section 10 item 2)."""
+design = ["09-reviewer-companion-features-and-learnings.md#31-new-tables"]
+result = "packages/db/migrations/0701_stage7a_learnings.sql, Kysely types"
+done = [
+  "Migration test forward green, schema version checked at startup",
+  "RLS test 'learning tables isolate tenants' green",
+]
+sources = ["02 section 7", "05 section 7"]
+depends_on = ["0-E02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T01-S01"
+  title = "Test: migration and RLS"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T01-S02"
+  title = "Migration and Kysely types"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T02"
+title = "Configuration knowledge.learnings"
+description = """Keys knowledge.learnings.* from 09 section 7 (FE-935) with ranges, default and x-qualification in packages/config/src/schema/knowledge.ts; resolver rule: an inner layer may only narrow scope; ranges of approval_delay_days and expiry_days."""
+design = ["09-reviewer-companion-features-and-learnings.md#7-configuration"]
+result = "packages/config/src/schema/knowledge.ts"
+done = [
+  "Resolver test 's2/learnings-scope-widening-rejected' green",
+  "Schema test 'learnings ranges enforced' green",
+]
+sources = ["02 section 7", "04 section 1", "04 section 7"]
+depends_on = ["0-E06"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "Also complete M39 (knowledge.learnings)"
+
+  [[task.part]]
+  id = "7a-E01-T02-S01"
+  title = "Test: narrowing, ranges"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T02-S02"
+  title = "Schema and resolver rules"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T03"
+title = "KnowledgeStore pg-kb with capability LEARNINGS"
+description = """Plugin plugins/pg-kb as a KnowledgeStore with manifest, capability LEARNINGS (other capabilities none), putLearning, invalidate, voteLearning, expireLearnings, exportLearnings, importLearnings and queryLearnings per 09 sections 2.11 and 2.13; type LearningV1 as an extension of the contract from 01 section 9, binding v1alpha1 for LEARNINGS; contract suite."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"]
+result = "plugins/pg-kb/, contract types in packages/contracts"
+done = [
+  "Contract suite 'plugins/pg-kb/contract.test.ts' green: putLearning only for write permission, invalidate sets invalid_at, vote, expire, export import roundtrip, capabilities report LEARNINGS only",
+  "Plugin loads only with a passed contract suite (load condition 01 section 1.1)",
+]
+sources = ["01 section 9", "01 section 1.1", "08 section 1"]
+depends_on = ["7a-E01-T01", "0-E13"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T03-S01"
+  title = "Test: contract suite LEARNINGS"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T03-S02"
+  title = "Contract types LearningV1 and queryLearnings"
+  done = "Types compile"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T03-S03"
+  title = "Plugin with manifest and methods"
+  done = "Contract suite green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T04"
+title = "Scope, visibility and PR binding"
+description = """scopeAllows per FE-936 with isVisibleFor from 6-E01-T05 and CROSS_REPO of the org; PR binding: learnings with prRef apply only to their PR; onPrMerged releases the binding, onPrClosed invalidates with reason pr_closed (09 section 2.11)."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"]
+result = "services/indexer/src/learnings/scope.ts, parts of lifecycle.ts"
+done = [
+  "Tests 'learnings/scope.test.ts' green: auto public repo sees only own, auto public learnings never flow into private, auto private shares only with crossRepo, org respects visibility, inner level may only narrow",
+  "Tests 'learnings/pr-binding.test.ts' green: bound learning only for its pr, merge unbinds, close invalidates",
+]
+sources = ["02 section 7", "05 section 7", "ADR-63"]
+depends_on = ["7a-E01-T03", "6-E01-T05"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T04-S01"
+  title = "Test: scope cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T04-S02"
+  title = "scopeAllows"
+  done = "Scope tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T04-S03"
+  title = "Test and implementation of PR binding"
+  done = "PR binding tests green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T05"
+title = "Approval delay and approval"
+description = """create moves candidates from stage 6 into active or pending_approval per approval_delay_days (FE-937); activateDue as a daily job; approve and reject via POST /admin/api/v1/learnings/:id/approve|reject (role approver); imports never automatically active; state table 09 section 4.8."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle", "09-reviewer-companion-features-and-learnings.md#48-learning-lifecycle"]
+result = "services/indexer/src/learnings/lifecycle.ts, apps/control-plane/src/api/learnings.ts"
+done = [
+  "Tests 'learnings/approval.test.ts' green: delay zero active immediately, delay pending until due then active, rejected never active, import always pending without auto activation",
+  "API test 'approve on wrong state gives 409 learning_state_conflict' green",
+]
+sources = ["02 section 7"]
+depends_on = ["7a-E01-T03", "7a-E01-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T05-S01"
+  title = "Test: approval delay and states"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T05-S02"
+  title = "create and activateDue"
+  done = "Delay tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T05-S03"
+  title = "Endpoints approve and reject"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T06"
+title = "Voting and expiry"
+description = """applyFeedbackVotes from finding_feedback and learning_uses (at most one vote per learning and run, withdrawal by the author does not count; FE-938), confirm via API and dev token, threshold min_score with state suppressed; expireDue daily, confirmation resets expiresAt, retrieval does not (FE-939)."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle", "09-reviewer-companion-features-and-learnings.md#48-learning-lifecycle"]
+result = "services/indexer/src/learnings/votes.ts, services/indexer/src/learnings/expiry.ts"
+done = [
+  "Tests 'learnings/votes.test.ts' green: addressed finding votes plus one once per run, withdrawal by other writer votes minus one, withdrawal by author does not vote, below min score suppressed, confirm reactivates suppressed",
+  "Tests 'learnings/expiry.test.ts' green: expires after expiry days, confirm resets expiry, retrieval does not extend, expired reactivated by confirm",
+]
+sources = ["02 section 7", "10 section 10"]
+depends_on = ["7a-E01-T03", "7a-E01-T02", "6-E03-T02", "6-E04-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T06-S01"
+  title = "Test: voting"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T06-S02"
+  title = "applyFeedbackVotes, confirm, suppressed"
+  done = "Voting tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T06-S03"
+  title = "Test and implementation of expiry"
+  done = "Expiry tests green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T07"
+title = "Secret redaction and citation check"
+description = """redactLearningText with the rules of the Effect Gateway before every save for all origins (remember, chat, import, harvest), rejection above 50 %; quoteHash and locate per FE-940 with tracking of moved lines, omission at retrieval, invalidation on the default branch."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"]
+result = "services/indexer/src/learnings/redact.ts, services/indexer/src/learnings/citation.ts"
+done = [
+  "Tests 'learnings/redact.test.ts' green: aws key replaced by marker, sk-ant token replaced, item placeholder replaced, over half redacted rejected, redaction before insert for every origin",
+  "Tests 'learnings/citation.test.ts' green: quote hash stable under whitespace, relocated when lines move, omitted when quote gone at head, invalidated when gone on default branch",
+]
+sources = ["02 section 7", "05 section 3", "05 section 5", "10 section 9"]
+depends_on = ["7a-E01-T03", "0-E09"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T07-S01"
+  title = "Test: redaction per origin"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T07-S02"
+  title = "redactLearningText before every save"
+  done = "Redaction tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T07-S03"
+  title = "Test and implementation of quoteHash and locate"
+  done = "Citation tests green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T08"
+title = "Import and export"
+description = """JSON and CSV per FE-945 (columns from 09 section 2.11), endpoints POST /admin/api/v1/learnings/import and GET /admin/api/v1/learnings/export including dev token paths under /api/v1 (09 section 3.4), CLI guildwork learnings import|export with dev token and fresh write permission per repo; imported text untrusted, redacted, with a resolvable citation, always pending_approval; learning_imports with errors per row. CodeRabbit CSV as a column mapping (FE-944): template only with a real sample export, no evaluation of third-party documentation (O18)."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle", "09-reviewer-companion-features-and-learnings.md#34-endpoints"]
+result = "services/indexer/src/learnings/import.ts, export.ts, import/mappings/, apps/cli/src/commands/learnings.ts"
+done = [
+  "Tests 'learnings/import.test.ts' green: import requires admin or write, imported text untrusted and redacted, row without resolvable citation rejected, csv mapping preset applied",
+  "Test 'export import roundtrip keeps fields' green",
+]
+sources = ["02 section 7", "05 section 4", "O18"]
+depends_on = ["7a-E01-T07", "6-E04-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "The CodeRabbit template needs a sample export from a user; without it only the generic column mapping remains"
+
+  [[task.part]]
+  id = "7a-E01-T08-S01"
+  title = "Test: permissions, untrusted, citation, mapping"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T08-S02"
+  title = "Export JSON and CSV"
+  done = "Export tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T08-S03"
+  title = "Import with row errors and column mapping"
+  done = "Import tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T08-S04"
+  title = "CLI learnings import and export"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "7a-E01-T09"
+title = "Admin UI learnings with approval view and metrics"
+description = """Page apps/admin-ui/src/pages/learnings/: list with filters (repo, status, kind, path, never used), metrics uses, lastUsed, never_used, voting, active in 30 days; approval view for pending_approval; actions approve, reject, confirm, invalidate by role; export button."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"]
+result = "apps/admin-ui/src/pages/learnings/, GET /admin/api/v1/learnings"
+done = [
+  "Tests 'admin-ui/learnings.e2e.test.ts' green: approver approves pending, viewer cannot approve, never used filter",
+]
+sources = ["02 section 7", "05 section 7"]
+depends_on = ["7a-E01-T05", "7a-E01-T06", "0-E17", "7a-E01-T08"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T09-S01"
+  title = "Test: roles and filters"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T09-S02"
+  title = "List endpoint with metrics"
+  done = "API test green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E01-T09-S03"
+  title = "Page with approval view and actions"
+  done = "all tests of the task green"
+  status = "open"
+
+# ---------------------------------------------------------------- 7a-E02 indexer and retrieval
+
+[[task]]
+id = "7a-E02-T01"
+title = "Indexer skeleton with L0"
+description = """services/indexer as a deterministic controller job in the control plane without a sandbox and without a model (FE-941); L0 in kb_layer_state per repo and layer with watermark, schemaV, ruleV; needsRebuild on an unreachable watermark or a version change; inputs pushed_default and change.merged via the router; services.indexer.mode and layers [L0, L5]."""
+design = ["09-reviewer-companion-features-and-learnings.md#212-indexer-l0-and-l5"]
+result = "services/indexer/ (skeleton, manifest, layers/l0.ts)"
+done = [
+  "Tests 'indexer/l0.test.ts' green: watermark only after success, version change forces rebuild, unreachable watermark forces rebuild",
+  "S4 case 's4/indexer-off-reviewer-runs' green (reviewer runs without learnings, summary names the KB state)",
+]
+sources = ["02 section 7", "02 section 0", "08 stage 7"]
+depends_on = ["0-E05", "0-E04", "0-E20-T21"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M110 part 2 resolved for 7a: no sandbox job, so no LayerDelta path needed (FE-941); part 1 (ask) belongs to stage 7"
+
+  [[task.part]]
+  id = "7a-E02-T01-S01"
+  title = "Test: L0 state and rebuild rules"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T01-S02"
+  title = "Service skeleton with manifest and routing"
+  done = "S4 case green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T01-S03"
+  title = "L0 with needsRebuild"
+  done = "L0 tests green"
+  status = "open"
+
+[[task]]
+id = "7a-E02-T02"
+title = "L5 increment on merge and watermark"
+description = """applyL5 and rebuildL5 per 09 section 2.12: harvest of candidates from writers from the merged PR, release PR binding, check citations of affected learnings at the default head (relocate or invalidate), watermark only after success, idempotency per merge SHA, failure path with kb_layer_state failed and alert after two failures."""
+design = ["09-reviewer-companion-features-and-learnings.md#212-indexer-l0-and-l5", "09-reviewer-companion-features-and-learnings.md#49-l5-on-merge"]
+result = "services/indexer/src/layers/l5.ts"
+done = [
+  "Tests 'indexer/l5.test.ts' green: harvest only writer candidates, idempotent per merge sha, failure keeps watermark and next run catches up, increment chain equals rebuild",
+  "S6 case 's6/l5-increment-failed' green",
+]
+sources = ["02 section 7", "03 section 5"]
+depends_on = ["7a-E02-T01", "7a-E01-T04", "7a-E01-T07"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T02-S01"
+  title = "Test: harvest, idempotency, failure path, increment equals rebuild"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T02-S02"
+  title = "Harvest and release PR binding"
+  done = "Harvest tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T02-S03"
+  title = "Citations at the default head and watermark"
+  done = "Failure path test green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T02-S04"
+  title = "rebuildL5 and equality with the increment chain"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "7a-E02-T03"
+title = "Retrieval per repo and path"
+description = """queryLearnings in pg-kb per 09 section 2.13 and FE-942: filters (active, kind, scope, PR binding, appliesTo globs), ranking by path specificity, balance and confirmation, citation check per hit, budget max_per_review and max_chars_per_review, learning_uses per hit; no vector search."""
+design = ["09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context"]
+result = "plugins/pg-kb/src/query-learnings.ts"
+done = [
+  "Tests 'learnings/retrieve.test.ts' green: only repo_fact for reviewer, path specificity ranking, budget items and chars, uses recorded with run id, kb unavailable runs without learnings",
+]
+sources = ["02 section 7", "08 stage 7", "01 section 9"]
+depends_on = ["7a-E01-T04", "7a-E01-T07"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T03-S01"
+  title = "Test: filters, ranking, budget, uses"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T03-S02"
+  title = "Filters and ranking in SQL"
+  done = "Filter and ranking tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T03-S03"
+  title = "Citation check, budget and uses"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "7a-E02-T04"
+title = "Integration into the reviewer context"
+description = """The context building block from 08 calls queryLearnings for the changed paths at the PR's head SHA with the PR number and embeds hits as an untrusted block with framing (09 section 2.13, FE-943); IDs in the Run Record; learnings.get in the developer MCP returns hits from now on instead of unavailable. Readiness check: read the interface of the context building block in 08-reviewer.md."""
+design = ["09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context", "09-reviewer-companion-features-and-learnings.md#410-retrieval-in-the-reviewer"]
+result = "Extension of the context building block in services/reviewer, devmcp learnings.get"
+done = [
+  "Test 'reviewer/context-learnings.test.ts › learning embedded as untrusted block' green",
+  "Test 'run record lists learning ids' green",
+  "Test 'devmcp learnings.get returns hits after 7a' green",
+]
+sources = ["02 section 4", "02 section 7", "05 section 4"]
+depends_on = ["7a-E02-T03", "1-E02", "6-E04-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T04-S01"
+  title = "Test: embedding and Run Record"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T04-S02"
+  title = "Call in the context building block and framing"
+  done = "Embedding test green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T04-S03"
+  title = "Run Record and developer MCP"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "7a-E02-T05"
+title = "Protection against injection via learnings"
+description = """Hardening per FE-943 and 09 section 6: sanitizer (zero width, bidi, HTML comments), removal of links and images, length limit of 500 characters at create, framing in the prompt; proof that a learning cannot trigger an effect (effects only from command and controller)."""
+design = ["09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context", "09-reviewer-companion-features-and-learnings.md#6-security"]
+result = "Sanitizer for learnings, prompt framing, policy tests"
+done = [
+  "Tests 'reviewer/context-learnings.test.ts' green: links and images stripped, zero width and bidi removed, text over 500 chars rejected at create",
+  "Policy test 'learning text cannot cause effect outside command' green",
+]
+sources = ["05 section 4", "05 section 9", "02 section 7"]
+depends_on = ["7a-E02-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T05-S01"
+  title = "Test: sanitizer, length, policy"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T05-S02"
+  title = "Sanitizer and length limit"
+  done = "Sanitizer tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E02-T05-S03"
+  title = "Policy proof"
+  done = "all tests of the task green"
+  status = "open"
+
+# ---------------------------------------------------------------- 7a-E03 qualification and acceptance
+
+[[task]]
+id = "7a-E03-T01"
+title = "Learnings suite"
+description = """Suite with the learnings tests from 02 section 7 (secret redaction, expiry, scope auto, PR binding, one test each) plus approval delay and voting as one suite run against a real Postgres instance and recorded SCM responses; evidence in the stage report."""
+design = ["09-reviewer-companion-features-and-learnings.md#82-sub-stage-7a-per-module", "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"]
+result = "eval/suites/learnings/, suite log"
+done = [
+  "Suite 'learnings' green with one case each for secret redaction, expiry, scope auto, PR binding (02 section 7 DoD)",
+  "Command and output in the stage report",
+]
+sources = ["02 section 7", "08 stage 7"]
+depends_on = ["0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T01-S01"
+  title = "Suite cases from 02 section 7"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T01-S02"
+  title = "Cases approval delay and voting, log"
+  done = "Suite green, log stored"
+  status = "open"
+
+[[task]]
+id = "7a-E03-T02"
+title = "Citation validity 100 %"
+description = """Measurement: every emitted learning (reviewer context, developer MCP, export with validity column) has a citation that exists at the target SHA and satisfies the quoteHash; case set from the learnings suite plus restructuring cases (lines moved, file deleted, file renamed)."""
+design = ["09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle", "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"]
+result = "Suite case 'learnings/citation-validity', measurement log"
+done = [
+  "Citation validity 100 % across all outputs of the suite (0 outputs with an invalid citation)",
+]
+sources = ["02 section 7", "10 section 9", "08 stage 7"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T02-S01"
+  title = "Restructuring cases"
+  done = "Cases in the set"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T02-S02"
+  title = "Measurement across all output paths"
+  done = "100 % with log"
+  status = "open"
+
+[[task]]
+id = "7a-E03-T03"
+title = "S1 with injection via learnings"
+description = """S1 cases s1/learning-injection-remember and s1/learning-injection-import: learning text demands an approve, a comment with a secret, a link to a test host or the mention of a user; gate 0 effects outside the command, 0 exfiltration, 0 approves."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "eval/suites/s1/learnings/"
+done = [
+  "S1 cases 's1/learning-injection-remember' and 's1/learning-injection-import' green",
+]
+sources = ["05 section 4", "07 section 5", "08 stage 7"]
+depends_on = ["0-E22"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T03-S01"
+  title = "Case injection via remember"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T03-S02"
+  title = "Case injection via import"
+  done = "Case green"
+  status = "open"
+
+[[task]]
+id = "7a-E03-T04"
+title = "Reviewer gates with learnings"
+description = """Sub-stage 7a is qualified via the reviewer's gates (08 stage 7): regression run gate A (R1, R5) with learnings enabled against the state without learnings, gate B (R2, R4) measured and reported; quality-relevant keys from knowledge.learnings enter the qualification profile (ADR-66). Costs per O22 without a cap, credential from 1-E09."""
+design = ["09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"]
+result = "Eval report 7a, qualification row of the reviewer with learnings"
+done = [
+  "Gate A of the reviewer with learnings green (not worse, 10 section 1.4)",
+  "Gate B status reported per 10 section 1.2 item 6",
+  "Counter measured before and after the run",
+]
+sources = ["08 stage 7", "10 section 1.2", "10 section 3", "ADR-55", "ADR-66"]
+depends_on = ["1-E09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T04-S01"
+  title = "Run gate A with and without learnings"
+  done = "Values in the report"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T04-S02"
+  title = "Gate B and qualification row"
+  done = "Status in the report, row published"
+  status = "open"
+
+[[task]]
+id = "7a-E03-T05"
+title = "Stage report, release and follow-up list 7a"
+description = """Stage report with evidence per done criterion from 08 stage 7 part 7a (table 09 section 8.4), release with S8 and upgrade test (08 principle 5). Follow-up list: 01 section 9 (LearningV1, queryLearnings, binding for LEARNINGS), 04 (knowledge.learnings, M39). 10 sections 3 and 10 as well as 02 line 15 (M141) were completed in the consistency run 2026-11-01."""
+design = ["09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08", "09-reviewer-companion-features-and-learnings.md#10-open-points"]
+result = "Stage report 7a, release, architecture changes from the follow-up list"
+done = [
+  "Stage report with command and output per criterion",
+  "S8 and upgrade test green",
+  "Follow-up list with status per location; backlog-minors.md M39 updated",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 7", "08 section 1", "ADR-55"]
+depends_on = ["7a-E03-T01", "7a-E03-T02", "7a-E03-T03", "7a-E03-T04", "6-E07"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "M39 (M141 completed in the consistency run 2026-11-01)"
+
+  [[task.part]]
+  id = "7a-E03-T05-S01"
+  title = "Stage report with evidence"
+  done = "Report stored"
+  status = "open"
+
+  [[task.part]]
+  id = "7a-E03-T05-S02"
+  title = "Release and follow-up list"
+  done = "Release log, changes in the PR"
+  status = "open"

@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "driver-identity-gcp"
+title = "CloudIdentity gcp"
+kind = "driver"
+path = "drivers/identity-gcp/"
+package = "@guildwork/driver-identity-gcp"
+stage = "8"
+purpose = "Driver of the CloudIdentity contract for Google Cloud: identity token of the metadata service, exchange gcp_sts via Workload Identity Federation for the access token of the item service account and anthropic_wif, ambient or via the own issuer (FE-1340). Creates no service accounts."
+design = [
+  "13-stage-8-providers-and-bases.md#243-cloudidentity-azure-managed-identity-aws-and-gcp",
+  "13-stage-8-providers-and-bases.md#84-bases-8-e04",
+]
+built_by = ["8-E04-T03"]
+
+[[provides]]
+name = "cloudidentity"
+kind = "contract"
+title = "CloudIdentity gcp: ambientToken(aud), exchange gcp_sts and anthropic_wif with a fresh jti per exchange for self_issuer; ttlS clamped to maxTtlS; contract attestation"
+defined_in = "13-stage-8-providers-and-bases.md#243-cloudidentity-azure-managed-identity-aws-and-gcp"
+from_task = "8-E04-T03"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "cloud_identity[] with driver gcp: GcpIdentityConfig (project, source, workloadIdentityProvider, itemServiceAccount, maxTtlS)"
+defined_in = "13-stage-8-providers-and-bases.md#243-cloudidentity-azure-managed-identity-aws-and-gcp"
+from_task = "8-E04-T03"
+
+[[uses]]
+interface = "contracts/vertrag-cloud-identity"
+from_task = "8-E04-T03"
+purpose = "Contract of the driver"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E04-T03"
+purpose = "DriverManifest with capabilities by probe"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "8-E04-T03"
+purpose = "Loading via loadDrivers with CapabilitySet"
+
+[[uses]]
+interface = "treiber-lader/konfig-treiber-auswahl"
+from_task = "8-E04-T03"
+purpose = "Selection via cloud_identity[].driver"
+
+[[uses]]
+interface = "treiber-lader/health-source"
+from_task = "8-E04-T03"
+purpose = "health() every 60 s, source of driver_unhealthy"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "8-E04-T03"
+purpose = "Driver suite as loading condition"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "8-E04-T03"
+purpose = "Recorded responses of the provider"
+
+[[uses]]
+interface = "config-installation/installation-schema"
+from_task = "8-E04-T03"
+purpose = "Schema entry for the driver configuration"
+
+[[uses]]
+interface = "credential-broker/keyring"
+from_task = "8-E04-T03"
+purpose = "source self_issuer: JWT of the own issuer for the exchange at the provider (FE-1340)"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "8-E04-T03"
+purpose = "License gate for the SDK of the provider"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.issued-jwts"
+from_task = "8-E04-T03"
+purpose = "Test: jti is never reused on exchange"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "8-E04-T03"
+purpose = "Exchange result only as SecretValue"

@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+name: Bug report
+description: Something does not work as documented.
+title: "bug: "
+labels: ["status: triage", "type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security vulnerabilities must not be reported here; see SECURITY.md.
+        Remove names of companies, people, hosts, accounts, tokens and internal paths from logs before you paste them.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The Guildwork release version, or the commit SHA you built from.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Control plane
+        - Worker
+        - CLI or installer
+        - Admin UI
+        - Service
+        - Plugin
+        - Driver
+        - Documentation
+        - Repository tooling
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behavior, including error messages.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, configuration excerpts and inputs.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed data of my installation (names, hosts, accounts, secrets) from this report.
+          required: true

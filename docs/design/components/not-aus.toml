@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "not-aus"
+title = "Kill switch per service, repo, org and global with effect in router and claim"
+kind = "role"
+path = "apps/control-plane/src/killswitch/"
+package = "@guildwork/control-plane"
+stage = "1"
+purpose = "Kill switch with the scopes global, org, repo, service and service_repo: table, endpoints, check interface for router and Work API claim, stop to running runs and a page with a banner; lifting does not resume anything (FE-625). Not the pause of single runs (run state machine, 02)."
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1", "06-installation-operations-ui.md#46-states", "06-installation-operations-ui.md#261-pages-of-the-admin-ui"]
+built_by = ["1-E08-T04", "1-E08-T05"]
+
+[[provides]]
+name = "kill-switches"
+kind = "table"
+title = "Table kill_switches (migration 0102) with a unique partial index per active scope"
+defined_in = "06-installation-operations-ui.md#31-tables-of-this-area"
+from_task = "1-E08-T04"
+
+[[provides]]
+name = "kill-switch-api"
+kind = "http"
+title = "GET and POST /admin/api/v1/kill-switches (approver), DELETE /admin/api/v1/kill-switches/{id} (admin)"
+defined_in = "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"
+from_task = "1-E08-T04"
+
+[[provides]]
+name = "kill-switch-gate"
+kind = "ts-api"
+title = "KillSwitchGate (match, activate, lift) and KillSwitch, KillScope: the router ends with Skipped(kill_switch), the claim grants no lease"
+defined_in = "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"
+from_task = "1-E08-T04"
+
+[[provides]]
+name = "seite-not-aus"
+kind = "ui"
+title = "Page /admin/kill-switches and a banner on all pages while a kill switch is active"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "1-E08-T05"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "1-E08-T04"
+purpose = "Register the endpoints /kill-switches"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "1-E08-T04"
+purpose = "Migration 0102 kill_switches"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "1-E08-T04"
+purpose = "stop to active runs in the scope"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "1-E08-T04"
+purpose = "revoke the leases in the scope"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "1-E08-T04"
+purpose = "find active runs in the scope"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "1-E08-T04"
+purpose = "Audit admin.killswitch.*"
+
+[[uses]]
+interface = "alarm-automat/alert-sink"
+from_task = "1-E08-T04"
+purpose = "Required notification on triggering"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "1-E08-T05"
+purpose = "Page /admin/kill-switches and banner"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "1-E08-T05"
+purpose = "Calls of the kill switch endpoints"

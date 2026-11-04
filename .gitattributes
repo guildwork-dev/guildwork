@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Normalize text files to LF in the repository and in the working tree.
+* text=auto eol=lf
+
+# License texts must stay byte for byte identical to the published originals
+# (checked against quality/licenses/license.sha256); git never converts them.
+LICENSE -text
+LICENSES/** -text
+
+# Lockfiles are generated; collapse them in diffs.
+pnpm-lock.yaml -diff linguist-generated=true
+uv.lock -diff linguist-generated=true
+
+# Binary formats.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.gz binary
+*.tgz binary

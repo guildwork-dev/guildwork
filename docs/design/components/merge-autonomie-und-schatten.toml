@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "merge-autonomie-und-schatten"
+title = "Evidence for autonomy full, shadow mode of the merge gate and shadow page"
+kind = "role"
+path = "apps/control-plane/src/orchestrator/merge-gate/shadow.ts"
+package = "@guildwork/control-plane"
+stage = "5"
+purpose = "Evidence for autonomy full and merge.mode (resolver rules, maintenance of autonomy_qualification, expiry on a changed combination_key) and shadow mode of the merge gate with shadow_outcomes, report according to the rule of three and admin UI page; never decides about a merge itself."
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode", "11-qa-prfix-automerge.md#212-admin-api-endpoints", "11-qa-prfix-automerge.md#31-tables", "11-qa-prfix-automerge.md#7-configuration"]
+built_by = ["5-E03-T01", "5-E03-T02"]
+
+
+[[provides]]
+name = "autonomie-status"
+kind = "ts-api"
+title = "AutonomyQualification.status and refresh"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E03-T01"
+
+[[provides]]
+name = "admin-api-autonomie"
+kind = "http"
+title = "GET /admin/api/v1/merge-gate/autonomy"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E03-T01"
+
+[[provides]]
+name = "schatten"
+kind = "ts-api"
+title = "ShadowEvaluator evaluate, recordOutcome, report with ShadowReport"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E03-T02"
+
+[[provides]]
+name = "tabelle-shadow-outcomes"
+kind = "table"
+title = "shadow_outcomes"
+defined_in = "11-qa-prfix-automerge.md#31-tables"
+from_task = "5-E03-T02"
+
+[[provides]]
+name = "admin-api-schatten"
+kind = "http"
+title = "GET /admin/api/v1/merge-gate/shadow"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E03-T02"
+
+[[provides]]
+name = "ui-merge-gate-shadow"
+kind = "ui"
+title = "Admin UI page merge-gate-shadow"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E03-T02"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "5-E03-T01"
+purpose = "Resolver rule merge-mode.ts in the form of all rules"
+
+[[uses]]
+interface = "config-resolver-regeln/merge-modus"
+from_task = "5-E03-T01"
+purpose = "Rule merge.mode under max_mode and autonomy full"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "5-E03-T01"
+purpose = "repoInfo for external_code when loading"
+
+[[uses]]
+interface = "merge-gate/tabelle-autonomy-qualification"
+from_task = "5-E03-T01"
+purpose = "Maintain rows per installation and combination_key"
+
+[[uses]]
+interface = "merge-gate/combination-key"
+from_task = "5-E03-T01"
+purpose = "Expiry on a changed combination_key"
+
+[[uses]]
+interface = "eval-dienst/tabellen-eval"
+from_task = "5-E03-T01"
+purpose = "S7 runs from eval_runs"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "5-E03-T01"
+purpose = "Route GET /admin/api/v1/merge-gate/autonomy"
+
+[[uses]]
+interface = "merge-gate/auswertung"
+from_task = "5-E03-T02"
+purpose = "the same function evaluateMergeGate with mode shadow"
+
+[[uses]]
+interface = "merge-gate/entscheidungen-repo"
+from_task = "5-E03-T02"
+purpose = "Store shadow decisions"
+
+[[uses]]
+interface = "merge-gate/fakten-lader"
+from_task = "5-E03-T02"
+purpose = "Facts of the side calculation"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "5-E03-T02"
+purpose = "Events on the PR for the human outcome"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "5-E03-T02"
+purpose = "Migration shadow_outcomes"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "5-E03-T02"
+purpose = "upper bound according to the rule of three"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "5-E03-T02"
+purpose = "Page merge-gate-shadow"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "5-E03-T02"
+purpose = "Client of the shadow page"
+
+[[uses]]
+interface = "contracts-artefakte/merge-gate-decision"
+from_task = "5-E03-T02"
+purpose = "MergeGateDecision with mode shadow"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "5-E03-T01"
+purpose = "Register the jobs merge-autonomy-refresh and merge-shadow-revert-scan"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-bericht"
+from_task = "5-E03-T01"
+purpose = "Status S7 (a), (b), (d) from the suite report of stage 5"

@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "beispiele-dritte"
+title = "Example plugin and example service"
+kind = "delivery"
+path = "examples/"
+stage = "9"
+purpose = "Templates for third parties that build only against the published schemas and plugin.proto and run as third_party via the subprocess host; proof that the contracts suffice without internal packages. Not: production plugins, import of @guildwork packages (FE-1433)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#255-example-plugin-and-example-service",
+  "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05",
+]
+built_by = ["9-E05-T05"]
+
+[[provides]]
+name = "beispiel-plugin"
+kind = "contract"
+title = "examples/third-party-plugin: notifier example/webhook-notify (generic webhook, subprocess_grpc, third_party) with contract suite"
+defined_in = "14-stage-9-breadth-and-hardening.md#255-example-plugin-and-example-service"
+from_task = "9-E05-T05"
+
+[[provides]]
+name = "beispiel-service"
+kind = "contract"
+title = "examples/third-party-service: service example/hello with command @agent example/hello, write request propose_comment, its own eval set, mode shadow"
+defined_in = "14-stage-9-breadth-and-hardening.md#255-example-plugin-and-example-service"
+from_task = "9-E05-T05"
+
+[[provides]]
+name = "vorlage-dritte"
+kind = "file"
+title = "Docs and build path of the examples as a template for third parties, test examples build only against published contracts"
+defined_in = "14-stage-9-breadth-and-hardening.md#255-example-plugin-and-example-service"
+from_task = "9-E05-T05"
+
+[[uses]]
+interface = "contracts/veroeffentlichte-schemas"
+from_task = "9-E05-T05"
+purpose = "Types only from the published schemas"
+
+[[uses]]
+interface = "plugin-host/grpc-protokoll"
+from_task = "9-E05-T05"
+purpose = "plugin.proto and handshake"
+
+[[uses]]
+interface = "plugin-host/subprozess-host"
+from_task = "9-E05-T05"
+purpose = "Run as third_party via the subprocess host"
+
+[[uses]]
+interface = "plugin-host/container-spec"
+from_task = "9-E05-T05"
+purpose = "Container specification of the examples"
+
+[[uses]]
+interface = "plugin-host/artefakt-format"
+from_task = "9-E05-T05"
+purpose = "OCI artifact with manifest, attestation, fixtures"
+
+[[uses]]
+interface = "plugin-host/cli-plugin-add"
+from_task = "9-E05-T05"
+purpose = "Adding the examples in the test"
+
+[[uses]]
+interface = "plugin-notifier-slack/notifier-vertrag"
+from_task = "9-E05-T05"
+purpose = "Binding notifier contract and abstract suite"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E05-T05"
+purpose = "Contract suites of both examples"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E05-T05"
+purpose = "Signed attestation"
+
+[[uses]]
+interface = "plattform-mcp/propose"
+from_task = "9-E05-T05"
+purpose = "Write request propose_comment of the example service"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "9-E05-T05"
+purpose = "Own small eval set of the example service"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "9-E05-T05"
+purpose = "Mode shadow, live only with marker"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "9-E05-T05"
+purpose = "Effective mode with unproven"
+
+[[uses]]
+interface = "admin-ui/standard-not-proven-marker"
+from_task = "9-E05-T05"
+purpose = "Marker standard not proven"

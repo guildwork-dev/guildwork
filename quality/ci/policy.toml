@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Workflow policy (FE-024, FE-025), read by tools/ci/check_workflows.py in
+# `make workflows`. The rules are listed in the docstring of that tool.
+#
+# allowed_runners        the only runs-on labels: GitHub-hosted standard runners
+# max_timeout_minutes    upper bound of timeout-minutes of every job
+# max_jobs_per_run       jobs per pull request run, matrix combinations counted;
+#                        start value, to be checked against measured queue times
+# public_only_workflows  workflows whose jobs run only in the public repository
+# push_workflows         the only workflows with a push trigger (branch main only)
+# known_workflows        every workflow file (checked with --strict, R-E03-T05)
+# make_variables         the only variables a run step may set as NAME=value on
+#                        the make command line (checked with --strict):
+#                        the make variables of section 7 of the detailed
+#                        design, plus SCANCODE_RUNNER and SCANCODE_DOCKER of
+#                        make scancode (section 2.4)
+# job_permissions        rights a job may have beyond contents: read
+
+allowed_runners = ["ubuntu-24.04", "ubuntu-24.04-arm"]
+max_timeout_minutes = 30
+max_jobs_per_run = 6
+public_only_workflows = ["codeql.yml", "scorecard.yml"]
+push_workflows = ["ci.yml", "denylist-main.yml", "codeql.yml"]
+known_workflows = ["ci.yml", "denylist-main.yml", "codeql.yml", "scorecard.yml", "advisories.yml"]
+make_variables = [
+  "DENYLIST_FLAGS", "DENYLIST_FILE", "ALLOW_AUTHORS_FILE", "REVIEW_SKIP",
+  "GITLEAKS_LOG_OPTS", "COMMIT_RANGE", "OSV_BASE", "SCANCODE_RUNNER", "SCANCODE_DOCKER",
+]
+
+[job_permissions."codeql.yml".analyze]
+security-events = "write"
+actions = "read"
+
+[job_permissions."scorecard.yml".analysis]
+security-events = "write"
+id-token = "write"

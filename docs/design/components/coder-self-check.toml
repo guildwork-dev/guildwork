@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "coder-self-check"
+title = "Self-check bundle of the coder with E2E smoke"
+kind = "service"
+path = "services/coder/src/selfcheck/"
+package = "@guildwork/service-coder"
+stage = "2"
+purpose = "Deterministic checks in the worker in the role check after every agent round: tests against the base list, lint, build, format, repro for a bug fix, plan alignment as a hint, analyzers and platform gate; from stage 3 E2E smoke as a further check. Not: the hard gates (coder-harte-gates) and not the self-review with the reviewer (service-coder)."
+design = ["10-planner-architect-coder.md#213-coder-servicescoder"]
+built_by = ["2-E04-T03", "3-E03-T06"]
+
+[[provides]]
+name = "self-check-api"
+kind = "ts-api"
+title = "runSelfCheck, SelfCheckStep, SelfCheckInput (extension point per check, such as e2e_smoke)"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T03"
+
+[[provides]]
+name = "check-ai-self-check"
+kind = "contract"
+title = "Check ai-self-check at the head SHA via propose_check"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T03"
+
+[[provides]]
+name = "selfcheck-blobs"
+kind = "file"
+title = "Test logs, SARIF and report under t/<tenant>/runs/<runId>/selfcheck/<round>/"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E04-T03"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E04-T03"
+purpose = "AgentJobContext, PreparedSandbox and AnalyzerRunnerService"
+
+[[uses]]
+interface = "worker-sandbox-phasen/phasenwechsel"
+from_task = "2-E04-T03"
+purpose = "Switch to phase check"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "2-E04-T03"
+purpose = "Analyzers from self_check.analyzers"
+
+[[uses]]
+interface = "quality-gate/decide-api"
+from_task = "2-E04-T03"
+purpose = "Decision quality-gate in the report"
+
+[[uses]]
+interface = "sarif/properties-beutel"
+from_task = "2-E04-T03"
+purpose = "Coverage of new lines as MetricsBag"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E04-T03"
+purpose = "commands test, lint, build, format_check, coverage, junit"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/tabelle-env-snapshots"
+from_task = "2-E04-T03"
+purpose = "baseline_failing_tests for tests (FE-1015)"
+
+[[uses]]
+interface = "service-coder/coder-typen"
+from_task = "2-E04-T03"
+purpose = "SelfCheckReport, SelfCheckItem and CoderAgentOutput"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "2-E04-T03"
+purpose = "phases[].tasks[].files for plan_alignment"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E04-T03"
+purpose = "exec of the check commands in the sandbox"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "2-E04-T03"
+purpose = "Check ai-self-check at the head SHA via propose_check"
+
+[[uses]]
+interface = "qa-e2e/e2e-smoke"
+from_task = "3-E03-T06"
+purpose = "Check e2e_smoke from stage 3"
+
+[[uses]]
+interface = "analyzer-runner/baseline-hinweis"
+from_task = "2-E04-T03"
+purpose = "Existing baselines in envelope.inputs for the analyzers of the self-check"

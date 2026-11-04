@@ -1,0 +1,294 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-qa"
+title = "QA service: controller, apps, existing tests, discovery, check ai-qa, coverage, provenance"
+kind = "service"
+path = "services/qa/"
+package = "@guildwork/service-qa"
+stage = "3"
+purpose = "Base scaffold of the service qa: manifest, deterministic controller with phases, mapping of the diff to apps including test command from the base SHA, existing tests, discovery check, coverage of changed lines, check ai-qa with comment, provenance of the inputs and configuration services.qa; generates no tests itself and classifies no failures."
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#29-service-manifests", "11-qa-prfix-automerge.md#44-states-of-a-qa-run", "11-qa-prfix-automerge.md#32-artifacts-events-markers", "11-qa-prfix-automerge.md#6-security", "11-qa-prfix-automerge.md#7-configuration", "11-qa-prfix-automerge.md#5-failure-and-abort-paths"]
+built_by = ["3-E01-T01", "3-E01-T02", "3-E01-T03", "3-E01-T05", "3-E01-T06", "3-E01-T07", "3-E01-T08", "3-E01-T09"]
+
+[[provides]]
+name = "manifest"
+kind = "contract"
+title = "ServiceManifest qa with write requests, jobs, platform MCP tools and qualification"
+defined_in = "11-qa-prfix-automerge.md#29-service-manifests"
+from_task = "3-E01-T01"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "QAController plan, onStepResult, buildReport with QAPlan and ResolvedApp; phases per table 4.4"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E01-T02"
+
+[[provides]]
+name = "apps-zuordnung"
+kind = "ts-api"
+title = "Mapping diff to qa.apps[] and test command per FE-1105 (apps.ts)"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E01-T03"
+
+[[provides]]
+name = "check-qa-existing"
+kind = "contract"
+title = "Check program qa.existing: existing tests, JUnit report, coverage before"
+defined_in = "11-qa-prfix-automerge.md#28-check-steps-in-the-worker"
+from_task = "3-E01-T03"
+
+[[provides]]
+name = "junit-leser"
+kind = "ts-api"
+title = "Read JUnit XML (src/tools/junit.ts)"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E01-T05"
+
+[[provides]]
+name = "filter-discovery"
+kind = "ts-api"
+title = "CandidateFilter discovery via the JUnit report of the default test command (FE-1102)"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E01-T05"
+
+[[provides]]
+name = "check-ai-qa"
+kind = "ui"
+title = "Check ai-qa with mapping pass, fail, blocked and comment with evidence"
+defined_in = "11-qa-prfix-automerge.md#32-artifacts-events-markers"
+from_task = "3-E01-T06"
+
+[[provides]]
+name = "coverage-tools"
+kind = "ts-api"
+title = "CoverageTool adapters lcov, cobertura, go-cover, jacoco with normal form ChangedLineCoverage"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E01-T07"
+
+[[provides]]
+name = "herkunft"
+kind = "ts-api"
+title = "Reporting of seen Untrusted inputs from persons in QAReport.untrustedInputs"
+defined_in = "11-qa-prfix-automerge.md#6-security"
+from_task = "3-E01-T08"
+
+[[provides]]
+name = "konfig-services-qa"
+kind = "config"
+title = "Key services.qa in the schema with x-qualification and resolver rule for models.* (ADR-58)"
+defined_in = "11-qa-prfix-automerge.md#7-configuration"
+from_task = "3-E01-T09"
+
+[[provides]]
+name = "metrik-qa-blocked"
+kind = "metric"
+title = "qa_blocked_total{reason}"
+defined_in = "11-qa-prfix-automerge.md#5-failure-and-abort-paths"
+from_task = "3-E01-T03"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "3-E01-T01"
+purpose = "Register manifest and job kinds of the service qa with defineService"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "3-E01-T01"
+purpose = "Check manifest in the plugin and service loader (test `qa manifest lädt`)"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "3-E01-T01"
+purpose = "Capabilities CHECK_RUN, DRAFT_CHANGE, CHECK_ACTIONS, STRICT_SCHEMA in requires"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "3-E01-T02"
+purpose = "QAController as ServiceController in the process of the control plane"
+
+[[uses]]
+interface = "sdk-service/testhilfen"
+from_task = "3-E01-T02"
+purpose = "Controller tests with in-memory host"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "3-E01-T02"
+purpose = "Registration of the controller and planned steps"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "3-E01-T02"
+purpose = "Routes and commands qa and tests with minimum right"
+
+[[uses]]
+interface = "control-plane-router/skip-gruende"
+from_task = "3-E01-T02"
+purpose = "visible answer Skipped(service_disabled) with mode off"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "3-E01-T02"
+purpose = "ResolvedEvent and CommandName for trigger change.proposed and commands"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "3-E01-T02"
+purpose = "Evaluate arguments unit, repro, e2e and alias tests"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "3-E01-T02"
+purpose = "Object lock: a second @agent qa on the same PR becomes a follow-up job"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "3-E01-T02"
+purpose = "effective mode off, shadow, live of the service qa"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/stage-registry"
+from_task = "3-E01-T02"
+purpose = "Register QA as a stage parallel to the reviewer in the state verifying"
+
+[[uses]]
+interface = "service-coder/event-change-proposed"
+from_task = "3-E01-T02"
+purpose = "Trigger change.proposed in the pipeline"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "3-E01-T03"
+purpose = "compare and getFile at the base SHA for diff and test_command"
+
+[[uses]]
+interface = "config-resolver/repo-datei"
+from_task = "3-E01-T03"
+purpose = "qa.apps[] from .agents/config.yaml at the base SHA (FE-1105)"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "3-E01-T03"
+purpose = "Blueprint entry test as second source of the test command"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "3-E01-T03"
+purpose = "Enqueue work items of the check steps"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "3-E01-T03"
+purpose = "Envelope kind check with check.step and check.args"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "3-E01-T03"
+purpose = "Read CheckResultV1 in StepResultV1.structured"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "3-E01-T03"
+purpose = "Register check program qa.existing in the worker"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "3-E01-T03"
+purpose = "SandboxHandle for test runs in the check sandbox"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/env-snapshot-dienst"
+from_task = "3-E01-T03"
+purpose = "Environment from the same snapshot for each check sandbox"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "3-E01-T03"
+purpose = "Metrics qa_blocked_total and qa_filter_rejected_total in the catalog"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "3-E01-T06"
+purpose = "Submit write requests propose_check and propose_comment"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "3-E01-T06"
+purpose = "Set check ai-qa at the head SHA"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "3-E01-T06"
+purpose = "Comment with test table and evidence"
+
+[[uses]]
+interface = "orchestrator-effekte/status-kommentar"
+from_task = "3-E01-T06"
+purpose = "Status comment line of the QA run"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "3-E01-T06"
+purpose = "Note 'standard not proven' for an operator deviation (ADR-47)"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "3-E01-T07"
+purpose = "Secret scan of the coverage reports before storage"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "3-E01-T07"
+purpose = "Reports via upload-url into the BlobStore"
+
+[[uses]]
+interface = "agent-step/untrusted-reporter"
+from_task = "3-E01-T08"
+purpose = "report seen Untrusted inputs before the harness start"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "3-E01-T08"
+purpose = "Take over QAReport.untrustedInputs via ProvenanceService.record into run_untrusted_inputs"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "3-E01-T09"
+purpose = "Module packages/config/schema/services/qa.ts with x-merge and x-qualification"
+
+[[uses]]
+interface = "config-resolver-regeln/model-reachability"
+from_task = "3-E01-T09"
+purpose = "models.equivalence, classifier, catch_judge must be reachable (ADR-58)"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "3-E01-T09"
+purpose = "prompt_v per stage and values with x-qualification into the profile"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "3-E01-T02"
+purpose = "Integration tests against real Postgres"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "3-E01-T03"
+purpose = "recorded provider responses in tests"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "3-E01-T02"
+purpose = "S4 case 'QA alone on'"
+
+[[uses]]
+interface = "contracts-artefakte/qa-report"
+from_task = "3-E01-T02"
+purpose = "QARequest as input and QAReport from buildReport"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "3-E01-T03"
+purpose = "Audit for blocked and rejections (section 5)"

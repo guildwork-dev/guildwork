@@ -1,0 +1,348 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-incident-handoff"
+title = "Generic signed webhook incident-handoff"
+kind = "plugin"
+path = "plugins/incident-handoff/"
+package = "@guildwork/plugin-incident-handoff"
+stage = "10"
+purpose = "TriggerSource for handoffs from monitoring and incident tools via Standard Webhooks signature; in addition the handoff in the control plane (incident/intake), which creates at most one ticket or, via a route with a responsible person, a fix job. No dedicated SRE agent (ADR-49); the sender never gets write permission."
+design = [
+  "15-stage-10-edge-layers.md#25-intake-incident-handoff-and-sentry-10-e03",
+  "15-stage-10-edge-layers.md#251-plugin-incident-handoff",
+  "15-stage-10-edge-layers.md#253-route-with-a-responsible-person-and-handover",
+  "15-stage-10-edge-layers.md#47-incident-handoff",
+  "15-stage-10-edge-layers.md#6-security",
+  "15-stage-10-edge-layers.md#83-incident-handoff-10-e03",
+]
+built_by = ["10-E03-T01", "10-E03-T03"]
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource incident-handoff: describe, verify (Standard Webhooks, time window), parse, ack unsupported, isSelf false"
+defined_in = "15-stage-10-edge-layers.md#251-plugin-incident-handoff"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "koerper-v1"
+kind = "file"
+title = "Published schema IncidentHandoffBodyV1 { v, title, cause, plan?, links[], repo, severity, incident_key? } in packages/contracts/src/artifacts/incident.ts, JSON Schema per release"
+defined_in = "15-stage-10-edge-layers.md#251-plugin-incident-handoff"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "IncidentHandoffConfig under plugins.triggers[incident-handoff] (secret_ref, scm, repos, tolerance_s, ticket)"
+defined_in = "15-stage-10-edge-layers.md#251-plugin-incident-handoff"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "ereignis-alert-handoff"
+kind = "event"
+title = "Event subject incident, action handoff (routing name alert.handoff), actor app, text untrusted"
+defined_in = "15-stage-10-edge-layers.md#251-plugin-incident-handoff"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "event-feld-incident"
+kind = "event"
+title = "Additive event field incident { severity, key, title } (K14, FE-1540)"
+defined_in = "15-stage-10-edge-layers.md#253-route-with-a-responsible-person-and-handover"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "route-akteur-integration"
+kind = "config"
+title = "Route actor integration with responsible and autonomy_cap in routing[], strong signature required (K1, FE-1522, FE-1523)"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "ausdruckskontext-incident"
+kind = "config"
+title = "Expression context incident.* (severity, repo, source) for filter of the route alert.handoff (K2)"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "intake"
+kind = "ts-api"
+title = "IncidentIntake.handle and onTicketApplied in apps/control-plane/src/incident/intake.ts (job orchestrator-intake)"
+defined_in = "15-stage-10-edge-layers.md#253-route-with-a-responsible-person-and-handover"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "plattform-effekt-issue"
+kind = "contract"
+title = "Platform effect issue with occasion incident_handoff and policy rule orchestrator.incident_ticket (K3, FE-1521)"
+defined_in = "15-stage-10-edge-layers.md#33-effects-of-this-stage"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "marker-incident"
+kind = "contract"
+title = "Hidden ticket marker guildwork:incident:<instance>:<key> for updating (FE-1520)"
+defined_in = "15-stage-10-edge-layers.md#32-artifacts-events-markers"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "ingress_rejected_total{plugin=incident-handoff}, incident_ticket_only_total, incident_responsible_denied_total, incident_skipped_total and audit actions incident.*"
+defined_in = "15-stage-10-edge-layers.md#51-metrics-of-this-stage"
+from_task = "10-E03-T01"
+
+[[provides]]
+name = "e2e-faelle"
+kind = "file"
+title = "E2E incident handoff with signed fixture, S1 and S2 cases under eval/suites/s5/incident-handoff/"
+defined_in = "15-stage-10-edge-layers.md#83-incident-handoff-10-e03"
+from_task = "10-E03-T03"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E03-T01"
+purpose = "sha256(repo, title) as the fallback key (FE-1520)"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "10-E03-T01"
+purpose = "Clock for the time window tolerance_s"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "10-E03-T01"
+purpose = "Counters incident_* and ingress_rejected_total"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "10-E03-T01"
+purpose = "Ingress metrics in the catalog (section 5.1)"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "10-E03-T01"
+purpose = "TriggerSource v1alpha1: describe, verify, parse, ack, isSelf"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "10-E03-T01"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "10-E03-T01"
+purpose = "PluginManifest with WEBHOOK and WEBHOOK_HMAC, SecretDecl"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "10-E03-T01"
+purpose = "compileSchema for IncidentHandoffBodyV1 and JSON Schema export"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "10-E03-T01"
+purpose = "Actor, RepoRef, WorkItemRef"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "10-E03-T01"
+purpose = "title, cause and plan as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "10-E03-T01"
+purpose = "getPermission fresh for the responsible"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "10-E03-T01"
+purpose = "Field incident (K14) in the TriggerEvent"
+
+[[uses]]
+interface = "event-schema/routing-name"
+from_task = "10-E03-T01"
+purpose = "Routing name alert.handoff for subject incident, action handoff"
+
+[[uses]]
+interface = "event-schema/object-key"
+from_task = "10-E03-T01"
+purpose = "Object key of the ticket for the object lock"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "10-E03-T01"
+purpose = "POST /v1/ingress/{instanceId} with 401 before parsing"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-process"
+from_task = "10-E03-T01"
+purpose = "parse after verify, dedupe via webhook-id"
+
+[[uses]]
+interface = "control-plane-ingress/konfig-ingress"
+from_task = "10-E03-T01"
+purpose = "reject_alarm_per_min for the alert on accumulation"
+
+[[uses]]
+interface = "control-plane-ingress/metriken"
+from_task = "10-E03-T01"
+purpose = "guildwork.ingress.rejected with plugin incident-handoff"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.inbox"
+from_task = "10-E03-T01"
+purpose = "Uniqueness (plugin_instance_id, delivery_id) and quarantine"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "10-E03-T01"
+purpose = "Route actors integration and bot_allowlist in the router (K1)"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "10-E03-T01"
+purpose = "RouteDecision with or without route to incident/intake"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "10-E03-T01"
+purpose = "routing[] with actor, responsible, autonomy_cap"
+
+[[uses]]
+interface = "control-plane-router/skip-gruende"
+from_task = "10-E03-T01"
+purpose = "Skipped(weak_signature), Skipped(permission), Skipped(repo_not_allowed)"
+
+[[uses]]
+interface = "control-plane-router/konfig-router"
+from_task = "10-E03-T01"
+purpose = "router.permission_cache_s for the permissions of the responsible"
+
+[[uses]]
+interface = "config-resolver/expr"
+from_task = "10-E03-T01"
+purpose = "Expression context incident.* (K2)"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "10-E03-T01"
+purpose = "Schema routing[] and plugins.triggers[incident-handoff]"
+
+[[uses]]
+interface = "control-plane-router/orchestrator-intake"
+from_task = "10-E03-T01"
+purpose = "IncidentIntake.handle in the job orchestrator-intake"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "10-E03-T01"
+purpose = "effect.applied of the ticket for onTicketApplied"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "10-E03-T01"
+purpose = "submitPlatform for the platform effect issue (K3)"
+
+[[uses]]
+interface = "effect-gateway/effekt-katalog"
+from_task = "10-E03-T01"
+purpose = "Extend the catalog entry issue by origin platform, occasion incident_handoff"
+
+[[uses]]
+interface = "effect-gateway/idempotency-key"
+from_task = "10-E03-T01"
+purpose = "Substitute key of the platform effect from the marker"
+
+[[uses]]
+interface = "effect-gateway/effect-events"
+from_task = "10-E03-T01"
+purpose = "effect.applied or effect.failed of the ticket"
+
+[[uses]]
+interface = "effekt-executoren/issue"
+from_task = "10-E03-T01"
+purpose = "Create the ticket or update it via the marker"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "10-E03-T01"
+purpose = "Occasion rule orchestrator.incident_ticket"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "10-E03-T01"
+purpose = "Fixed ID of the rule orchestrator.incident_ticket"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "10-E03-T01"
+purpose = "secret_ref of the instance only from the manifest"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "10-E03-T01"
+purpose = "Audit ingress.rejected, Skipped and fallback ticket only"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "10-E03-T01"
+purpose = "foreign_input_seen for every run from an incident"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "10-E03-T01"
+purpose = "Load the plugin as BuiltinPluginPackage"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "10-E03-T01"
+purpose = "Abstract suite TriggerSource"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "10-E03-T01"
+purpose = "Contract suite incident-handoff with error cases"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/pipeline-runner"
+from_task = "10-E03-T03"
+purpose = "Pipeline run ticket-to-pr on the ticket after effect.applied"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/befehl-approve-plan"
+from_task = "10-E03-T03"
+purpose = "G1 by humans, autonomy at most autonomy_cap (FE-1523)"
+
+[[uses]]
+interface = "contracts-artefakte/fix-result"
+from_task = "10-E03-T03"
+purpose = "FixRequest source ci_failure to the linked PR"
+
+[[uses]]
+interface = "service-prfixer/controller"
+from_task = "10-E03-T03"
+purpose = "Fix job to the linked PR with red CI"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "10-E03-T03"
+purpose = "E2E incident handoff with signed fixture"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "10-E03-T03"
+purpose = "Signed webhooks and counting of writing calls"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "10-E03-T03"
+purpose = "S1-incident-body-injection and S2-incident-responsible-without-write"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "10-E03-T03"
+purpose = "EffectProbe: 0 effects outside the job"

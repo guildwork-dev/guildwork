@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "worker-paket"
+title = "Worker package for remote workers"
+kind = "delivery"
+path = "deploy/worker-package/"
+stage = "0"
+purpose = "Package for workers on own hardware: compose.worker.yaml with worker, socket-proxy and egress-proxy, systemd unit and README with upgrade path; never contains a pool key, the operator places it themselves after guildwork worker register."
+design = ["06-installation-operations-ui.md#246-guildwork-worker-register", "06-installation-operations-ui.md#32-file-formats"]
+built_by = ["0-E18-T13"]
+
+[[provides]]
+name = "compose-worker"
+kind = "file"
+title = "compose.worker.yaml with worker, socket-proxy and egress-proxy; Work API only over HTTPS"
+defined_in = "06-installation-operations-ui.md#246-guildwork-worker-register"
+from_task = "0-E18-T13"
+
+[[provides]]
+name = "systemd-einheit"
+kind = "file"
+title = "systemd unit guildwork-worker.service (installed by the operator with root)"
+defined_in = "06-installation-operations-ui.md#246-guildwork-worker-register"
+from_task = "0-E18-T13"
+
+[[provides]]
+name = "worker-env"
+kind = "config"
+title = "worker.env with GW_WORK_API_URL, GW_POOL, GW_POOL_KEY_FILE (path, never the key)"
+defined_in = "06-installation-operations-ui.md#32-file-formats"
+from_task = "0-E18-T13"
+
+[[uses]]
+interface = "container-images/image.agent-worker"
+from_task = "0-E18-T13"
+purpose = "Services worker and socket-proxy in compose.worker.yaml"
+
+[[uses]]
+interface = "container-images/image.egress-proxy"
+from_task = "0-E18-T13"
+purpose = "Service egress-proxy in compose.worker.yaml"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "0-E18-T13"
+purpose = "worker.yaml of the remote worker from worker.env"
+
+[[uses]]
+interface = "worker/cli"
+from_task = "0-E18-T13"
+purpose = "guildwork-worker run as command of the service worker"
+
+[[uses]]
+interface = "socket-proxy/policy-json"
+from_task = "0-E18-T13"
+purpose = "Policy file of the socket proxy in the package"
+
+[[uses]]
+interface = "egress-proxy/egress-yaml"
+from_task = "0-E18-T13"
+purpose = "egress.yaml of the package"
+
+[[uses]]
+interface = "work-api/http-claim"
+from_task = "0-E18-T13"
+purpose = "Claim only over HTTPS to GW_WORK_API_URL"
+
+[[uses]]
+interface = "cli/cmd-worker-register"
+from_task = "0-E18-T13"
+purpose = "Pool key and lines for worker.env from worker register"

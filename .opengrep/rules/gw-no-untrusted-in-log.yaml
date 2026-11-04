@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Foreign content is never logged (FE-014): a value of type Untrusted, or
+# anything derived from it (its field value, an intermediate variable, a
+# template string), that reaches a logger method is reported everywhere, tests
+# included. Taint mode: sources are variables and parameters declared as
+# Untrusted or Untrusted<T> in the same file; untrustedSummary(), origin, sha256,
+# sanitized, untrusted and length end the taint. Loggers are receivers whose
+# name ends in "log" or "logger", also through child(...). Without type
+# information the rule does not see Untrusted values whose type is declared in
+# another file (docs/quality/toolchain.md, "Opengrep rule tests"). Tests:
+# .opengrep/tests/gw-no-untrusted-in-log/ (make opengrep).
+rules:
+  - id: gw-no-untrusted-in-log
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Untrusted content must not reach a log line (FE-014). Log
+      untrustedSummary(value) (origin, hash and length) instead.
+    mode: taint
+    pattern-sources:
+      - pattern: "($U : Untrusted<$T>)"
+      - pattern: "($U : Untrusted)"
+    pattern-sanitizers:
+      - pattern: untrustedSummary(...)
+      - pattern: $X.origin
+      - pattern: $X.sha256
+      - pattern: $X.sanitized
+      - pattern: $X.untrusted
+      - pattern: $X.length
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: $LOG.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(trace|debug|info|warn|error|fatal|child)$
+          - metavariable-regex:
+              metavariable: $LOG
+              regex: (?i)^(.*\.)?[a-z_$]*log(ger)?(\.child\(.*\))?$
+          - pattern: $ARG

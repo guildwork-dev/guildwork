@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-9"
+title = "Owner accounts, pen test, K1 for the coder, stage report and release for stage 9"
+kind = "process"
+path = "-"
+stage = "9"
+purpose = "Work without own product code: documentation cassettes of the hosters (test accounts only as an optional owner run, O28), internal Red Team, external pen test with remediation and release of repo code on external_code, K1 measurement for the coder, stage report and release. Not: building plugins or services."
+design = [
+  "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts",
+  "14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval",
+  "14-stage-9-breadth-and-hardening.md#273-k1-for-the-coder",
+  "14-stage-9-breadth-and-hardening.md#282-suites-stage-report-and-release",
+  "14-stage-9-breadth-and-hardening.md#88-acceptance-9-e08",
+]
+built_by = ["9-E01-T01", "9-E04-T04", "9-E04-T05", "9-E04-T06", "9-E07-T03", "9-E08-T02"]
+
+[[provides]]
+name = "testkonten"
+kind = "file"
+title = "Cassettes from the public documentation for GitLab, Azure DevOps, Bitbucket and Linear (05 FE-564, 14 FE-1456); optionally (owner run, O28) decision sheet and test accounts, credentials in the SecretStore of the test installation"
+defined_in = "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts"
+from_task = "9-E01-T01"
+
+[[provides]]
+name = "red-team-bericht"
+kind = "file"
+title = "docs/berichte/stufe-9-red-team.md, scope description and decision sheet for the external pen test"
+defined_in = "14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval"
+from_task = "9-E04-T04"
+
+[[provides]]
+name = "pen-test-bericht"
+kind = "file"
+title = "Report of the external pen test in the ops repo"
+defined_in = "14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval"
+from_task = "9-E04-T05"
+
+[[provides]]
+name = "pen-test-freigabe"
+kind = "file"
+title = "Remediation and re-check of the pen test findings; EXTERNAL_CODE_EXECUTION_RELEASED set to true in the same PR (FE-1426)"
+defined_in = "14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval"
+from_task = "9-E04-T06"
+
+[[provides]]
+name = "k1-coder-bericht"
+kind = "file"
+title = "eval/reports/stufe-9-k1-coder.md: Recall@10 and costs with versus without KB for the coder, decision on knowledge.use"
+defined_in = "14-stage-9-breadth-and-hardening.md#273-k1-for-the-coder"
+from_task = "9-E07-T03"
+
+[[provides]]
+name = "stufenbericht"
+kind = "file"
+title = "docs/berichte/stufe-9.md with evidence per done criterion and Gate B status per new service profile; signed release with SBOM"
+defined_in = "14-stage-9-breadth-and-hardening.md#282-suites-stage-report-and-release"
+from_task = "9-E08-T02"
+
+[[uses]]
+interface = "plugin-backend-microvm/suites-microvm"
+from_task = "9-E04-T04"
+purpose = "Sandbox escape under microvm in the scope of Red Team and pen test"
+
+[[uses]]
+interface = "plugin-backend-microvm/release-gate-external-code"
+from_task = "9-E04-T06"
+purpose = "Release constant set to true after the re-check"
+
+[[uses]]
+interface = "eval-saetze-stufe-7/satz-k1"
+from_task = "9-E07-T03"
+purpose = "K1 setup from stage 7 for the coder"
+
+[[uses]]
+interface = "eval-saetze-stufe-2/satz-c1p"
+from_task = "9-E07-T03"
+purpose = "K1 paired on C1p"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "9-E07-T03"
+purpose = "Intervals and decision"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "9-E07-T03"
+purpose = "Run and report"
+
+[[uses]]
+interface = "abnahme-werkzeug/abnahme-matrix"
+from_task = "9-E08-T02"
+purpose = "tools/acceptance/stage-9.toml"
+
+[[uses]]
+interface = "abnahme-werkzeug/acceptance-check"
+from_task = "9-E08-T02"
+purpose = "Collective run of the done criteria"
+
+[[uses]]
+interface = "abnahme-werkzeug/contracts-report"
+from_task = "9-E08-T02"
+purpose = "Contract suite per new plugin"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "9-E08-T02"
+purpose = "S1 to S8 of stage 9"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "9-E08-T02"
+purpose = "S8 with upgrade from the previous release"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "9-E08-T02"
+purpose = "BUILT_STAGES extended by stage 9"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "9-E08-T02"
+purpose = "Gate B status per new service profile"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "9-E08-T02"
+purpose = "signed release with SBOM"

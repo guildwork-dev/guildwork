@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "sichtbarkeit-und-verweise"
+title = "Visibility function and reference finder"
+kind = "package"
+path = "packages/core/src/visibility.ts"
+package = "@guildwork/core"
+stage = "6"
+purpose = "Pure functions isVisibleFor (ADR-63), findReferences and quoteHash in packages/core (visibility.ts, references.ts, quote-hash.ts), which the reviewer, KnowledgeStore, indexer and Effect Gateway use for the same visibility and citation rule. Not here: resolving the visibility at the provider (repoInfo), the citation check itself in the Effect Gateway and locate of the Learnings."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#22-shared-types-and-visibility",
+  "09-reviewer-companion-features-and-learnings.md#6-security",
+]
+built_by = ["6-E01-T05", "6-E03-T05"]
+
+[[provides]]
+name = "is-visible-for"
+kind = "ts-api"
+title = "isVisibleFor(source, target, { crossRepo }) with Visibility and VisibilitySubject"
+defined_in = "09-reviewer-companion-features-and-learnings.md#22-shared-types-and-visibility"
+from_task = "6-E01-T05"
+
+[[provides]]
+name = "find-references"
+kind = "ts-api"
+title = "findReferences(md, host, current) with ScmReference (references to objects of the same hoster in the Markdown)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#22-shared-types-and-visibility"
+from_task = "6-E01-T05"
+
+[[provides]]
+name = "quote-hash"
+kind = "ts-api"
+title = "quoteHash(lines): sha256 over lines without leading and trailing whitespace, joined with \\n (FE-940, FE-953); used by remember in stage 6 and by the lifecycle from 7a"
+defined_in = "09-reviewer-companion-features-and-learnings.md#22-shared-types-and-visibility"
+from_task = "6-E03-T05"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "6-E03-T05"
+purpose = "sha256Hex for quoteHash over normalized lines"

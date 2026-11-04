@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-richter"
+title = "Judges: own and benchmark judges, calibration, outage"
+kind = "eval"
+path = "eval/core/src/judges/"
+package = "@guildwork/eval-core"
+stage = "0"
+purpose = "Judge specification as versioned files, choice of an own judge of a different family, calibration against human labels with kappa and age warning. Not for the judge calls themselves (ModelProvider path or work item, in the eval service) and not for individual judge prompts of a set."
+design = [
+  "07-eval-and-qualification.md#27-judges",
+  "07-eval-and-qualification.md#2163-judges",
+  "07-eval-and-qualification.md#2176-label-tool-and-calibration"
+]
+built_by = ["0-E20-T16"]
+
+[[provides]]
+name = "richter-api"
+kind = "ts-api"
+title = "parseJudgeSpec, selectOwnJudge, calibrate, calibrationStale; types JudgeSpec, JudgeVerdict"
+defined_in = "07-eval-and-qualification.md#2163-judges"
+from_task = "0-E20-T16"
+
+[[provides]]
+name = "richter-ablage"
+kind = "file"
+title = "eval/judges/<id>/<version>/: judge.json (JudgeSpec), prompt.md and schema.json for own judges"
+defined_in = "07-eval-and-qualification.md#2163-judges"
+from_task = "0-E20-T16"
+
+[[uses]]
+interface = "eval-statistik/kennzahlen-und-bootstrap"
+from_task = "0-E20-T16"
+purpose = "agreement, clusterBootstrap and Rng for calibrate"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T16"
+purpose = "JudgeRef and ServiceId"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E20-T16"
+purpose = "Check the schema of judge.json"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E20-T16"
+purpose = "Result of parseJudgeSpec"

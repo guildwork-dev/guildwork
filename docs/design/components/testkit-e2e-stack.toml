@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "testkit-e2e-stack"
+title = "E2E stack and fixture server (in the test process and as a container under tools/fixture-server)"
+kind = "package"
+path = "packages/testkit/src/e2e/"
+package = "@guildwork/testkit"
+stage = "0"
+purpose = "Test building block for end-to-end tests of the chain: Postgres as a test container, roles of the control plane in the test process, real worker with gVisor, egress proxy and fixture server with recorded GitHub responses, plus the fixture server as a container for smoke and air-gap runs; never runs in an installation."
+design = ["06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit", "06-installation-operations-ui.md#42-dummy-service-end-to-end", "06-installation-operations-ui.md#213-portability-test-and-s8"]
+built_by = ["0-E16-T03", "0-E21-T07"]
+
+[[provides]]
+name = "e2e-stack"
+kind = "ts-api"
+title = "startE2EStack and E2EStack (send webhook, wait for run, effects, audit, ledger counters, item resources, start and stop worker); CI job e2e-chain"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0-E16-T03"
+
+[[provides]]
+name = "fixture-server"
+kind = "ts-api"
+title = "startFixtureServer and FixtureServer (recordings, counting of writing calls, signed webhooks) for api_url of the GitHub instance (FE-632)"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0-E16-T03"
+
+[[provides]]
+name = "fixture-server-container"
+kind = "cli"
+title = "tools/fixture-server: image for CI only, fixture-server serve and send-webhook, GET /_fixture/writes"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0-E21-T07"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E16-T03"
+purpose = "Postgres as a test container"
+
+[[uses]]
+interface = "db-migrator/test-rueckruf"
+from_task = "0-E16-T03"
+purpose = "migrateForTests before the start"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "0-E16-T03"
+purpose = "Role web in the test process"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E16-T03"
+purpose = "Role orchestrator with all handlers in the test process"
+
+[[uses]]
+interface = "worker/cli"
+from_task = "0-E16-T03"
+purpose = "real worker"
+
+[[uses]]
+interface = "egress-proxy/cli"
+from_task = "0-E16-T03"
+purpose = "Egress proxy of the stack"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "0-E16-T03"
+purpose = "Sandbox image of the real worker"
+
+[[uses]]
+interface = "plugin-github-trigger/webhook-fixtures"
+from_task = "0-E16-T03"
+purpose = "signed webhooks in the fixture server"
+
+[[uses]]
+interface = "plugin-github/contract-attestation"
+from_task = "0-E16-T03"
+purpose = "Recordings of the GitHub contract suite as responses"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "0-E16-T03"
+purpose = "Read cassettes guildwork-cassette/1"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "0-E16-T03"
+purpose = "api_url of the GitHub instance to the fixture server"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "0-E16-T03"
+purpose = "Job e2e-chain in ci.yml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E16-T03"
+purpose = "Vitest project e2e"

@@ -1,0 +1,2210 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area installation of stage 0. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/06-installation-operations-ui.md (FE-600 to FE-699)
+stage = "0"
+
+[[epic]]
+id = "0-E16"
+title = "Dummy service end to end"
+goal = "A dummy service runs from the comment to the effect in `record` mode; the same chain verifies lease expiry, dedupe, limit abort, reservation, sandbox teardown in the failure path and effect idempotency end to end and carries the probe run of the setup wizard"
+sources = ["08 stage 0 done criterion", "07 section 5 S3 and S6", "11 section 2.3 item 6", "01 section 14"]
+depends_on = ["0-E09", "0-E12", "0-E14", "0-E15", "0-E07"]
+
+[[epic]]
+id = "0-E17"
+title = "Admin UI foundation and login"
+goal = "Admin UI (SPA with server session) with generic OIDC login, emergency admin with TOTP, setup wizard steps 1 to 5 with telemetry opt-ins and status, pool, service and audit pages"
+sources = ["11 section 2.3", "06 section 1", "05 section 7", "ADR-41", "ADR-45"]
+depends_on = ["0-E02", "0-E06"]
+
+[[epic]]
+id = "0-E18"
+title = "Installation package"
+goal = "Images amd64 and arm64, Compose bundle with SeaweedFS, installer CLI (`install`, `doctor`, `upgrade`, `backup`, `restore`, `worker register`, `github-app create`), telemetry off, air gap"
+sources = ["11 sections 2, 6, 7, 8", "ADR-42, ADR-43, ADR-44", "05 section 1", "ADR-62"]
+depends_on = ["0-E12", "0-E14", "0-E17"]
+
+[[epic]]
+id = "0-E21"
+title = "Supply chain and first release"
+goal = "Signed images with SBOM and attestation, license gate with counter-test, portability test amd64 and arm64, backup and restore verified, first release"
+sources = ["05 section 10", "12 section 5.2", "11 section 9"]
+depends_on = ["0-E18"]
+
+[[epic]]
+id = "0-E22"
+title = "Cross-cutting suites and acceptance stage 0"
+goal = "Skeleton of the suites S1 to S8, the required cases of stage 0 green, acceptance matrix of all done criteria from 08 stage 0, stage report with evidence"
+sources = ["07 section 5", "08 stage 0"]
+depends_on = ["0-E16", "0-E21"]
+
+# ---------------------------------------------------------------- 0-E16 dummy service
+
+[[task]]
+id = "0-E16-T01"
+title = "Dummy manifest, route and controller"
+description = """Package services/dummy with a service manifest per detailed design 06 section 2.8 (kind Service, id dummy, command `dummy` with arguments text, mode, fail; effect only propose_comment; jobs with minIsolation gvisor, egress empty). Controller in services/dummy/src/controller.ts: takes the normalized request of the router, creates exactly one step `dummy.run` and generates the work item with SandboxSpec from sandbox-base. Policy rule `dummy.never_live` (the resolver rejects mode live) and a rule that fail is only permitted with GW_TEST_MODE=1. Registration in the service loader of the control plane."""
+design = ["06-installation-operations-ui.md#28-dummy-service"]
+result = "services/dummy/manifest.yaml, services/dummy/src/controller.ts, services/dummy/src/types.ts, services/dummy/test/controller.test.ts"
+done = [
+  "Test 'dummy manifest validates against ServiceManifest schema' green",
+  "Test 'e2e.dummy.never-live': configuration mode live for dummy is rejected at load, audit entry present",
+  "Test 'dummy controller creates exactly one step and one work item' green",
+  "Test 'dummy fail argument rejected without GW_TEST_MODE' green (failure path: skipped with reason, visible answer)",
+  "make check green",
+]
+sources = ["01 section 14", "02 section 0", "08 stage 0"]
+depends_on = ["0-E13", "0-E05", "0-E06"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T01-S01"
+  title = "Test: manifest against ServiceManifest schema"
+  done = "Test red because manifest.yaml is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T01-S02"
+  title = "Manifest and types DummyInput, DummyOutput"
+  done = "Schema test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T01-S03"
+  title = "Test and policy rules never_live and fail only in test mode"
+  done = "Tests 'e2e.dummy.never-live' and 'dummy fail argument rejected without GW_TEST_MODE' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T01-S04"
+  title = "Controller with one step and one work item"
+  done = "Test 'dummy controller creates exactly one step and one work item' green"
+  status = "open"
+
+[[task]]
+id = "0-E16-T02"
+title = "Sandbox job of the dummy"
+description = """Deterministic job services/dummy/job/dummy-job.mjs that runs in sandbox-base: reads run.context (DummyInput) and repo.read_file(path) via the platform MCP with the item token (tool names per detailed design 03 FE-323), computes fileSha256, writes out.json (DummyOutput) and calls propose_comment with 'dummy: <echo> (run <id>, sha256 <8 characters>)'. Echo at most 200 characters, sanitized (untrusted). Variants fail exit (exit code 3) and fail hang (waits until the lease deadline) for failure path tests. No network except the platform MCP via the egress proxy."""
+design = ["06-installation-operations-ui.md#28-dummy-service"]
+result = "services/dummy/job/dummy-job.mjs, services/dummy/test/job.test.ts"
+done = [
+  "Test 'dummy job reads file via platform mcp and proposes one comment' green (against the platform MCP dummy from testkit)",
+  "Test 'dummy job truncates and sanitizes echo' green (zero-width and bidi characters removed)",
+  "Test 'dummy job fail exit returns code 3' and 'dummy job fail hang never completes' green",
+  "Test 'dummy job without item token gets 401 and exits non-zero' green",
+]
+sources = ["05 section 2 item 2", "05 section 4", "01 section 8"]
+depends_on = ["0-E16-T01", "0-E11-T06", "0-E11-T07"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T02-S01"
+  title = "Test: job reads a file and proposes a comment"
+  done = "Test red because the job is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T02-S02"
+  title = "Job script with MCP client from sdk-service"
+  done = "Happy path test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T02-S03"
+  title = "Failure variants exit, hang and missing token"
+  done = "three failure path tests green"
+  status = "open"
+
+[[task]]
+id = "0-E16-T03"
+title = "E2E test setup for the chain"
+description = """Testkit building block packages/testkit/src/e2e/stack.ts: starts Postgres as a test container, the roles web and orchestrator of the control plane in the test process, a real worker with gVisor sandbox (runsc on the CI runner via host-prepare.sh from 0-E18-T18 or its precursor in the CI job), egress proxy and a fixture server in the test process (packages/testkit/src/fixture-server: answers GitHub REST calls from the recordings of the contract suite of 0-E14, counts writing calls, sends signed webhooks; 0-E21-T07 packages it as a container). Helper functions: send a signed webhook, wait for a run state, read effects and audit, read ledger counters before and after, list containers and networks of an item. CI job e2e-chain in the PR CI (Linux amd64 only)."""
+design = ["06-installation-operations-ui.md#42-dummy-service-end-to-end", "06-installation-operations-ui.md#85-dummy-service-end-to-end"]
+result = "packages/testkit/src/e2e/stack.ts, packages/testkit/src/e2e/helpers.ts, packages/testkit/src/fixture-server/, .github/workflows/ci.yml (job e2e-chain)"
+done = [
+  "Test 'e2e stack starts and reports ready' green locally and in the job e2e-chain",
+  "Test 'fixture server serves recorded responses and counts writes' green",
+  "Test 'e2e stack teardown leaves no containers or networks' green",
+  "Job e2e-chain runs on ubuntu-24.04 in under 20 minutes (job log)",
+]
+sources = ["07 section 1", "12 section 5.1"]
+depends_on = ["0-E12", "0-E14", "R-E03-T01", "0-E18-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T03-S01"
+  title = "Test: stack starts and reports ready"
+  done = "Test red because stack.ts is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T03-S02"
+  title = "Fixture server in the test process"
+  done = "Test 'fixture server serves recorded responses and counts writes' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T03-S03"
+  title = "Stack with Postgres, control plane, worker, egress proxy"
+  done = "Start test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T03-S04"
+  title = "Helper functions and cleanup test"
+  done = "Test 'e2e stack teardown leaves no containers or networks' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T03-S05"
+  title = "CI job e2e-chain with runsc"
+  done = "Job green in the probe PR, duration in the log"
+  status = "open"
+
+[[task]]
+id = "0-E16-T04"
+title = "E2E happy path: comment to effect record"
+description = """End-to-end test of stage 0 per the sequence in detailed design 06 section 4.2: a signed webhook issue_comment with '@agent dummy hello' goes to the ingress, event and inbox, permission check via fixtures, config snapshot, policy, reservation, work item, claim with verified capabilities, sandbox, platform MCP, propose_comment, Effect Gateway in record mode (effect shadowed, eval log), run done, ledger settled, Run Record closed. Additionally checks order and hash chain of the audit entries of the run and the trace (TRACEPARENT from event to effect)."""
+design = ["06-installation-operations-ui.md#42-dummy-service-end-to-end"]
+result = "services/dummy/test/e2e.happy-path.test.ts"
+done = [
+  "Test 'e2e.dummy.happy-path' green: one run done, exactly one effect shadowed, eval log entry, 0 calls to writing GitHub endpoints at the fixture server",
+  "Test 'e2e.dummy.run-record-complete' green: every required field from 05 section 8 that arises in stage 0 is filled",
+  "Test 'e2e.dummy.audit-chain-of-run' green: audit entries of the run in the expected order, chain valid",
+  "Test 'e2e.dummy.trace-continuous' green: one trace from the event to the effect",
+]
+sources = ["08 stage 0 done criterion", "03 section 1", "05 section 8", "ADR-11"]
+depends_on = ["0-E16-T02", "0-E16-T03", "0-E09", "0-E08-T03", "0-E19-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T04-S01"
+  title = "Test: happy path to effect shadowed"
+  done = "Test red, or green with evidence of which part of the chain is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T04-S02"
+  title = "Close gaps in the wiring (route, effect assignment, eval log)"
+  done = "Test 'e2e.dummy.happy-path' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T04-S03"
+  title = "Tests Run Record, audit chain, trace"
+  done = "three tests green"
+  status = "open"
+
+[[task]]
+id = "0-E16-T05"
+title = "E2E failure paths: lease expiry, dedupe, effect idempotency"
+description = """Three end-to-end cases with the dummy per detailed design 06 section 8.5: (1) lease expiry: the worker is terminated during fail hang, the lease expires, the item becomes available again, a second worker completes, the result of the old lease is discarded; (2) dedupe: the same webhook with the same delivery ID twice yields one run and counter ingress_duplicate equal to 1; (3) effect idempotency: a duplicate complete or a retry of the effect after a forced error in the gateway yields exactly one effect entry. For each case it is checked what is stored, audited and logged (03 section 5)."""
+design = ["06-installation-operations-ui.md#85-dummy-service-end-to-end", "06-installation-operations-ui.md#5-failure-and-abort-paths"]
+result = "services/dummy/test/e2e.failure-paths-1.test.ts"
+done = [
+  "Test 'e2e.dummy.lease-expiry-retries-once' green: exactly one effect, audit entry lease_expired, counter lease_expired incremented",
+  "Test 'e2e.dummy.dedupe-same-delivery' green: one run, counter ingress_duplicate equal to 1",
+  "Test 'e2e.dummy.effect-idempotent' green: one effect entry despite the retry",
+]
+sources = ["08 stage 0 done criterion", "03 sections 2.2 and 5", "ADR-05"]
+depends_on = ["0-E16-T04", "0-E04", "0-E11"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T05-S01"
+  title = "Test lease expiry with a second worker"
+  done = "Test green, or error as a finding to 0-E11 with reproduction"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T05-S02"
+  title = "Test dedupe of the same delivery ID"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T05-S03"
+  title = "Test effect idempotency with a forced gateway error"
+  done = "Test green"
+  status = "open"
+
+[[task]]
+id = "0-E16-T06"
+title = "E2E failure paths: limit abort, reservation, sandbox teardown, stop"
+description = """End-to-end cases: (1) limit abort S3: limit so small that the reservation is rejected (run paused_budget, status neutral) or exceeded during the run (heartbeat answers cancel); ledger counters read before and after; (2) reservation: after every final state no reservation is open; (3) sandbox teardown in the failure path: fail exit and fail hang leave no container and no network gw-item-<itemId>; (4) @agent stop revokes the lease, nothing pushed, run cancelled."""
+design = ["06-installation-operations-ui.md#85-dummy-service-end-to-end"]
+result = "services/dummy/test/e2e.failure-paths-2.test.ts"
+done = [
+  "Test 'e2e.dummy.limit-abort-s3' green with counter state before and after in the test log",
+  "Test 'e2e.dummy.reservation-released' green",
+  "Test 'e2e.dummy.sandbox-destroy-on-failure' green for exit and hang",
+  "Test 'e2e.dummy.stop' green",
+]
+sources = ["08 stage 0 done criterion", "07 section 5 S3", "04 section 6", "05 section 3"]
+depends_on = ["0-E16-T04", "0-E07", "0-E05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T06-S01"
+  title = "Test limit abort before and during the run"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T06-S02"
+  title = "Test reservation released"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T06-S03"
+  title = "Test sandbox teardown in the failure path"
+  done = "Test green, list of containers and networks empty"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T06-S04"
+  title = "Test stop"
+  done = "Test green"
+  status = "open"
+
+[[task]]
+id = "0-E16-T07"
+title = "Harness mode of the dummy against a fake LLM upstream"
+description = """Mode mode harness: instead of the deterministic job the worker starts the AgentRuntime claude-code with a fixed prompt and --json-schema for DummyOutput.harness. The credential relay forwards to a fake upstream (testkit/fake-anthropic, answers POST /v1/messages with recorded responses); only the placeholder is present in the sandbox. Verifies installation with pinned version and checksum, managed settings, schema output and the relay path without a real account. Whether the CI may download the pinned Claude Code version is a matter for 0-E15; without the download the test runs with status skip and a reason in the log."""
+design = ["06-installation-operations-ui.md#28-dummy-service"]
+result = "services/dummy/src/harness-mode.ts, packages/testkit/src/fake-anthropic/, services/dummy/test/e2e.harness.test.ts"
+done = [
+  "Test 'e2e.dummy.harness-mode-fake-upstream' green: structuredOutputOk true, relay counter 1 request, 0 matches of the real fake key in the sandbox environment and transcript",
+  "Test 'fake-anthropic rejects mcp_servers and server tools' green (relay filter also works against the fake)",
+]
+sources = ["05 section 3 item 1", "01 section 6", "ADR-39"]
+depends_on = ["0-E16-T04", "0-E15-T02", "0-E15-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E16-T07-S01"
+  title = "Fake upstream with recorded messages responses"
+  done = "Test 'fake-anthropic rejects mcp_servers and server tools' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T07-S02"
+  title = "Test: harness mode end to end"
+  done = "Test red because harness-mode.ts is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T07-S03"
+  title = "Harness mode in the controller"
+  done = "Test 'e2e.dummy.harness-mode-fake-upstream' green"
+  status = "open"
+
+[[task]]
+id = "0-E16-T08"
+title = "Probe run of the setup wizard with the dummy"
+description = """Step 6 of the setup wizard (detailed design 06 section 2.7, FE-615): endpoints POST /admin/api/v1/setup/probe-run and GET /admin/api/v1/setup/probe-run/{runId}, page Setup/ProbeRun in the admin UI. The probe run starts a dummy run in shadow on the selected repo (run override with audit, no config entry), evaluates ProbeRunResult (Run Record complete, effects only shadowed, 0 policy violations) and sets the step to done or failed. The clarification in 11 section 2.3 item 6 and 07 S8 was done in the consistency run 2026-11-01."""
+design = ["06-installation-operations-ui.md#27-setup-wizard", "06-installation-operations-ui.md#9-rulings"]
+result = "apps/control-plane/src/admin/setup/probe-run.ts, apps/admin-ui/src/pages/Setup/ProbeRun.tsx"
+done = [
+  "Test 'e2e.probe-run.from-setup-assistant' green: step probe_run done, ProbeRunResult.success true",
+  "Test 'probe-run fails visibly when no worker is registered' green (step failed with reason, audit entry)",
+  "Test 'admin.setup.order-enforced' for step 6 green",
+]
+sources = ["11 section 2.3", "11 section 10", "08 stage 0 done criterion"]
+depends_on = ["0-E16-T04", "0-E17-T05", "0-E17-T07"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "FE-615: the reviewer only comes in stage 1; from stage 1 on, 1-E10 replaces the dummy with the reviewer in the probe run."
+
+  [[task.part]]
+  id = "0-E16-T08-S01"
+  title = "Test: probe run from the assistant"
+  done = "Test red because the endpoint is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T08-S02"
+  title = "API and evaluation ProbeRunResult"
+  done = "Test 'e2e.probe-run.from-setup-assistant' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T08-S03"
+  title = "Failure path without worker and page in the admin UI"
+  done = "Failure path test green, page reachable in the Playwright test 'admin-ui.e2e.login-and-setup'"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E16-T08-S04"
+  title = "Clarification in 11 and 07"
+  done = "Text change in the PR, grep for `review in` shows the stage reference"
+  status = "open"
+
+# ---------------------------------------------------------------- 0-E17 admin UI
+
+[[task]]
+id = "0-E17-T01"
+title = "Admin API skeleton in the role web"
+description = """Admin API under /admin/api/v1 in apps/control-plane/src/admin (detailed design 06 section 2.6, FE-634): Fastify plugin with session store in admin_sessions (only SHA-256 of the session ID), cookie __Host-gw_session (Secure, HttpOnly, SameSite Lax), CSRF header X-GW-CSRF for all modifying methods, role guard viewer, approver, admin, errors as RFC 9457 Problem Details, Cache-Control no-store, CSP header, optional admin.allowed_cidrs, audit entry per change. Migration 0012_admin_sessions.sql with the columns from detailed design 06 section 3.1 (01 section 3.1a)."""
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#31-tables-of-this-area"]
+result = "apps/control-plane/src/admin/plugin.ts, auth/session.ts, auth/csrf.ts, auth/roles.ts, problem.ts, packages/db/migrations/0012_admin_sessions.sql"
+done = [
+  "Test 'admin.session.cookie-flags' green",
+  "Test 'admin.csrf.required-on-mutations' green (403 csrf without header)",
+  "Test 'admin.csp-header' green",
+  "Test 'admin roles guard returns 403 problem json' green",
+  "Test 'admin.audit.every-mutation' green for a test endpoint",
+  "Test 'admin allowed_cidrs rejects other networks' green",
+]
+sources = ["05 section 7", "06 section 1"]
+depends_on = ["0-E02-T11", "0-E08-T02", "0-E05-T10"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E17-T01-S01"
+  title = "Tests session, cookie, CSRF"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T01-S02"
+  title = "Session store, cookie, CSRF, Problem Details"
+  done = "Tests session and CSRF green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T01-S03"
+  title = "Role guard, CSP, allowed_cidrs, audit per change"
+  done = "remaining tests green"
+  status = "open"
+
+[[task]]
+id = "0-E17-T02"
+title = "Generic OIDC login"
+description = """OIDC client with openid-client (check license in R-E02): discovery, authorization code with PKCE S256, state and nonce in the short-lived cookie __Host-gw_oidc, callback with token verification, roles from the configurable group claim plus subject_roles (FE-613), without a matching role 403. Roles only for the lifetime of the session, recomputed from the token at every login. Client secret via the SecretStore (secret://oidc/client). Test IdP in the testkit (own small OIDC issuer based on the self-issuer code or a container with a free license). Endpoints /admin/auth/login, /admin/auth/callback, /admin/auth/logout, /admin/api/v1/me (with csrf and expiresAt). Session for command line clients per detailed design 06 section 2.6.2 (FE-653): /admin/auth/cli, /admin/auth/cli/approve, /admin/auth/cli/token with one-time code and PKCE, admin_sessions.kind cli with parent_id_sha256 and handoff_challenge, revocation of the child sessions at logout."""
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#6-security"]
+result = "apps/control-plane/src/admin/auth/oidc.ts, packages/testkit/src/test-idp/, apps/control-plane/test/admin/oidc.test.ts"
+done = [
+  "Test 'admin.oidc.pkce-state-nonce' green (wrong state and wrong nonce each 400, audit admin.login.rejected)",
+  "Test 'admin.oidc.no-role-forbidden' green",
+  "Test 'admin.oidc.roles-from-group-claim' and 'admin.oidc.subject-roles' green",
+  "Test 'admin.oidc.roles-not-persisted-across-logins' green (group withdrawn, next login without role)",
+  "Test 'admin oidc discovery failure returns 503 with break-glass hint' green",
+  "Tests 'admin.me.returns-csrf', 'admin.cli-login.pkce-one-time', 'admin.cli-login.roles-from-parent', 'admin.cli-login.cli-session-cannot-approve', 'admin.cli-login.logout-revokes-children' green",
+]
+sources = ["05 section 7", "11 section 2.3 item 2", "ADR-41"]
+depends_on = ["0-E17-T01", "0-E03-T04", "0-E03-T05", "0-E03-T06", "0-E06", "0-E10-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M122 partially (subject_roles, FE-613); an everyday admin without IdP is not built."
+
+  [[task.part]]
+  id = "0-E17-T02-S01"
+  title = "Test IdP in the testkit"
+  done = "Test IdP delivers discovery, JWKS, tokens with configurable claims"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T02-S02"
+  title = "Tests PKCE, state, nonce, roles"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T02-S03"
+  title = "Login, callback, logout, me"
+  done = "Tests PKCE, state, nonce, no role green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T02-S04"
+  title = "Roles from group claim and subject_roles, discovery failure path"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E17-T03"
+title = "Emergency admin with one-time code and TOTP"
+description = """Emergency admin per detailed design 06 sections 2.6 and 4.6 (FE-612): table break_glass_accounts, scrypt hash (N=2^17, r=8, p=1), one-time code, mandatory password change and TOTP setup at the first login (RFC 6238 with node:crypto, otpauth URI and QR as SVG), TOTP secret with AES-256-GCM and key secret://admin/totp-key, lockout after admin.break_glass.max_failures, audit and required alert at every login (via notifier from 0-E19). Internal commands for the CLI: break-glass init, reset, lock, unlock and admin session create (session kind cli with subject cli:local, detailed design 06 section 2.6.2, FE-653) in apps/control-plane/src/internal-cli.ts. Without CLI init, the first start prints the code once to stdout. Endpoints /admin/auth/break-glass/login and /enroll."""
+design = ["06-installation-operations-ui.md#46-states", "06-installation-operations-ui.md#6-security"]
+result = "apps/control-plane/src/admin/auth/break-glass.ts, auth/totp.ts, internal-cli.ts (break-glass), packages/db/migrations/0013_break_glass_accounts.sql"
+done = [
+  "Test 'admin.totp.rfc6238-vectors' green (test vectors RFC 6238 appendix B, SHA-1)",
+  "Test 'admin.break-glass.first-login-enroll' green",
+  "Test 'admin.break-glass.totp-required' green",
+  "Test 'admin.break-glass.lockout' green (423 from the threshold on, audit and alert)",
+  "Test 'admin.break-glass.alarm-on-login' green (notifier fake receives the required alert)",
+  "Test 'admin.break-glass.reset-revokes-sessions' green",
+  "Test 'break-glass code never written to files or exported logs' green",
+]
+sources = ["05 section 7", "11 section 2.3 item 1", "06 section 4"]
+depends_on = ["0-E17-T01", "0-E19-T04", "0-E03-T04", "0-E03-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M43 done with FE-612 (TOTP without a library, recovery via CLI)."
+
+  [[task.part]]
+  id = "0-E17-T03-S01"
+  title = "TOTP per RFC 6238 with test vectors"
+  done = "Test 'admin.totp.rfc6238-vectors' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T03-S02"
+  title = "Tests state machine of the emergency admin"
+  done = "Tests of the states red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T03-S03"
+  title = "Account, scrypt, one-time code, enroll, login"
+  done = "Tests first-login-enroll and totp-required green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T03-S04"
+  title = "Lockout, audit, required alert"
+  done = "Tests lockout and alarm-on-login green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T03-S05"
+  title = "Internal commands init, reset, lock, unlock and stdout output at the first start"
+  done = "Tests reset-revokes-sessions and 'break-glass code never written to files or exported logs' green"
+  status = "open"
+
+[[task]]
+id = "0-E17-T04"
+title = "Admin UI SPA skeleton"
+description = """apps/admin-ui as a React SPA with Vite (FE-601): router, layout, typed API client (apps/admin-ui/src/api/client.ts from the TypeBox schemas of the admin API), pages Login, BreakGlass (login, enroll with QR), error pages, role display, CSRF header from /me. Delivery of the built files by the role web under /admin/ with CSP from 0-E17-T01. Playwright foundation for the UI tests. Follow-up list: align 06 section 3 row admin UI with FE-601 (open point 1)."""
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#9-rulings"]
+result = "apps/admin-ui/, apps/control-plane/src/admin/static.ts"
+done = [
+  "Test 'admin-ui builds without inline scripts' green (build output without inline script, CSP applies)",
+  "Playwright test 'admin-ui.e2e.login-and-setup' for login with test IdP and emergency login green",
+  "make check green including type check of the SPA",
+]
+sources = ["06 section 3", "05 section 7", "README detailed design conventions"]
+depends_on = ["0-E17-T02", "0-E17-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E17-T04-S01"
+  title = "Vite project, router, API client"
+  done = "Build green, type check green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T04-S02"
+  title = "Test: build without inline scripts"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T04-S03"
+  title = "Pages login and emergency login with enroll"
+  done = "Playwright test login green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T04-S04"
+  title = "Delivery by web and architecture row 06 section 3"
+  done = "SPA reachable under /admin/, text change in the PR"
+  status = "open"
+
+[[task]]
+id = "0-E17-T05"
+title = "Setup wizard: state, overlay, steps 1 and 2"
+description = """State machine of the assistant (detailed design 06 sections 2.7 and 4.6) with table setup_steps, overlay installation_settings with history (FE-614: keys from installation.yaml locked, error locked_by_file), endpoints GET /admin/api/v1/setup, PUT /admin/api/v1/setup/sso. Step 1 break_glass counts as done after the first login with TOTP; step 2 sso checks discovery and JWKS, stores the client secret in the SecretStore and requires a test login with role admin. Pages Setup/Overview, Setup/BreakGlass, Setup/Sso. The resolver (0-E06) reads the overlay; the task delivers the read function and the schema test."""
+design = ["06-installation-operations-ui.md#27-setup-wizard", "06-installation-operations-ui.md#31-tables-of-this-area"]
+result = "apps/control-plane/src/admin/setup/state.ts, setup/sso.ts, settings/overlay.ts, apps/admin-ui/src/pages/Setup/*, packages/db/migrations/0014_setup.sql (setup_steps, installation_settings, installation_settings_history)"
+done = [
+  "Test 'admin.setup.order-enforced' green (409 setup_order)",
+  "Test 'admin.setup.file-locks-key' green (409 locked_by_file)",
+  "Test 'admin.setup.sso-secret-not-returned' green (no secret in any response and in no audit detail)",
+  "Test 'setup sso discovery failure keeps step open with reason' green",
+  "Test 'overlay merge file wins and history kept' green",
+]
+sources = ["11 section 2.3", "04 section 7", "05 section 7"]
+depends_on = ["0-E17-T04", "0-E06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E17-T05-S01"
+  title = "Tests order and overlay"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T05-S02"
+  title = "setup_steps, installation_settings with history, state machine"
+  done = "Tests order-enforced, file-locks-key, overlay green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T05-S03"
+  title = "Step sso with discovery, secret, test login"
+  done = "Tests sso-secret-not-returned and discovery failure path green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T05-S04"
+  title = "Pages of steps 1 and 2"
+  done = "Playwright test 'admin-ui.e2e.login-and-setup' covers steps 1 and 2"
+  status = "open"
+
+[[task]]
+id = "0-E17-T06"
+title = "Setup step 3: GitHub App via manifest flow"
+description = """Step github_app (ADR-45, FE-638): POST /admin/api/v1/setup/github/manifest builds, with buildAppManifest from the GitHub plugin (0-E14), the manifest with the union of the permission profiles from 05 section 2 except dispatch, redirect_url public_url/admin/setup/github/callback, state bound to the session; the SPA submits the form to GitHub (or the GHES host). GET /admin/setup/github/callback exchanges the code via POST /app-manifests/{code}/conversions within one hour, stores id, pem, webhook_secret, client_id, client_secret in the SecretStore and checks the app via app JWT against GET /app. Tests only against fixtures. In doing so it checks whether the manifest accepts hook_attributes.active false (operating mode private, 11 open point 4); enter the result in 09 section 4."""
+design = ["06-installation-operations-ui.md#27-setup-wizard", "06-installation-operations-ui.md#43-github-app-via-manifest-flow-cli"]
+result = "apps/control-plane/src/admin/setup/github-manifest.ts, apps/admin-ui/src/pages/Setup/GithubApp.tsx, fixtures, entry in docs/architecture/09-decisions.md section 4"
+done = [
+  "Test 'admin.setup.github-manifest-permissions' green (never workflows, administration, actions write)",
+  "Test 'admin.setup.github-callback-state-bound' green (foreign state 400, audit)",
+  "Test 'admin.setup.github-code-expired' green (step failed, button again)",
+  "Test 'github app secrets only in secretstore' green (no values in DB tables except references)",
+  "Evidence on hook_attributes.active false in 09 section 4 (source: GitHub docs retrieval with date, or as unverified with fallback placeholder URL)",
+]
+sources = ["ADR-45", "05 section 2", "11 section 1.1", "11 section 2.3 item 3"]
+depends_on = ["0-E17-T05", "0-E14-T11", "0-E03-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E17-T06-S01"
+  title = "Tests manifest permissions and callback"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T06-S02"
+  title = "Manifest endpoint with state and form"
+  done = "Test github-manifest-permissions green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T06-S03"
+  title = "Callback, exchange, SecretStore, app check"
+  done = "Tests callback-state-bound, code-expired, secrets only in secretstore green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T06-S04"
+  title = "Check hook_attributes.active for private and entry in 09"
+  done = "Entry in 09 section 4 with source or 'unverified' and fallback"
+  status = "open"
+
+[[task]]
+id = "0-E17-T07"
+title = "Setup steps 4 and 5: model access and first pool"
+description = """Step model_access: choice of the credential kind per ModelAccessInput (preferably wif, api_key via secret put, bedrock, vertex, foundry as configuration, later); subscription and chatgpt are locked and show the hint to the personal operator mode with acknowledge_terms in installation.yaml (unlocking is built by 1-E07). Step first_pool: confirm a local worker or instructions guildwork worker register; shows verified capabilities of the reported workers and deviations from the pool configuration; done only once a worker with verified isolation has been reported."""
+design = ["06-installation-operations-ui.md#27-setup-wizard"]
+result = "apps/control-plane/src/admin/setup/model-access.ts, setup/pool.ts, apps/admin-ui/src/pages/Setup/ModelAccess.tsx, Setup/Pool.tsx"
+done = [
+  "Test 'admin.setup.subscription-locked' green (400 invalid without acknowledge_terms in the file)",
+  "Test 'setup model access never accepts key material in request' green",
+  "Test 'setup first pool requires verified isolation' green (409 without a reported worker)",
+  "Test 'setup pool shows deviation between configured and verified isolation' green",
+]
+sources = ["11 section 2.3 items 4 and 5", "ADR-48", "ADR-51", "ADR-57"]
+depends_on = ["0-E17-T05", "0-E11-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E17-T07-S01"
+  title = "Tests model access"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T07-S02"
+  title = "Step model_access with lock of the operator modes"
+  done = "Tests subscription-locked and no key material green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T07-S03"
+  title = "Step first_pool with verified capabilities"
+  done = "Tests verified isolation and deviation green"
+  status = "open"
+
+[[task]]
+id = "0-E17-T08"
+title = "Status page with version age and audit anchor"
+description = """GET /admin/api/v1/status (StatusView: version, release date, version age with a warning above support.version_age_warn_days per FE-618 from the mounted release.json, operating mode, audit anchor ok, missing or stale, last doctor report from installation_settings doctor_last, drain, setupComplete; the field telemetry is added by 0-E18-T16). Module apps/control-plane/src/telemetry/version-age.ts and key support.version_age_warn_days. Page Status. Display 'audit anchor missing' per ADR-29. The telemetry opt-ins and the preview are built by 0-E18-T16 (detailed design 06 section 2.9, otherwise a cycle via the epic 0-E18)."""
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"]
+result = "apps/control-plane/src/admin/api/status.ts, apps/control-plane/src/telemetry/version-age.ts, apps/admin-ui/src/pages/Status.tsx"
+done = [
+  "Test 'status shows audit anchor missing' green",
+  "Test 'version-age.warn-threshold' green",
+  "Test 'status shows last doctor report and drain' green",
+]
+sources = ["11 section 8", "ADR-44", "ADR-29", "backlog M95"]
+depends_on = ["0-E17-T05", "0-E08-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M95 (version age offline) here and in doctor D26 (0-E18-T09)."
+
+  [[task.part]]
+  id = "0-E17-T08-S01"
+  title = "Tests status, version age and audit anchor"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T08-S02"
+  title = "Status endpoint with anchor and version age"
+  done = "Tests anchor missing and version-age green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T08-S03"
+  title = "Status page with last doctor report and drain"
+  done = "Test 'status shows last doctor report and drain' green"
+  status = "open"
+
+[[task]]
+id = "0-E17-T09"
+title = "Pages pools, services and audit"
+description = """Read endpoints GET /admin/api/v1/pools (PoolView with verified capabilities per worker and deviation from the configuration, ADR-48), GET /admin/api/v1/services (ServiceView with mode, qualification status and visible marking 'standard not proven' per ADR-47; in stage 0 mostly not_qualified), GET /admin/api/v1/audit (cursor, filter, chain status) and the related pages."""
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui"]
+result = "apps/control-plane/src/admin/api/pools.ts, services.ts, audit.ts, apps/admin-ui/src/pages/Pools.tsx, Services.tsx, Audit.tsx"
+done = [
+  "Test 'pools view reports verified capabilities and deviation' green",
+  "Test 'services view marks standard not proven' green",
+  "Test 'audit view requires approver and reports chain state' green (viewer 403)",
+]
+sources = ["ADR-47", "ADR-48", "05 section 8"]
+depends_on = ["0-E17-T04", "0-E11-T03", "0-E08-T04", "0-E20-T17"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E17-T09-S01"
+  title = "Tests of the three endpoints"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T09-S02"
+  title = "Endpoints pools, services, audit"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E17-T09-S03"
+  title = "Pages in the SPA"
+  done = "Playwright navigation across all three pages green"
+  status = "open"
+
+# ---------------------------------------------------------------- 0-E18 installation package
+
+[[task]]
+id = "0-E18-T01"
+title = "Images control-plane and sandbox-base, multi-architecture build"
+description = """Dockerfiles deploy/images/control-plane and deploy/images/sandbox-base per detailed design 06 section 2.2: base by digest, non-root user, HEALTHCHECK, OCI labels including created; control-plane with pg_dump, pg_restore, psql of major version 18 from the PGDG repo, restic and git (for SCMProvider.push via Git bundle, 05 FE-516); roles web, orchestrator, migrate, ops, all via argument. Workflow .github/workflows/images.yml: native build on ubuntu-24.04 and ubuntu-24.04-arm (FE-622), push by digest without tag, manifest list via buildx imagetools create, weekly rebuild on a schedule. Checks whether PGDG packages are available for arm64; otherwise justify the replacement in the PR."""
+design = ["06-installation-operations-ui.md#22-container-images"]
+result = "deploy/images/control-plane/Dockerfile, deploy/images/sandbox-base/Dockerfile, .github/workflows/images.yml, tests/images/*.yaml (container structure tests)"
+done = [
+  "Tests 'images.non-root', 'images.healthcheck-present', 'images.labels-complete' green for both images",
+  "Test 'images.multiarch-manifest' green (both platforms in the manifest)",
+  "Job images in the PR CI green on both runners (job log), workflow policy from R-E02 green",
+  "Evidence of arm64 availability of postgresql-client-18 in the PR text",
+  "Test 'images.control-plane-has-git' green",
+]
+sources = ["11 section 2.1", "05 section 10 item 1", "12 section 5.1"]
+depends_on = ["R-E03", "0-E01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T01-S01"
+  title = "Container structure tests for both images"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T01-S02"
+  title = "Dockerfile control-plane with roles and tools"
+  done = "Structure tests control-plane green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T01-S03"
+  title = "Dockerfile sandbox-base"
+  done = "Structure tests sandbox-base green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T01-S04"
+  title = "Workflow images.yml native per architecture with manifest list"
+  done = "Job green, test multiarch-manifest green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T02"
+title = "Images agent-worker and egress-proxy"
+description = """Dockerfiles deploy/images/agent-worker (roles worker and socket-proxy per FE-611, git, no harness binaries) and deploy/images/egress-proxy, included in images.yml. The programs themselves are built by 0-E12; this task delivers images, structure tests and the proof that no proprietary package is included."""
+design = ["06-installation-operations-ui.md#22-container-images"]
+result = "deploy/images/agent-worker/Dockerfile, deploy/images/egress-proxy/Dockerfile, tests/images/*.yaml"
+done = [
+  "Tests 'images.non-root', 'images.healthcheck-present', 'images.labels-complete' green for both images",
+  "Test 'images.no-proprietary-packages' green for all four images (Syft SBOM without @anthropic-ai/*)",
+]
+sources = ["11 section 2.1", "ADR-39"]
+depends_on = ["0-E18-T01", "0-E12"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T02-S01"
+  title = "Structure tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T02-S02"
+  title = "Dockerfiles and inclusion in images.yml"
+  done = "Structure tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T02-S03"
+  title = "SBOM check for proprietary packages"
+  done = "Test images.no-proprietary-packages green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T03"
+title = "Compose bundle: services, networks, volumes, healthchecks"
+description = """deploy/compose/compose.yaml per detailed design 06 section 2.3 (FE-607): services postgres, migrate, control-plane (all), ops, caddy, worker, socket-proxy, egress-proxy, otel-collector (configuration from 0-E19); networks edge, core (internal), worker-uplink, worker-egress, egress-out, otel; volumes (socket-proxy-sock for the Unix socket of the socket proxy); mounts of secrets/ only in control-plane, ops, migrate, worker-secrets/ only in worker, docker.sock only in socket-proxy; Caddyfile for public (acme) and private (internal or files), routes /v1/ingress, /work, /mcp, /oidc, /admin, /api/v1, /healthz, /readyz with header X-Guildwork-Peer from the connection address (client value replaced, FE-652); egress-proxy additionally in the network worker-uplink (FE-658); volume harness-cache with the fixed name gw-harness-cache under /var/lib/guildwork/harness in the worker (05 FE-550); installation.example.yaml and env.template; init script deploy/compose/postgres/init/01-roles.sh for the roles guildwork_owner, guildwork_app and guildwork_ops from postgres-secrets/ (detailed design 06 section 2.3, FE-647, FE-648); release.json read-only in control-plane and ops (FE-646). Static check tools/compose_check.py."""
+design = ["06-installation-operations-ui.md#23-compose-bundle-single-host", "06-installation-operations-ui.md#6-security"]
+result = "deploy/compose/compose.yaml, deploy/compose/caddy/Caddyfile, deploy/compose/installation.example.yaml, deploy/compose/env.template, tools/compose_check.py"
+done = [
+  "Test 'compose.networks-isolated' green",
+  "Test 'compose.secrets-mounts' green",
+  "Test 'compose.healthchecks-defined' and 'compose.migrate-before-start' green",
+  "docker compose config without errors for profiles empty, s3, pitr, observability",
+  "Stack starts in the job e2e-chain-compose on ubuntu-24.04, all healthchecks green (job log)",
+  "Test 'compose.postgres-init-roles' green (fresh volume: guildwork_app without BYPASSRLS, guildwork_ops with CREATEDB and BYPASSRLS)",
+  "Tests 'compose.caddy-routes-match-table', 'compose.caddy-sets-peer-header' and 'compose.egress-proxy-reaches-caddy-only' green",
+]
+sources = ["11 section 2.4", "05 section 1", "ADR-62", "ADR-21"]
+depends_on = ["0-E18-T02", "0-E19-T03", "0-E12"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T03-S01"
+  title = "Static check compose_check.py with tests"
+  done = "Tests of the static check red against an empty compose.yaml"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T03-S02"
+  title = "Services, networks, volumes, mounts"
+  done = "compose.networks-isolated and compose.secrets-mounts green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T03-S03"
+  title = "Caddy for public and private"
+  done = "Caddy validates both variants, routes checked via curl in the job"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T03-S04"
+  title = "Healthchecks, migrate order, start job"
+  done = "Job e2e-chain-compose green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T04"
+title = "Compose profiles s3, pitr, observability"
+description = """Profile s3: SeaweedFS with the same digest as SEAWEEDFS_IMAGE from drivers/blob-s3/test/images.ts (04 FE-443), seaweedfs-init (bucket, versioning, Object Lock where available), driver s3 against SeaweedFS. Check and verify: does the pinned SeaweedFS version support S3 Object Lock? If yes, blob with Object Lock becomes the default anchor sink on single-host with --blob s3 (M123); verify the healthcheck endpoint. Profile pitr: pgBackRest with WAL archive (check package and license). Profile observability: Prometheus and Grafana as upstream images. The subcommands ops blob-init and ops pitr of the control-plane image (detailed design 06 section 2.11.1) are created in this task."""
+design = ["06-installation-operations-ui.md#23-compose-bundle-single-host", "06-installation-operations-ui.md#211-backup-and-restore"]
+result = "deploy/compose/profiles/s3.yaml, pitr.yaml, observability.yaml, evidence section in docs/ops/storage.md"
+done = [
+  "Test 'compose.profile-s3-seaweedfs' green (contract suite BlobStore s3 from 0-E03 green against the bundle service)",
+  "Test 'compose.profile-pitr' green (pgbackrest check, one archived WAL segment)",
+  "Evidence of Object Lock in SeaweedFS with version and source, or 'not supported' with the consequence for the anchor sink",
+  "Tests 'ops.blob-init-idempotent' and 'ops.pitr-stanza-created' green",
+  "Test 'blob-s3/compose image matches tested image' green (04 FE-443)",
+]
+sources = ["ADR-43", "11 section 7", "05 section 8", "backlog M123"]
+depends_on = ["0-E18-T03", "0-E03-T03", "0-E03-T07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M123 partially: check Object Lock in SeaweedFS; the permission profile audit_anchor belongs to 0-E08."
+
+  [[task.part]]
+  id = "0-E18-T04-S01"
+  title = "Profile s3 with init and contract suite"
+  done = "Test compose.profile-s3-seaweedfs green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T04-S02"
+  title = "Object Lock check SeaweedFS with evidence"
+  done = "Evidence in the PR, default of the anchor sink set afterwards"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T04-S03"
+  title = "Profile pitr"
+  done = "Test compose.profile-pitr green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T04-S04"
+  title = "Profile observability"
+  done = "Prometheus reads metrics of the collector (job log)"
+  status = "open"
+
+[[task]]
+id = "0-E18-T05"
+title = "CLI skeleton: SEA binary, options, output, bundle check"
+description = """apps/cli per detailed design 06 section 2.4: Node SEA binary for linux-amd64 and linux-arm64 (FE-604; first check whether SEA works in the pinned Node 22 version, otherwise a replacement tarball with Node runtime and justification in the PR), argument parser with exit codes 0, 1, 2 and error codes GW-CLI-nnn, rejection of secret options, prompts with default value and --yes, abort without terminal, text and NDJSON output, wrapper around docker compose, check of the bundle checksum (built in per version, FE-605) and optionally cosign verify-blob (FE-620)."""
+design = ["06-installation-operations-ui.md#24-installer-cli-guildwork"]
+result = "apps/cli/src/main.ts, src/output/, src/prompt/, src/compose/, src/bundle/, apps/cli/build/sea.mjs"
+done = [
+  "Test 'cli.exit-codes' green",
+  "Test 'cli.reject-secret-options' green",
+  "Test 'cli.no-tty-missing-value-aborts' and 'cli.yes-uses-defaults' green",
+  "Test 'cli.json-output-ndjson' green",
+  "Test 'cli.never-sudo' green",
+  "Test 'cli.install.bundle-checksum-mismatch' and 'cli.install.signature-optional-warns' green",
+  "SEA binary starts on both runners ('guildwork version', job log) or replacement justified",
+]
+sources = ["11 section 2.2", "11 section 2.4 rules 2 and 3"]
+depends_on = ["0-E01", "R-E03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T05-S01"
+  title = "Check Node SEA in the pinned version"
+  done = "Probe binary runs on amd64 and arm64, or replacement decision in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T05-S02"
+  title = "Tests exit codes, options, prompts"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T05-S03"
+  title = "Parser, prompts, output, never-sudo"
+  done = "Tests exit-codes to never-sudo green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T05-S04"
+  title = "Compose wrapper and bundle check"
+  done = "Tests bundle-checksum-mismatch and signature-optional-warns green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T06"
+title = "Command guildwork install"
+description = """install per detailed design 06 section 2.4.1 and sequence 4.1: preflight check without writing, bundle and signature check, writing the target folder (.env 0600, secrets/ 0700, worker-secrets/, never overwrite, only add), generating the secrets on the first run, generating the Z1 files egress.yaml (allow_private with the host from public_url), worker.yaml and socket-proxy/policy.json from installation.yaml on every run (03 FE-328, FE-658), pull by digest, migrate, start, waiting for readyz, break-glass init with one-time code only on stdout, pool key of the local worker via internal-cli pool-key create (this task creates the internal command, 0-E18-T13 uses it) and start of the service worker, doctor, next steps (steps in detailed design 06 section 2.4.1). All options from the table, abort paths with step and reason."""
+design = ["06-installation-operations-ui.md#241-guildwork-install", "06-installation-operations-ui.md#41-installation"]
+result = "apps/cli/src/commands/install.ts, apps/cli/test/install.test.ts"
+done = [
+  "Test 'cli.install.preflight-no-write' green",
+  "Test 'cli.install.file-modes' green",
+  "Test 'cli.install.second-run-keeps-env-and-secrets' green",
+  "Test 'cli.install.break-glass-code-stdout-only' green",
+  "Test 'install fails with step and reason when service never ready' green (GW-CLI-040)",
+  "Test 'install public mode requires public url without tty' green (GW-CLI-010)",
+  "Test 'cli.install.initial-secrets-in-secretstore' green",
+  "Test 'cli.install.pool-key-before-worker-start' green (key never on stdout)",
+  "Test 'cli.install.z1-files-from-installation' green",
+]
+sources = ["11 section 2.4", "05 section 7"]
+depends_on = ["0-E18-T05", "0-E18-T03", "0-E17-T03", "0-E18-T07"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T06-S01"
+  title = "Tests preflight check and file permissions"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T06-S02"
+  title = "Preflight check without writing"
+  done = "Test preflight-no-write green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T06-S03"
+  title = "Write target folder, generate secrets, second run"
+  done = "Tests file-modes and second-run green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T06-S04"
+  title = "Pull, migrate, start, readyz, break-glass init"
+  done = "Tests break-glass-code-stdout-only and never ready green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T06-S05"
+  title = "Options without terminal and doctor at the end"
+  done = "Test public url without tty green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T07"
+title = "doctor: framework and basic checks D01 to D10, D30, D31"
+description = """doctor framework (DoctorCheck, DoctorReport, --strict, --only, --skip, exit codes per FE-637) and the checks D01 Docker, D02 architecture, D03 resources, D04 kernel, D05 Postgres major version 17 or 18 (FE-602), D06 pgvector 0.8.2 or later, D07 schema version, D08 BlobStore probe in the prefix _doctor, D09 SecretStore probe, D10 self-issuer (JWKS, test JWT), D30 published ports, D31 file permissions. Each check its own file with tests ok and fail. Follow-up list: align the detailed design README 'PostgreSQL 16 or newer' with 11 section 3 (open point 2)."""
+design = ["06-installation-operations-ui.md#242-guildwork-doctor", "06-installation-operations-ui.md#25-doctor-checks"]
+result = "apps/cli/src/commands/doctor.ts, apps/cli/src/doctor/checks/D01..D10, D30, D31"
+done = [
+  "per check tests 'doctor.<id>.ok' and 'doctor.<id>.fail' green",
+  "Test 'doctor.D06-pgvector.below-minimum' green (container with pgvector 0.8.1)",
+  "Test 'doctor.exit-code-strict' green",
+  "Test 'doctor writes nothing except probe objects it deletes' green",
+  "Test 'doctor.internal-cli-commands-registered' green",
+]
+sources = ["11 section 2.2", "11 section 3", "11 section 6 rules 6 and 7"]
+depends_on = ["0-E18-T05", "0-E03", "0-E02-T03", "0-E10-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T07-S01"
+  title = "Framework DoctorCheck with exit codes and strict"
+  done = "Test doctor.exit-code-strict green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T07-S02"
+  title = "Host checks D01 to D04, D30, D31"
+  done = "Tests ok and fail green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T07-S03"
+  title = "Database checks D05 to D07"
+  done = "Tests including pgvector below-minimum green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T07-S04"
+  title = "Driver probes D08 to D10"
+  done = "Tests green, probe objects deleted"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T07-S05"
+  title = "Align README row Postgres"
+  done = "Text change in the PR"
+  status = "open"
+
+[[task]]
+id = "0-E18-T08"
+title = "doctor: isolation, separation, DNS, air gap, egress, clock, public URL"
+description = """Checks D11 isolation (runtimes in docker info, /dev/kvm, probe container per runtime via the socket proxy), D12 outgoing HTTPS via the egress proxy, D13 public URL and webhook deliveries (public only), D14 time of day, D15 air gap blocks active, D16 separation of worker and control plane static and active per ADR-62 (mounts, networks, hash of the socket proxy policy, TCP probes from the worker, rejected create requests with host path, privileged, host network, foreign network), D17 sandbox without DNS resolver."""
+design = ["06-installation-operations-ui.md#25-doctor-checks"]
+result = "apps/cli/src/doctor/checks/D11..D17"
+done = [
+  "per check tests 'doctor.<id>.ok' and 'doctor.<id>.fail' green",
+  "Test 'doctor.D11-isolation.none-registered' and 'doctor.D11-isolation.no-kvm-reports-missing' green",
+  "Tests 'doctor.D16-separation.socket-mounted-fails', 'doctor.D16-separation.worker-in-core-fails', 'doctor.D16-separation.active-probes' green",
+  "Test 'doctor.D15-air-gap.leak-detected' green",
+  "doctor without failure on the stack in the job e2e-chain-compose (job log)",
+]
+sources = ["11 section 2.2", "05 section 1", "ADR-48", "ADR-62", "ADR-64", "11 section 8"]
+depends_on = ["0-E18-T07", "0-E18-T03", "0-E12"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T08-S01"
+  title = "D11 isolation with failure cases"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T08-S02"
+  title = "D16 separation static"
+  done = "Tests socket-mounted and worker-in-core green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T08-S03"
+  title = "D16 separation active with probes"
+  done = "Test active-probes green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T08-S04"
+  title = "D12 to D15, D17"
+  done = "Tests green, doctor in the Compose job without fail"
+  status = "open"
+
+[[task]]
+id = "0-E18-T09"
+title = "doctor: operations checks D18 to D29"
+description = """Checks D18 CI variant and D19 hoster settings for auto_approve as slots with n/a (FE-630), D20 audit anchor ('audit chain not anchored'), D21 org default GITHUB_TOKEN, D22 pinned harness version and checksum, D23 operating mode private (capability POLL), D24 configuration against schema and deprecated keys, D25 backup (age, last restore test, external target append_only as a warning), D26 version age, D27 worker versions (warning at N-1, M96), D28 upgraded runs and unknown automaton version, D29 telemetry state."""
+design = ["06-installation-operations-ui.md#25-doctor-checks"]
+result = "apps/cli/src/doctor/checks/D18..D29"
+done = [
+  "per check tests 'doctor.<id>.ok' and 'doctor.<id>.fail' green (for D18, D19 test 'doctor.D18-D19.not-applicable-stage-0')",
+  "Test 'doctor D20 reports anchor missing' green",
+  "Test 'doctor D27 warns at n-1 and fails older' green",
+  "Test 'doctor D25 warns without external append-only target' green",
+]
+sources = ["11 section 2.2", "ADR-29", "05 section 5", "01 section 6", "11 section 6 rules 9 and 11", "backlog M95, M96, M124"]
+depends_on = ["0-E18-T07", "0-E08-T04", "0-E15-T02", "0-E11-T03", "0-E05-T08", "0-E18-T10", "0-E18-T16"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M96 (warning at worker N-1) and M95 (version age) here; M124 warning without external target."
+
+  [[task.part]]
+  id = "0-E18-T09-S01"
+  title = "Slots D18, D19"
+  done = "Test not-applicable-stage-0 green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T09-S02"
+  title = "D20 to D24"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T09-S03"
+  title = "D25 to D29"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T10"
+title = "guildwork backup and role ops"
+description = """Backup per detailed design 06 section 2.11 and sequence 4.5 (FE-608, FE-609, FE-610): role ops in the control-plane image with schedule backup.schedule, table backup_runs from migration 0007 (detailed design 01 section 3.8, column state) and the new table ops_locks (migration 0015), lock retention for the deletion job, pg_dump -Fc in REPEATABLE READ with row counts and the last audit hash, object list as of the cutoff, restic snapshot with manifest (BackupManifest), retention via restic forget except on append_only targets, --secrets into a separate restic repo with the operator's passphrase, required alert on failure, closing of hanging runs; connection as role guildwork_ops via ops.database_url_ref, schedules as pg-boss queues ops-backup and ops-restore-test, set MaintenanceDeps.retentionHold = opsRetentionHold at the registration of the job db-retention, so that runRetention from 01 section 2.2 deletes nothing during a backup (detailed design 06 section 2.11, FE-610, FE-648). CLI command guildwork backup via docker compose run ops."""
+design = ["06-installation-operations-ui.md#211-backup-and-restore", "06-installation-operations-ui.md#244-guildwork-backup"]
+result = "apps/control-plane/src/ops/backup.ts, ops/scheduler.ts, ops/retention-hold.ts, apps/cli/src/commands/backup.ts, packages/db/migrations/0015_ops_locks.sql"
+done = [
+  "Test 'backup.manifest-complete' green",
+  "Test 'backup.retention-lock-held' green (the wired job db-retention deletes nothing during the backup, RetentionReport.heldBy set)",
+  "Test 'backup.failure-alarm' green (target unreachable, backup_runs failed, alert)",
+  "Test 'backup.abandoned-run-closed' green",
+  "Test 'backup.secrets-separate-repo' green (passphrase never in installation, log or DB)",
+  "Test 'ops.schedules-singleton' green",
+]
+sources = ["11 section 7", "06 section 4", "backlog M124"]
+depends_on = ["0-E18-T03", "0-E08-T02", "0-E19-T07", "0-E03", "0-E18-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M124: minimum level without external target, consistency via the deletion job lock, key source for --secrets defined."
+
+  [[task.part]]
+  id = "0-E18-T10-S01"
+  title = "Tests manifest and lock"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T10-S02"
+  title = "Dump, objects, restic, manifest, backup_runs"
+  done = "Test manifest-complete green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T10-S03"
+  title = "Lock retention and schedule"
+  done = "Test retention-lock-held green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T10-S04"
+  title = "Failure paths: alert, hanging runs"
+  done = "Tests failure-alarm and abandoned-run-closed green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T10-S05"
+  title = "Secrets export and CLI command"
+  done = "Test secrets-separate-repo green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T11"
+title = "guildwork restore and automatic restore test"
+description = """restore per detailed design 06 section 2.4.5: choose a snapshot, require an empty target (otherwise GW-CLI-062, overwriting only with --replace-existing and TTY confirmation), pg_restore, objects, optionally secrets, comparison with the manifest (row counts, last audit hash, object list), check of the audit chain, report; --verify-only into a throwaway database. Automatic restore test per backup.restore_test.schedule into a throwaway database on the same server (role guildwork_ops with CREATEDB). Docs docs/ops/backup.md including the change of the Postgres major version as a restore onto a new container (M97)."""
+design = ["06-installation-operations-ui.md#245-guildwork-restore", "06-installation-operations-ui.md#211-backup-and-restore"]
+result = "apps/cli/src/commands/restore.ts, apps/control-plane/src/ops/restore.ts, ops/restore-test.ts, docs/ops/backup.md"
+done = [
+  "Test 'restore.manifest-match' green",
+  "Test 'restore.audit-chain-verified' green (a tampered row in the dump yields GW-CLI-061)",
+  "Test 'restore.refuses-non-empty' green",
+  "Test 'restore.verify-only-throwaway-db' and 'restore-test.scheduled-throwaway-db' green (throwaway DB deleted afterwards)",
+  "Test 'restore across postgres major version 17 to 18' green (M97)",
+]
+sources = ["11 section 7", "11 section 6 rule 8", "backlog M97"]
+depends_on = ["0-E18-T10", "0-E08-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M97: major version change on single-host described and tested as a restore."
+
+  [[task.part]]
+  id = "0-E18-T11-S01"
+  title = "Tests restore and deviation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T11-S02"
+  title = "restore with manifest comparison and audit chain"
+  done = "Tests manifest-match, audit-chain-verified, refuses-non-empty green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T11-S03"
+  title = "verify-only and scheduled restore test"
+  done = "both tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T11-S04"
+  title = "Major version change via restore and docs"
+  done = "Test 17 to 18 green, docs/ops/backup.md"
+  status = "open"
+
+[[task]]
+id = "0-E18-T12"
+title = "guildwork upgrade, migrate locks and way back"
+description = """upgrade per detailed design 06 sections 2.4.3, 2.10 and sequence 4.4: mandatory --to, path check against release.json (fromMinor, haltPoints), check bundle and digests, backup younger than migrate.recent_backup_max_age (or --backup), drain on, wait for 0 leases up to upgrade.drain_timeout_min, new Compose file with retention of the previous one, migrate (upgrade of open runs per ADR-67 from 0-E05, then migrations), rollout, readyz, doctor, drain off. Locks of migrate per detailed design 06 section 2.10 and 01 FE-133: backup gate and halt point check live only in the migrator (packages/db/src/migrator/gates.ts, 0-E02-T03); apps/control-plane/src/migrate/guards.ts only supplies their inputs (migrateGateInputs: haltPoints from release.json, backupMaxAgeS) and messages (migrateErrorHint) and is wired into the role migrate; ALTER EXTENSION is checked by the migration linter (01 FE-132). Way back --rollback as an image change without migrate; the control plane does not execute runs of an unknown automaton version (FE-624). Follow-up list: align 11 section 6 rule 10 and 06 section 6 'runs keep the version' with ADR-67 (upgrade) (M137)."""
+design = ["06-installation-operations-ui.md#243-guildwork-upgrade", "06-installation-operations-ui.md#210-upgrade-and-way-back", "06-installation-operations-ui.md#44-upgrade"]
+result = "apps/cli/src/commands/upgrade.ts, apps/control-plane/src/migrate/guards.ts, apps/control-plane/src/orchestrator/version-gate.ts, docs/ops/upgrade.md"
+done = [
+  "Tests 'upgrade.requires-explicit-version', 'upgrade.skip-halt-point-refused', 'upgrade.no-recent-backup-refused', 'upgrade.drain-timeout-reverts' green",
+  "Tests 'upgrade.migrate-before-rollout' and 'upgrade.rollback-image-only' green",
+  "Tests 'migrate.backup-guard', 'migrate.empty-db-exempt', 'migrate.halt-point', 'migrate.no-extension-update' green",
+  "Test 'orchestrator.unknown-automaton-version-untouched' green",
+]
+sources = ["11 section 6", "03 section 6", "ADR-67", "backlog M137"]
+depends_on = ["0-E18-T10", "0-E18-T06", "0-E02", "0-E05-T08", "0-E05-T10", "0-E11-T04"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M137 (text in 11 section 6 and 06 section 6) done in the consistency run 2026-11-01."
+
+  [[task.part]]
+  id = "0-E18-T12-S01"
+  title = "Tests path, backup, drain"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T12-S02"
+  title = "migrate locks with tests"
+  done = "four migrate tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T12-S03"
+  title = "Upgrade flow with drain and rollout"
+  done = "Tests requires-explicit-version to migrate-before-rollout green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T12-S04"
+  title = "Way back and version lock in the orchestrator"
+  done = "Tests rollback-image-only and unknown-automaton-version-untouched green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T12-S05"
+  title = "Docs docs/ops/upgrade.md"
+  done = "docs/ops/upgrade.md in the PR"
+  status = "open"
+
+[[task]]
+id = "0-E18-T13"
+title = "guildwork worker register and worker package"
+description = """worker register per detailed design 06 section 2.4.6: internal-cli pool-key create, key exactly once on stdout or into a file 0600 (--out), output of the lines for worker.env without key; with --config-dir additionally worker.yaml, egress.yaml and socket-proxy/policy.json for the remote worker with the same function as install.write (03 FE-328, FE-658). Worker package deploy/worker-package for own hardware (11 section 2.7): compose.worker.yaml with worker, socket-proxy, egress-proxy, systemd unit guildwork-worker.service (installed by the operator with root, documented), README with the upgrade path of the package (M96). doctor detects the role worker-package and runs only the matching checks."""
+design = ["06-installation-operations-ui.md#246-guildwork-worker-register"]
+result = "apps/cli/src/commands/worker-register.ts, deploy/worker-package/compose.worker.yaml, deploy/worker-package/guildwork-worker.service, deploy/worker-package/README.md"
+done = [
+  "Test 'worker register shows key exactly once and stores only hash' green",
+  "Test 'worker register --out writes file with mode 0600' green",
+  "Test 'worker package claims with pool key over https only' green (worker package against the stack in the Compose job)",
+  "Test 'revoked pool key cannot claim' green",
+  "Test 'cli.worker-register.config-dir' green",
+]
+sources = ["11 section 2.7", "05 section 1", "ADR-05", "backlog M96"]
+depends_on = ["0-E18-T06", "0-E11-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T13-S01"
+  title = "Tests key output"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T13-S02"
+  title = "Command worker register"
+  done = "both output tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T13-S03"
+  title = "Worker package with systemd unit and README"
+  done = "Test claims over https only green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T13-S04"
+  title = "Revocation and doctor role worker-package"
+  done = "Test revoked pool key green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T14"
+title = "guildwork github-app create"
+description = """Manifest flow without admin UI per sequence 4.3: manifest from internal-cli github manifest (buildAppManifest, FE-638), local receiver on 127.0.0.1 with a random state, output of the start URL, exchange of the code via POST /app-manifests/{code}/conversions, values via stdin to internal-cli secret put. Fallback --paste-code. Check whether GitHub accepts 127.0.0.1 as redirect_url (open point 8); enter the result in 09 section 4. Tests only against fixtures, no real call."""
+design = ["06-installation-operations-ui.md#247-guildwork-github-app-create", "06-installation-operations-ui.md#43-github-app-via-manifest-flow-cli"]
+result = "apps/cli/src/commands/github-app-create.ts, apps/cli/test/github-app-create.test.ts"
+done = [
+  "Test 'github-app create stores secrets via stdin only' green (no value in argv, process list or output)",
+  "Test 'github-app create rejects wrong state' green",
+  "Test 'github-app create code expired gives GW-CLI-070' green",
+  "Test 'github-app create paste-code fallback' green",
+  "Entry on redirect_url 127.0.0.1 in 09 section 4 (verified, or unverified with fallback)",
+]
+sources = ["ADR-45", "11 section 2.2", "05 section 2"]
+depends_on = ["0-E18-T05", "0-E14-T11", "0-E03-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T14-S01"
+  title = "Tests manifest flow with fixtures"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T14-S02"
+  title = "Local receiver, state, exchange, secret put"
+  done = "Tests stdin only, wrong state, code expired green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T14-S03"
+  title = "paste-code and entry in 09"
+  done = "Test paste-code green, entry in 09"
+  status = "open"
+
+[[task]]
+id = "0-E18-T15"
+title = "Commands admin break-glass, admin login, admin session, config validate, version"
+description = """guildwork admin break-glass reset, lock, unlock via the internal commands from 0-E17-T03; guildwork admin login (browser, one-time code with PKCE to a receiver on 127.0.0.1) and guildwork admin session (internal-cli admin session create) with session file 0600 for guildwork-eval (detailed design 06 section 2.6.2, FE-653); guildwork config validate against installation.schema.json; guildwork version with CLI, bundle and installed version and version age."""
+design = ["06-installation-operations-ui.md#248-further-commands", "06-installation-operations-ui.md#262-session-for-the-command-line"]
+result = "apps/cli/src/commands/admin-break-glass.ts, admin-login.ts, config-validate.ts, version.ts"
+done = [
+  "Test 'cli admin break-glass reset prints new code once and alarms' green",
+  "Test 'cli config validate reports key and line' green (invalid file, exit 1)",
+  "Test 'cli version shows age' green",
+  "Test 'cli.admin-session.file-mode-0600' green; admin login against the test stack with test IdP yields a session with which GET /admin/api/v1/me returns 200",
+]
+sources = ["05 section 7", "04 section 7"]
+depends_on = ["0-E18-T05", "0-E17-T03", "0-E17-T02", "0-E06-T03"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T15-S01"
+  title = "Tests of the three commands"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T15-S02"
+  title = "Implement the commands"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T16"
+title = "Telemetry off, preview and update hint"
+description = """Module apps/control-plane/src/telemetry per detailed design 06 section 2.9 (FE-617): TelemetryReport per schema without free text (additionalProperties false), generation for the preview, sending only with telemetry.endpoint set, default off. Update hint with telemetry.update_check via the releases API of the public repo, daily, only channel stable, result in update_checks; without effect in air gap (the resolver enforces it). Capture sink telemetry-sink in the testkit (DNS redirection of all names to a counting server) for the S8 case 0 requests by default. In addition the admin endpoints PUT /admin/api/v1/setup/telemetry (both opt-ins preselected off, 409 locked_by_file, 409 with air_gap) and GET /admin/api/v1/telemetry/preview, the field telemetry in StatusView and SetupState as well as the page /admin/telemetry (moved here from 0-E17-T08, detailed design 06 section 2.9)."""
+design = ["06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"]
+result = "apps/control-plane/src/telemetry/report.ts, update-check.ts, apps/control-plane/src/admin/api/telemetry.ts, apps/admin-ui/src/pages/Telemetry.tsx, packages/testkit/src/telemetry-sink/, packages/db/migrations/0016_update_checks.sql"
+done = [
+  "Test 'telemetry.default-off' green",
+  "Test 'telemetry.report-schema-no-free-text' green",
+  "Test 'telemetry.no-send-without-endpoint' green",
+  "Tests 'update-check.off-by-default', 'update-check.stable-only', 'update-check.blocked-in-air-gap' green",
+  "Test 'telemetry.zero-requests-default' green (stack in default, capture sink counts 0 requests)",
+  "Test 'telemetry opt-ins default off in setup' green",
+  "Test 'telemetry toggle rejected in air gap' green (409)",
+]
+sources = ["11 section 8", "ADR-44", "07 section 5 S8"]
+depends_on = ["0-E18-T03", "0-E06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T16-S01"
+  title = "Tests telemetry schema and default off"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T16-S02"
+  title = "Report, preview, sending only with endpoint"
+  done = "three telemetry tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T16-S03"
+  title = "Update hint with air gap block"
+  done = "three update tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T16-S04"
+  title = "Capture sink and S8 case 0 requests"
+  done = "Test telemetry.zero-requests-default green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T17"
+title = "Air gap mode in the bundle"
+description = """Air gap per detailed design 06 section 2.9: install --air-gap --registry-mirror rewrites all image references to the mirror with the same digest, requires --bundle or a local bundle path, sets the harness source operator_mirror (configuration for 0-E15), enforces telemetry off. Docs docs/ops/air-gap.md with copy commands (crane or skopeo) from release.json and host firewall rules. Test environment for the S8 case: Docker network without egress, mirror registry (registry:2), fixture server as SCM and fake LLM from the testkit in the test process, which itself runs as a container in this network (detailed design 06 section 2.13); counting at the egress proxy."""
+design = ["06-installation-operations-ui.md#29-telemetry-update-notice-air-gap", "06-installation-operations-ui.md#213-portability-test-and-s8"]
+result = "apps/cli/src/commands/install.ts (air gap branch), tools/airgap-env/, docs/ops/air-gap.md"
+done = [
+  "Test 'install air gap rewrites images to mirror with same digest' green",
+  "Test 'install air gap without bundle fails with GW-CLI-010' green",
+  "Test 's8.air-gap-zero-connections' green locally in tools/airgap-env (0 connections except SCM, LLM, mirror counted at the egress proxy)",
+]
+sources = ["11 section 8", "ADR-44", "ADR-20", "07 section 5 S8"]
+depends_on = ["0-E18-T06", "0-E18-T16", "0-E12", "0-E16-T04", "0-E16-T07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T17-S01"
+  title = "Tests air gap installation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T17-S02"
+  title = "Mirror rewriting and mandatory bundle"
+  done = "two install tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T17-S03"
+  title = "Test environment without egress and S8 case"
+  done = "Test s8.air-gap-zero-connections green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T17-S04"
+  title = "Docs air-gap.md"
+  done = "Docs with commands from release.json, link from docs/ops/install.md"
+  status = "open"
+
+[[task]]
+id = "0-E18-T18"
+title = "Prepare the host: host-prepare.sh"
+description = """Script deploy/compose/host-prepare.sh (FE-619, M121), which the operator starts personally with root: install gVisor runsc from the official package source with checksum and register it in /etc/docker/daemon.json, optionally Sysbox, KVM udev rule, Docker restart only before the first start of the stack (hint if a stack is running). List of supported distributions per isolation in docs/ops/install.md. The script is idempotent and prints every change. shellcheck in make check."""
+design = ["06-installation-operations-ui.md#9-rulings", "06-installation-operations-ui.md#213-portability-test-and-s8"]
+result = "deploy/compose/host-prepare.sh, docs/ops/install.md (section prepare the host)"
+done = [
+  "Test 'host-prepare idempotent' green (second run changes nothing, in the CI job with sudo)",
+  "Test 'host-prepare refuses docker restart while stack runs' green",
+  "shellcheck without findings",
+  "doctor D11 reports gvisor after the script on ubuntu-24.04 and ubuntu-24.04-arm (job log)",
+]
+sources = ["11 section 1 principle 7", "11 section 2.4", "backlog M121"]
+depends_on = ["0-E18-T08"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M121 done with FE-619."
+
+  [[task.part]]
+  id = "0-E18-T18-S01"
+  title = "Tests idempotent and running stack"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T18-S02"
+  title = "Script for gVisor, Sysbox, KVM"
+  done = "Tests green, shellcheck green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T18-S03"
+  title = "Distribution list and docs"
+  done = "docs/ops/install.md section prepare the host"
+  status = "open"
+
+[[task]]
+id = "0-E18-T19"
+title = "Measure and set minimum values"
+description = """Measure starting values for install.min_cpu, install.min_mem_gb, install.min_disk_gb, pool.slot_mem_gb, install.min_docker_version, install.min_compose_version: stack with dummy runs and a probe run on both runner architectures, peak values from docker stats and df, Docker versions from the oldest distribution of the list in 0-E18-T18. Values with measurement log in installation.schema.json as defaults and test config.defaults-pinned; the docs only name references to the schema."""
+design = ["06-installation-operations-ui.md#7-configuration"]
+result = "Measurement log docs/ops/measurements/stage-0-resources.md, defaults in the schema, test config.defaults-pinned"
+done = [
+  "Measurement log with commands and outputs in the repo",
+  "Test 'config.defaults-pinned' green",
+  "doctor D01 and D03 use the new values (test doctor.D03-resources.fail with a value below the default)",
+]
+sources = ["11 section 2.4", "backlog M48"]
+depends_on = ["0-E18-T08", "0-E16-T04"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "M48 done with measurement."
+
+  [[task.part]]
+  id = "0-E18-T19-S01"
+  title = "Measurement on both architectures"
+  done = "Measurement log"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T19-S02"
+  title = "Defaults in the schema with test"
+  done = "Test config.defaults-pinned green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T20"
+title = "Operator docs installation and Hetzner via Compose"
+description = """docs/ops/install.md (installation, operating modes, TLS, first steps in the setup wizard), docs/ops/operations.md (reading doctor, kill switch from stage 1, alerts), docs/ops/hetzner.md (Compose by hand or with generic-vm, status community per 11 section 10). Every command in the docs is a test case: tools/doc_commands_check.py runs the marked command blocks in the Compose job. English only at publication (O21); German until then."""
+design = ["06-installation-operations-ui.md#2-modules-and-responsibility"]
+result = "docs/ops/install.md, docs/ops/operations.md, docs/ops/hetzner.md, tools/doc_commands_check.py"
+done = [
+  "Test 'doc commands run green' green in the Compose job",
+  "Text rules from R-E02 green (no dashes, no instance data)",
+]
+sources = ["11 section 10", "12 section 5.1"]
+depends_on = ["0-E18-T06", "0-E18-T12", "0-E18-T11", "0-E18-T18"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T20-S01"
+  title = "Check tool for doc commands"
+  done = "Tool with test, red against a broken command"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T20-S02"
+  title = "install.md, operations.md, hetzner.md"
+  done = "Test doc commands run green green"
+  status = "open"
+
+[[task]]
+id = "0-E18-T21"
+title = "Owner: decision on the receiver of product telemetry"
+description = """Prepare a decision sheet (agent) and decision (owner): does the project operate a receiver for product telemetry (account, cost, data protection, domain)? Recommendation: no, until users ask for it; until then the opt-in only shows the preview (FE-617). Enter the result as an owner item in docs/DECISIONS.md section 3."""
+design = ["06-installation-operations-ui.md#10-open-items"]
+result = "Entry in docs/DECISIONS.md section 3"
+done = ["Owner decision with date in DECISIONS.md section 3"]
+sources = ["ADR-44", "11 section 8", "O17"]
+depends_on = ["0-E18-T16"]
+owner = "owner"
+estimate_h = 1
+status = "open"
+
+  [[task.part]]
+  id = "0-E18-T21-S01"
+  title = "Decision sheet with cost, effect, risks"
+  done = "Sheet in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E18-T21-S02"
+  title = "Owner decides, entry in 09"
+  done = "Entry with date"
+  status = "open"
+
+# ---------------------------------------------------------------- 0-E21 supply chain and release
+
+[[task]]
+id = "0-E21-T01"
+title = "Release manifest, bundle and checksums"
+description = """tools/release (Python, standard library only): release.json per schema ReleaseManifest (detailed design 06 section 2.10) from the digests of the build, bundle tarball from deploy/compose plus release.json, SHA256SUMS over all assets, embedding of the bundle checksum in the CLI build of the same version (FE-605). JSON Schema tools/release/release.schema.json. upgrade.haltPoints and upgrade.fromMinor from tools/release/release.toml and --previous (detailed design 06 section 2.10, FE-656, 01 FE-133). Ruff and mypy green."""
+design = ["06-installation-operations-ui.md#210-upgrade-and-way-back", "06-installation-operations-ui.md#32-file-formats"]
+result = "tools/release/build_manifest.py, build_bundle.py, release.schema.json, release.toml, tests"
+done = [
+  "Test 'release.manifest-schema' green",
+  "Test 'release.bundle-checksums' green (bundle reproducible: built twice, same checksum)",
+  "Test 'cli embeds bundle checksum of its version' green",
+  "Test 'release.halt-point-required-for-marked-migration' green",
+]
+sources = ["11 section 2.4 rule 2", "11 section 6 rules 5 and 12"]
+depends_on = ["0-E18-T05", "0-E18-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T01-S01"
+  title = "Schema and tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T01-S02"
+  title = "Manifest and reproducible bundle"
+  done = "Tests manifest-schema and bundle-checksums green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T01-S03"
+  title = "Checksum in the CLI build"
+  done = "Test embeds bundle checksum green"
+  status = "open"
+
+[[task]]
+id = "0-E21-T02"
+title = "Image license gate with counter-test"
+description = """tools/release/image_license_gate.py: reads the Syft SBOM of every image, red for every package of the name lists FORBIDDEN_NPM and FORBIDDEN_PYPI from tools/ci/license_check.py (ADR-39, R-E02-T06: @anthropic-ai/claude-code, @anthropic-ai/claude-code-*, @anthropic-ai/claude-agent-sdk*, PyPI claude-agent-sdk and claude-code-sdk), for licenses outside the allowlist from R-E02 and for UNLICENSED or 'SEE LICENSE IN' without approval; generates THIRD_PARTY_NOTICES. Counter-test per FE-621: (a) every PR builds a test image FROM control-plane with a locally generated placeholder package named @anthropic-ai/claude-agent-sdk (without code, license SEE LICENSE IN README.md), the gate must be red; (b) the release run builds the same with the real package in a pinned version from the npm registry, only locally, never pushed."""
+design = ["06-installation-operations-ui.md#212-supply-chain-and-release"]
+result = "tools/release/image_license_gate.py, tools/release/counter_test/, .github/workflows/ci.yml (job license-counter-test)"
+done = [
+  "Test 'license-gate.counter-test-fixture' green in every PR (gate red on the test image, job green)",
+  "Test 'license-gate.counter-test-real-package' green in the release trial run",
+  "Test 'license-gate.allowlist-images' green for all four images",
+  "THIRD_PARTY_NOTICES generated by the gate, not by hand",
+]
+sources = ["ADR-39", "05 section 10 items 4 and 5", "06 section 8", "12 section 5.2", "08 stage 0 done criterion"]
+depends_on = ["0-E18-T02", "R-E02-T06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T02-S01"
+  title = "Test: counter-test with placeholder package"
+  done = "Test red because the gate is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T02-S02"
+  title = "Gate against SBOM with allowlist"
+  done = "Tests counter-test-fixture and allowlist-images green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T02-S03"
+  title = "Counter-test with real package in the release run"
+  done = "Test counter-test-real-package green in the trial run"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T02-S04"
+  title = "Generate THIRD_PARTY_NOTICES"
+  done = "File from the gate, test compares with SBOM"
+  status = "open"
+
+[[task]]
+id = "0-E21-T03"
+title = "Release workflow: digest, Trivy, SBOM, signature, attestation, tag"
+description = """.github/workflows/release.yml per detailed design 06 section 2.12: trigger tag vX.Y.Z or vX.Y.Z-rc.N, all jobs with signing permissions only in the environment release with required reviewer; native build per architecture, push by digest, manifest list, Trivy per digest (release.trivy_severity), Syft SBOM, image license gate, cosign sign keyless and attest (spdxjson), GitHub Artifact Attestations, portability test against exactly these digests (call of portability.yml as a reusable workflow), only then tag on the digests and GitHub release with release.json, bundle, CLI binaries, SHA256SUMS with cosign sign-blob, SBOMs, THIRD_PARTY_NOTICES, LICENSE, NOTICE. S8 report from the portability test as assets s8-report-<version>.json and .md; if eval/reference/reference-qualification-<version>.json is in the tagged commit, check schema and platform_release, sign keyless with cosign sign-blob (.sig, .pem) and publish with .md, otherwise a note in the release notes (detailed design 06 section 2.12, FE-657, 07 FE-725). Channel next for -rc, otherwise stable (FE-606). Actions by SHA, workflow policy green. Release notes name the support window per 12 (M49)."""
+design = ["06-installation-operations-ui.md#212-supply-chain-and-release"]
+result = ".github/workflows/release.yml, tools/release/notes.py"
+done = [
+  "Trial run on a tag v0.0.0-rc.1 in a test repo or with dry_run green; jobs release / trivy, release / sbom, release / sign, release / attest, release / portability, release / tag green (job log)",
+  "Test 'release stops before tag when trivy finds fixable high' green (job red, no tag)",
+  "cosign verify against a probe image with the identity from release.json green (command and output in the PR)",
+  "Workflow policy and actionlint green",
+  "Test 'release.reference-file-signed-and-listed' green; job release / s8-report green (S8 report as asset)",
+]
+sources = ["05 section 10 items 1 to 3", "12 section 5.2", "11 section 6 rule 12", "backlog M49", "07 sections 2.12 and 2.13, FE-725"]
+depends_on = ["0-E21-T01", "0-E21-T02", "R-E05-T05", "0-E21-T05", "0-E20-T18", "0-E20-T21"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M49: take the support window in the release notes from 12, otherwise a reference."
+
+  [[task.part]]
+  id = "0-E21-T03-S01"
+  title = "Workflow skeleton with environment release and dry_run"
+  done = "Workflow policy green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T03-S02"
+  title = "Build by digest, Trivy, SBOM, gate"
+  done = "Trial run up to the gate green; Trivy abort test red as expected"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T03-S03"
+  title = "cosign sign and attest, GitHub attestation"
+  done = "cosign verify in the trial run green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T03-S04"
+  title = "Portability test as gate, then tag and release assets"
+  done = "Trial run completely green"
+  status = "open"
+
+[[task]]
+id = "0-E21-T04"
+title = "Signature and digest check in install, upgrade, doctor"
+description = """Hard: the CLI only starts images whose digest is in the (verified) release.json; a foreign digest in .env aborts with GW-CLI-032. Soft: cosign verify per digest with the identity from release.json if cosign is present, otherwise warn with the exact command (FE-620). 05 section 10 item 1 was aligned with 11 section 2.4 rule 2 in the consistency run 2026-11-01."""
+design = ["06-installation-operations-ui.md#212-supply-chain-and-release", "06-installation-operations-ui.md#9-rulings"]
+result = "apps/cli/src/bundle/verify-images.ts"
+done = [
+  "Test 'cli.verify.digest-not-in-release' green",
+  "Test 'cli verify uses cosign when present and warns otherwise' green",
+]
+sources = ["05 section 10 item 1", "11 section 2.4 rule 2"]
+depends_on = ["0-E21-T01", "0-E18-T06"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T04-S01"
+  title = "Tests digest and cosign"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T04-S02"
+  title = "Check in install, upgrade, doctor"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T04-S03"
+  title = "Align the architecture text"
+  done = "Text change in the PR"
+  status = "dropped"
+
+[[task]]
+id = "0-E21-T05"
+title = "Portability test: fresh runner, installation, doctor, smoke"
+description = """.github/workflows/portability.yml (reusable and called by the release) per detailed design 06 section 2.13 steps 1 to 5: matrix ubuntu-24.04 with gvisor and sysbox, ubuntu-24.04-arm with gvisor (check and verify Sysbox on arm64); host-prepare.sh, download and check of CLI and bundle, guildwork install with exactly the documented options without a manual step, doctor --strict (D21 explicitly skipped), smoke run with a signed webhook fixture and the dummy in shadow against the fixture server; log as artifact."""
+design = ["06-installation-operations-ui.md#213-portability-test-and-s8"]
+result = ".github/workflows/portability.yml, tools/portability/smoke.py"
+done = [
+  "Jobs 'portability (amd64, gvisor)', 'portability (arm64, gvisor)', 'portability (amd64, sysbox)' green (job log with doctor --json and smoke result)",
+  "Test 's8.install-documented-options-only' green (the workflow uses only commands from docs/ops/install.md, checked with tools/doc_commands_check.py)",
+  "Evidence of Sysbox on arm64 (runs, or not supported with source) in the PR",
+]
+sources = ["11 section 9", "11 section 10", "07 section 5 S8", "12 section 5.2", "08 stage 0 done criterion"]
+depends_on = ["0-E21-T01", "0-E21-T07", "0-E18-T18", "0-E18-T20", "0-E16-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T05-S01"
+  title = "Workflow with matrix and host-prepare"
+  done = "Installation step green on all matrix entries"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T05-S02"
+  title = "doctor --strict and smoke run"
+  done = "three jobs green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T05-S03"
+  title = "Only documented commands, log artifact, Sysbox arm64"
+  done = "Test install-documented-options-only green, evidence in the PR"
+  status = "open"
+
+[[task]]
+id = "0-E21-T06"
+title = "Portability test: upgrade N-1 to N with data, backup and restore"
+description = """portability.yml steps 6 and 7: installation N-1 (for the first release the last next pre-release, FE-623) with runs in awaiting_human_review, paused_budget and one running run, worker N-1 stays after the rollout; guildwork upgrade --to N --backup; row counts and checksums equal, runs upgraded, worker N-1 keeps claiming; second upgrade N to an N+1 probe without intervention. Then backup, delete volumes, restore --snapshot latest --replace-existing, manifest comparison and audit chain. The upgrade part additionally runs in every PR with a migration (path filter)."""
+design = ["06-installation-operations-ui.md#213-portability-test-and-s8", "06-installation-operations-ui.md#210-upgrade-and-way-back"]
+result = ".github/workflows/portability.yml (jobs upgrade, backup-restore), tools/portability/seed_runs.py, compare.py"
+done = [
+  "Test 's8.upgrade-zero-data-loss' green (row counts and checksums equal, one run upgraded per waiting state)",
+  "Test 's8.restore-same-state' green",
+  "Job upgrade runs in a probe PR with a migration (job log)",
+]
+sources = ["11 sections 6, 7, 9", "03 section 6", "07 section 5 S8", "08 principle 5"]
+depends_on = ["0-E21-T05", "0-E18-T12", "0-E18-T11"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T06-S01"
+  title = "Seed data and comparison tool"
+  done = "seed_runs.py and compare.py with tests"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T06-S02"
+  title = "Upgrade job with worker N-1 and second upgrade"
+  done = "Test s8.upgrade-zero-data-loss green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T06-S03"
+  title = "Backup restore job"
+  done = "Test s8.restore-same-state green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T06-S04"
+  title = "Path filter for PRs with a migration"
+  done = "Probe PR shows the job"
+  status = "open"
+
+[[task]]
+id = "0-E21-T07"
+title = "Fixture server as a container for smoke and air gap"
+description = """tools/fixture-server: packages the fixture server from packages/testkit (0-E16-T03) as a standalone service with a container image only for CI (without outbound network), counting endpoint for writing calls (0 in shadow) and a CLI for sending signed webhook fixtures to a URL. The GitHub instance points its instance key api_url to the service (detailed design 05, FE-632)."""
+design = ["06-installation-operations-ui.md#213-portability-test-and-s8"]
+result = "tools/fixture-server/, tools/fixture-server/Dockerfile"
+done = [
+  "Test 'fixture server container answers recorded responses' green",
+  "Test 'fixture server webhook signature verifies at ingress' green",
+]
+sources = ["11 section 9", "01 section 1.1 rule 1"]
+depends_on = ["0-E16-T03", "0-E14"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T07-S01"
+  title = "Tests fixture server"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T07-S02"
+  title = "Server and webhook sender"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E21-T08"
+title = "Air gap and telemetry cases in CI"
+description = """Job air-gap in portability.yml (amd64): tools/airgap-env from 0-E18-T17 on a fresh runner, installation with --air-gap from bundle file and mirror, smoke run, counting at the egress proxy; job telemetry-default: stack in default for 30 minutes with smoke runs, capture sink counts 0 requests. Both run per release."""
+design = ["06-installation-operations-ui.md#213-portability-test-and-s8", "06-installation-operations-ui.md#87-telemetry-and-air-gap"]
+result = ".github/workflows/portability.yml (jobs air-gap, telemetry-default)"
+done = [
+  "Job 'air-gap (amd64)' green with counting log (0 connections except configured targets)",
+  "Job 'telemetry-default' green with counting log (0 requests)",
+]
+sources = ["11 sections 8 and 9", "07 section 5 S8", "ADR-44"]
+depends_on = ["0-E21-T05", "0-E18-T17", "0-E18-T16"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T08-S01"
+  title = "Job air-gap"
+  done = "Job green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T08-S02"
+  title = "Job telemetry-default"
+  done = "Job green"
+  status = "open"
+
+[[task]]
+id = "0-E21-T09"
+title = "First signed release"
+description = """First release v0.1.0 (channel stable or next depending on the state of the acceptance matrix): the agent prepares release notes, acceptance state and checklist (images signed, SBOM, attestation, license gate green, portability test green, air gap and telemetry green); the owner approves the release run in the environment release (external effect). After the run: cosign verify and gh attestation verify against the published digests, result in the stage report."""
+design = ["06-installation-operations-ui.md#212-supply-chain-and-release"]
+result = "GitHub release v0.1.0 with all assets, evidence in the stage report docs/berichte/stufe-0.md"
+done = [
+  "Release run green (job log)",
+  "cosign verify per image with the identity from release.json green (command and output)",
+  "gh attestation verify per image green (command and output)",
+  "License gate and counter-test green in the release run",
+]
+sources = ["08 stage 0 done criterion", "12 section 5.2", "05 section 10"]
+depends_on = ["0-E21-T03", "0-E21-T04", "0-E21-T06", "0-E21-T08", "0-E21-T10", "0-E21-T11"]
+owner = "agent+owner"
+estimate_h = 4
+status = "open"
+note = "Owner step: approval in the environment release (external effect)."
+
+  [[task.part]]
+  id = "0-E21-T09-S01"
+  title = "Release notes and checklist"
+  done = "Checklist in the PR, all items with evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T09-S02"
+  title = "Owner approves the release run"
+  done = "Approval in the environment review, run green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T09-S03"
+  title = "Post-check of the published artifacts"
+  done = "cosign verify and gh attestation verify green, evidence in the stage report"
+  status = "open"
+
+[[task]]
+id = "0-E21-T10"
+title = "Owner: clarify that the container registry is public and free of charge"
+description = """Decision sheet (agent): are public images in the registry of the hoster of the product repo free of charge, and how are packages made public (M53)? The owner checks in the account and makes the packages public as soon as the first image exists."""
+design = ["06-installation-operations-ui.md#10-open-items"]
+result = "Entry in docs/architecture/12-open-source-and-project.md (evidence), packages public"
+done = [
+  "Evidence with source and date in 12",
+  "anonymous pull of a probe image succeeds (command and output)",
+]
+sources = ["12 section 5.1", "backlog M53"]
+depends_on = ["0-E18-T01"]
+owner = "owner"
+estimate_h = 1
+status = "open"
+note = "M53."
+
+  [[task.part]]
+  id = "0-E21-T10-S01"
+  title = "Decision sheet with source"
+  done = "Sheet in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T10-S02"
+  title = "Owner makes packages public"
+  done = "anonymous pull succeeds"
+  status = "open"
+
+[[task]]
+id = "0-E21-T11"
+title = "Check the licenses of the bundle components"
+description = """Check at the source (LICENSE file in the repo of the pinned version) and include in THIRD_PARTY_NOTICES: Caddy, SeaweedFS, restic, pgBackRest, OpenTelemetry Collector Contrib, pgvector image and PostgreSQL, Azurite (for 0b), openid-client, Vite, React. A component outside the allowlist from 12 section 5.2 is replaced or kept as a separate process with justification (FE-636)."""
+design = ["06-installation-operations-ui.md#9-rulings"]
+result = "tools/release/third_party_components.toml, THIRD_PARTY_NOTICES, entry in 09 section 4 (done)"
+done = [
+  "Every component with SPDX identifier, source and retrieval date in third_party_components.toml",
+  "Test 'third party components all in allowlist or justified' green",
+]
+sources = ["09 section 4", "12 section 5.2", "ADR-50"]
+depends_on = ["0-E18-T04", "R-E02-T06"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E21-T11-S01"
+  title = "Read the licenses at the source"
+  done = "Table with source and date"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E21-T11-S02"
+  title = "Test against the allowlist"
+  done = "Test green"
+  status = "open"
+
+# ---------------------------------------------------------------- 0-E22 suites and acceptance
+
+[[task]]
+id = "0-E22-T01"
+title = "Stage 0 cases in the suite framework S1 to S8"
+description = """Uses the suite framework from 0-E20-T21 (detailed design 07 section 2.13: defineSuiteCase, catalog eval/suites/catalog/s<n>.yaml, lint, report); no format of its own. Enters the cases of stage 0 from the epics of this area and the other areas (such as S2 faulty config from 0-E06, S6 run state machine from 0-E05) in the catalog as applicable from stage 0, not rebuilt, and provides make suite S=<n> with a JUnit report per suite. The lint from 07 (suites.lint.*) checks that every required case of stage 0 has a test."""
+design = ["06-installation-operations-ui.md#89-cross-cutting-suites-0-e22"]
+result = "Entries in eval/suites/catalog/s1.yaml to s8.yaml, Makefile target suite"
+done = [
+  "Lint suites.lint.* green with all required cases of stage 0 (every case has a test)",
+  "make suite S=s6 and S=s8 run and write JUnit reports",
+]
+sources = ["07 sections 2.13 and 5", "08 stage 0"]
+depends_on = ["0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E22-T01-S01"
+  title = "Prepare the run against the catalog from 0-E20-T21"
+  done = "Lint reports the missing stage 0 cases (red)"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T01-S02"
+  title = "Enter stage 0 cases in the catalog as applicable"
+  done = "every row from 07 section 5 with stage 0 is in the catalog"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T01-S03"
+  title = "make suite and JUnit reports"
+  done = "Lint suites.lint.* green, make suite S=s6 and S=s8 green"
+  status = "open"
+
+[[task]]
+id = "0-E22-T02"
+title = "Acceptance matrix stage 0"
+description = """tools/acceptance/stage-0.toml (FE-635) with every done criterion of stage 0 from 08 section 2 as a row (criterion, test names or CI job, building task): dummy end to end; lease expiry; dedupe; limit abort S3; reservation; sandbox destroy in the failure path; effect idempotency; audit chain with daily anchor; S2 faulty config file; S6 completeness of the run state machine; S6 object lock; S6 single-host separation with doctor; contract suites of the five plugin kinds and of the drivers; portability test amd64 and arm64 with installation, doctor, smoke, backup and restore; PITR or restore verified once; license gate counter-test; contract test start with subscription; first signed release with SBOM and attestation; probe run in shadow from the assistant; S8 complete per 07. tools/acceptance/check.py checks the existence of the tests and the green state in the last run on main via the JUnit reports. Same format for 0b in stage-0b.toml."""
+design = ["06-installation-operations-ui.md#810-acceptance-matrix"]
+result = "tools/acceptance/stage-0.toml, tools/acceptance/stage-0b.toml, tools/acceptance/check.py, tests"
+done = [
+  "Test 'acceptance matrix covers every stage 0 criterion of 08' green (reconciliation against a list of the criteria with hash of the paragraph from 08)",
+  "python3 tools/acceptance/check.py --stage 0 reports test found for every row",
+  "Test 'acceptance check fails on missing test name' green",
+]
+sources = ["08 stage 0", "07 section 5", "docs/plan/README.md section 4 item 6"]
+depends_on = ["0-E22-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E22-T02-S01"
+  title = "Test: matrix covers every criterion"
+  done = "Test red against an empty matrix"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T02-S02"
+  title = "Matrix stage 0 and 0b"
+  done = "Coverage test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T02-S03"
+  title = "check.py with JUnit reconciliation"
+  done = "Tests green, run against main documented"
+  status = "open"
+
+[[task]]
+id = "0-E22-T03"
+title = "S6 single-host: worker and sandbox do not reach secrets, Postgres and Docker socket"
+description = """S6 cases on the real Compose bundle (ADR-62): from the worker container and from a sandbox, attempts on secrets/ (file system and mount search), postgres:5432, seaweedfs, control-plane internal, /var/run/docker.sock; via the socket proxy, create containers with host path, privileged, host network, host PID and foreign network. Gate 0 successes; additionally doctor D16 green on the same stack. Rootless daemon only after its own contract test (not part of this task)."""
+design = ["06-installation-operations-ui.md#89-cross-cutting-suites-0-e22", "06-installation-operations-ui.md#6-security"]
+result = "eval/suites/s6-failure-paths/single-host/*.test.ts"
+done = [
+  "Tests 's6.single-host.worker-cannot-reach-secrets', 's6.single-host.worker-cannot-reach-postgres', 's6.single-host.worker-cannot-reach-seaweedfs', 's6.single-host.sandbox-cannot-reach-docker-socket' green",
+  "Tests 's6.single-host.socket-proxy-rejects-host-path', 's6.single-host.socket-proxy-rejects-privileged', 's6.single-host.socket-proxy-rejects-foreign-network' green",
+  "doctor D16 green in the same run (job log)",
+]
+sources = ["08 stage 0 done criterion", "07 section 5 S6", "05 section 1", "ADR-62"]
+depends_on = ["0-E22-T01", "0-E18-T08", "0-E12"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E22-T03-S01"
+  title = "Cases from the worker container"
+  done = "three tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T03-S02"
+  title = "Cases from the sandbox"
+  done = "Test sandbox-cannot-reach-docker-socket green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T03-S03"
+  title = "Attacks via the socket proxy"
+  done = "three tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T03-S04"
+  title = "Coupling with doctor D16 in the same run"
+  done = "Job log with both results"
+  status = "open"
+
+[[task]]
+id = "0-E22-T04"
+title = "S8 stage 0 complete"
+description = """S8 cases from 07 section 5 that are not already in the portability test: doctor detects missing capabilities (KVM, Sysbox, gVisor, pgvector minimum version) via fault injection; driver contract suites (BlobStore, SecretStore, CloudIdentity) as an S8 run; reference of the remaining S8 cases to the jobs from 0-E21. Isolation part of S8 only over the isolation levels supported in stage 0, sysbox and gvisor (M132); Firecracker enters the matrix with stage 9. Follow-up list: clarify 07 S8 and 11 section 9 accordingly."""
+design = ["06-installation-operations-ui.md#89-cross-cutting-suites-0-e22"]
+result = "eval/suites/s8-installation/*.test.ts, text change 07 section 5 and 11 section 9"
+done = [
+  "Tests 's8.doctor-detects-missing-kvm', 's8.doctor-detects-missing-sysbox', 's8.doctor-detects-missing-gvisor', 's8.doctor-detects-pgvector-below-minimum' green",
+  "Test 's8.driver-contract-suites' green",
+  "make suite S=s8 green with references to the portability jobs",
+  "Follow-up list in the PR: 07 S8 and 11 section 9 name the isolation levels per stage (M132)",
+]
+sources = ["07 section 5 S8", "11 sections 9 and 10", "backlog M132"]
+depends_on = ["0-E22-T01", "0-E21-T06", "0-E21-T08", "0-E03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M132 done with the follow-up list of this task."
+
+  [[task.part]]
+  id = "0-E22-T04-S01"
+  title = "Fault injection for doctor capabilities"
+  done = "four tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T04-S02"
+  title = "Driver contract suites as an S8 run"
+  done = "Test s8.driver-contract-suites green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T04-S03"
+  title = "Follow-up list M132 in 07 and 11"
+  done = "Text change in the PR"
+  status = "open"
+
+[[task]]
+id = "0-E22-T05"
+title = "Collective run of the contract suites of stage 0"
+description = """CI job acceptance-contracts: runs the contract suites of the five binding plugin kinds (TriggerSource, SCMProvider, AgentRuntime, ModelProvider, ExecutionBackend with recorded GitHub responses) and of the drivers fs, s3 (SeaweedFS and Garage), file, env, self-issuer collectively and writes a report with suite version and fixture hash per plugin, which goes into the stage report. Rebuilds no suite."""
+design = ["06-installation-operations-ui.md#810-acceptance-matrix"]
+result = ".github/workflows/acceptance.yml (job acceptance-contracts), tools/acceptance/contracts_report.py"
+done = [
+  "Job acceptance-contracts green on main (job log)",
+  "Report with suite version and fixture hash per plugin and driver as artifact",
+]
+sources = ["08 stage 0 done criterion", "01 section 1.1 rule 1", "01 section 13"]
+depends_on = ["0-E22-T02", "0-E13", "0-E14", "0-E15", "0-E03"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E22-T05-S01"
+  title = "Job and report tool"
+  done = "Job green, report as artifact"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T05-S02"
+  title = "Entry in the acceptance matrix"
+  done = "check.py finds the job"
+  status = "open"
+
+[[task]]
+id = "0-E22-T06"
+title = "PITR or restore verified once"
+description = """Evidence per 08 stage 0 ('PITR or restore verified once') and 06 section 1: (a) take over the logical restore from the portability test (0-E21-T06) as evidence; (b) perform point-in-time recovery with profile pitr once: write data, note the point in time, write further data, restore to the point in time, compare rows. Log with commands and outputs in docs/berichte/stufe-0-restore.md."""
+design = ["06-installation-operations-ui.md#211-backup-and-restore"]
+result = "tools/portability/pitr_check.sh, docs/berichte/stufe-0-restore.md"
+done = [
+  "Test 'pitr restores to marked timestamp' green (job log)",
+  "Log with command and output in the repo",
+]
+sources = ["08 stage 0 done criterion", "06 section 1", "11 section 7"]
+depends_on = ["0-E22-T01", "0-E18-T04", "0-E21-T06"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E22-T06-S01"
+  title = "Test PITR to point in time"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T06-S02"
+  title = "Log of both restores"
+  done = "File in the repo"
+  status = "open"
+
+[[task]]
+id = "0-E22-T07"
+title = "Stage report stage 0"
+description = """docs/berichte/stufe-0.md: for each done criterion from 08 stage 0 the evidence (command and output or job log) from tools/acceptance/check.py; suites S1 to S8 with state (stage 0 cases green); release evidence from 0-E21-T09; measured effort against estimate_h per epic and correction of the estimates of the following stages in the plan (plan.py generate); open points and minors in backlog-minors.md. Gate A and Gate B do not apply to stage 0 (no qualified service). The stage counts as done when check.py --stage 0 has no gap."""
+design = ["06-installation-operations-ui.md#810-acceptance-matrix"]
+result = "docs/berichte/stufe-0.md, updated estimate_h of the following stages, docs/plan/overview.md"
+done = [
+  "python3 tools/acceptance/check.py --stage 0 without a gap (output in the report)",
+  "python3 tools/plan/plan.py check green after correction of the estimates",
+  "Independent review and Red Team over the report with the verdict line `Urteil: JA`",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 0", "08 principles 1 and 5", "docs/plan/README.md sections 4 and 6"]
+depends_on = ["0-E22-T02", "0-E22-T03", "0-E22-T04", "0-E22-T05", "0-E22-T06", "0-E21-T09"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E22-T07-S01"
+  title = "Collect evidence via check.py"
+  done = "Output without a gap"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T07-S02"
+  title = "Effort measurement and estimate correction"
+  done = "plan.py check green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E22-T07-S03"
+  title = "Report, review and Red Team"
+  done = "Verdict YES"
+  status = "open"

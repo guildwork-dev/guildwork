@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+packages:
+  - apps/*
+  - packages/*
+  - plugins/*
+  - drivers/*
+  - services/*
+  - eval/*
+  - eval/adapters/*
+  - eval/suites/*
+
+# Install settings. pnpm reads them from this file, not from .npmrc.
+engineStrict: true
+saveExact: true
+strictPeerDependencies: true
+linkWorkspacePackages: true
+
+# Install scripts of dependencies are off. A package may run its scripts only
+# when it is listed here with `true`; every entry needs a reason in
+# docs/quality/toolchain.md.
+allowBuilds: {}
+
+# Package store and metadata cache inside the repository (.tools/ is
+# git-ignored), like uv and Corepack in the Makefile. ci.yml caches the store.
+storeDir: .tools/pnpm-store
+cacheDir: .tools/pnpm-cache

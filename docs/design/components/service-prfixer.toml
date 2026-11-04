@@ -1,0 +1,388 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-prfixer"
+title = "PR fixer: controller, trigger filter, rounds, review threads, prohibitions, delivery, no-op"
+kind = "service"
+path = "services/prfixer/"
+package = "@guildwork/service-prfixer"
+stage = "4"
+purpose = "Base scaffold of the service prfixer: manifest and configuration, controller with trigger and bot filter, round counter, source review_threads, prohibitions with suggestion instead of commit, delivery as commit or stacked PR, no-op and self-check, check ai-fix and pipeline stage fixing; the sources CI, conflict and analyzer are in prfixer-quellen."
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts", "11-qa-prfix-automerge.md#28-check-steps-in-the-worker", "11-qa-prfix-automerge.md#29-service-manifests", "11-qa-prfix-automerge.md#31-tables", "11-qa-prfix-automerge.md#32-artifacts-events-markers", "11-qa-prfix-automerge.md#6-security", "11-qa-prfix-automerge.md#7-configuration", "11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21", "11-qa-prfix-automerge.md#5-failure-and-abort-paths"]
+built_by = ["4-E01-T01", "4-E01-T02", "4-E01-T03", "4-E01-T04", "4-E01-T05", "4-E01-T06", "4-E01-T07", "4-E01-T08", "4-E05-T01"]
+
+[[provides]]
+name = "manifest"
+kind = "contract"
+title = "ServiceManifest prfixer with write requests (propose_dependency from stage 4), jobs, platform MCP tools and qualification; propose_issue is added additively by prfixer-modi in stage 10 (15 K15)"
+defined_in = "11-qa-prfix-automerge.md#29-service-manifests"
+from_task = "4-E01-T01"
+
+[[provides]]
+name = "konfig-services-prfixer"
+kind = "config"
+title = "Key services.prfixer in the schema with only lowering inheritance and x-qualification"
+defined_in = "11-qa-prfix-automerge.md#7-configuration"
+from_task = "4-E01-T01"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "PrFixerController accept, plan, onStepResult, finalize with FixPlan; from stage 10 prfixer-modi extends accept and finalize with CiDoctorRequest and CiDoctorReport (15 FE-1543)"
+defined_in = "11-qa-prfix-automerge.md#24-pr-fixer"
+from_task = "4-E01-T02"
+
+[[provides]]
+name = "check-ai-fix"
+kind = "ui"
+title = "Check ai-fix, only success or neutral"
+defined_in = "11-qa-prfix-automerge.md#32-artifacts-events-markers"
+from_task = "4-E01-T02"
+
+[[provides]]
+name = "event-fix-done"
+kind = "event"
+title = "fix.done with runId, sha, outcome"
+defined_in = "11-qa-prfix-automerge.md#32-artifacts-events-markers"
+from_task = "4-E01-T02"
+
+[[provides]]
+name = "herkunft"
+kind = "ts-api"
+title = "Reporting of seen Untrusted inputs in FixResult.untrustedInputs"
+defined_in = "11-qa-prfix-automerge.md#6-security"
+from_task = "4-E01-T03"
+
+[[provides]]
+name = "tabelle-prfix-rounds"
+kind = "table"
+title = "prfix_rounds"
+defined_in = "11-qa-prfix-automerge.md#31-tables"
+from_task = "4-E01-T04"
+
+[[provides]]
+name = "rundenzaehler"
+kind = "ts-api"
+title = "Round counter rounds.ts with round_scope auto and human:<run_id>, consecutive_own_red"
+defined_in = "11-qa-prfix-automerge.md#24-pr-fixer"
+from_task = "4-E01-T04"
+
+[[provides]]
+name = "fix-agent-ausgabe"
+kind = "ts-api"
+title = "FixAgentOutput and ConflictResolution, outputSchema of the PR fixer stages"
+defined_in = "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts"
+from_task = "4-E01-T05"
+
+[[provides]]
+name = "agent-stufe-fix-threads"
+kind = "prompt"
+title = "Agent stage prfixer.fix_threads with prompt fix-threads"
+defined_in = "11-qa-prfix-automerge.md#27-agent-stages-output-schemas-and-prompts"
+from_task = "4-E01-T05"
+
+[[provides]]
+name = "verbote"
+kind = "ts-api"
+title = "Prohibition detectors forbidden-changes.ts with OutOfScopeSuggestion (FE-1125)"
+defined_in = "11-qa-prfix-automerge.md#24-pr-fixer"
+from_task = "4-E01-T06"
+
+
+[[provides]]
+name = "lieferung"
+kind = "ts-api"
+title = "delivery.ts: commit on the agent branch or stacked PR agent/fix/* (FE-1127)"
+defined_in = "11-qa-prfix-automerge.md#24-pr-fixer"
+from_task = "4-E01-T07"
+
+[[provides]]
+name = "check-prfixer-verify"
+kind = "contract"
+title = "Check program prfixer.verify: prohibitions, repro, self-check"
+defined_in = "11-qa-prfix-automerge.md#28-check-steps-in-the-worker"
+from_task = "4-E01-T08"
+
+[[provides]]
+name = "pipeline-stufe-prfixer"
+kind = "contract"
+title = "Pipeline stage prfixer with until and max_rounds (StageHandler apps/control-plane/src/pipeline/stages/prfixer.ts, 10 FE-1069)"
+defined_in = "11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21"
+from_task = "4-E05-T01"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "prfix_skipped_total, prfix_rounds_exhausted_total, prfix_recovery_stop_total, prfix_forbidden_change_total, prfix_ci_wait_timeout_total"
+defined_in = "11-qa-prfix-automerge.md#5-failure-and-abort-paths"
+from_task = "4-E01-T08"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "4-E01-T01"
+purpose = "Register manifest and job kinds of the service prfixer"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "4-E01-T01"
+purpose = "Check manifest in the loader"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "4-E01-T01"
+purpose = "Capabilities CHECK_RUN, CI_LOGS, THREAD_RESOLVE, CI_RERUN, CHECK_ACTIONS, CODE_SCANNING_READ"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "4-E01-T01"
+purpose = "Module packages/config/schema/services/prfixer.ts with x-merge lowering"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "4-E01-T01"
+purpose = "prompt_v per stage and marked values into the profile"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "4-E01-T02"
+purpose = "PrFixerController as ServiceController"
+
+[[uses]]
+interface = "sdk-service/testhilfen"
+from_task = "4-E01-T02"
+purpose = "Controller tests with in-memory host"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "4-E01-T02"
+purpose = "Registration and planned steps"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "4-E01-T02"
+purpose = "Command fix with arguments thread, review, pr, ci"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "4-E01-T02"
+purpose = "Arguments of the command fix"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "4-E01-T02"
+purpose = "Delivery to a running pipeline instead of a second run (ADR-68)"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "4-E01-T02"
+purpose = "effective mode off, shadow, live"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "4-E01-T02"
+purpose = "Submit write requests"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "4-E01-T02"
+purpose = "Check ai-fix only success or neutral"
+
+[[uses]]
+interface = "orchestrator-effekte/status-kommentar"
+from_task = "4-E01-T02"
+purpose = "Status comment line of the PR fixer run"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "4-E01-T02"
+purpose = "S4 case 'PR fixer alone on'"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "4-E01-T03"
+purpose = "Rights of the trigger author fresh from the provider"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "4-E01-T03"
+purpose = "getPermission and getChange for trigger author and agent PR property"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "4-E01-T03"
+purpose = "Commit chain of the app for the property agent PR"
+
+[[uses]]
+interface = "agent-step/untrusted-reporter"
+from_task = "4-E01-T03"
+purpose = "report seen Untrusted inputs"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "4-E01-T03"
+purpose = "FixResult.untrustedInputs to run_untrusted_inputs"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "4-E01-T04"
+purpose = "Migration prfix_rounds in block 0400"
+
+[[uses]]
+interface = "db/connect"
+from_task = "4-E01-T04"
+purpose = "atomic increment via UPDATE ... RETURNING"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "4-E01-T04"
+purpose = "Row-level security with tenant_id"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "4-E01-T04"
+purpose = "Concurrency test against real Postgres"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "4-E01-T05"
+purpose = "agent_prompt and FindingState of the own reviewer threads"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "4-E01-T05"
+purpose = "Agent stage prfixer.fix_threads with outputSchema FixAgentOutput"
+
+[[uses]]
+interface = "agent-step/prompt-builder"
+from_task = "4-E01-T05"
+purpose = "Thread texts as Untrusted, guidelines and fix.md from the base SHA"
+
+[[uses]]
+interface = "service-architect/mcp-change-threads"
+from_task = "4-E01-T05"
+purpose = "Tool change.threads for the agent"
+
+[[uses]]
+interface = "plattform-mcp/change"
+from_task = "4-E01-T05"
+purpose = "Tool change.get for the agent"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "4-E01-T05"
+purpose = "Prompts fix-* with prompt_v"
+
+[[uses]]
+interface = "effekt-executoren/reply"
+from_task = "4-E01-T05"
+purpose = "Answer per thread via propose_reply"
+
+[[uses]]
+interface = "reviewer-inkrement-und-feedback/befund-lebenszyklus"
+from_task = "4-E01-T05"
+purpose = "Thread stays open until the increment confirms addressed"
+
+[[uses]]
+interface = "coder-harte-gates/hard-gates-api"
+from_task = "4-E01-T06"
+purpose = "deleted or skipped tests like the hard gates of the coder"
+
+[[uses]]
+interface = "effect-gateway/pruefer-prfixer-forbidden"
+from_task = "4-E01-T06"
+purpose = "Checker prfixer.forbidden_changes in the gateway"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "4-E01-T06"
+purpose = "Redact patch text of the suggestions"
+
+[[uses]]
+interface = "effekt-executoren/push"
+from_task = "4-E01-T07"
+purpose = "Commit on the agent branch with expectedOldSha"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "4-E01-T07"
+purpose = "Stacked PR agent/fix/* as draft"
+
+[[uses]]
+interface = "effect-gateway/fork-ziele"
+from_task = "4-E01-T07"
+purpose = "Stacked PR with agent_fork in the agent fork"
+
+[[uses]]
+interface = "coder-self-check/self-check-api"
+from_task = "4-E01-T08"
+purpose = "Self-check bundle before each push"
+
+[[uses]]
+interface = "service-coder/coder-typen"
+from_task = "4-E01-T08"
+purpose = "SelfCheckReport in the result of prfixer.verify"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "4-E01-T08"
+purpose = "Register check program prfixer.verify"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/stage-registry"
+from_task = "4-E05-T01"
+purpose = "Register pipeline stage prfixer"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/pipeline-runner"
+from_task = "4-E05-T01"
+purpose = "until and max_rounds of the fix loop"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/konfig-pipeline"
+from_task = "4-E05-T01"
+purpose = "Stage prfixer in pipelines.ticket-to-pr instead of on_disabled human"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "4-E05-T01"
+purpose = "Transitions verifying and fixing"
+
+[[uses]]
+interface = "effekt-executoren/rerun"
+from_task = "4-E05-T01"
+purpose = "Run rerun from the fix loop"
+
+[[uses]]
+interface = "contracts-artefakte/fix-result"
+from_task = "4-E01-T01"
+purpose = "FixRequest as input and FixResult as output"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "4-E01-T03"
+purpose = "Audit for Skipped and failure paths (section 5)"
+
+[[uses]]
+interface = "plattform-mcp/propose-dependency"
+from_task = "4-E01-T05"
+purpose = "Tool propose_dependency for the fix agent"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "4-E01-T03"
+purpose = "Metrics prfix_* in the catalog"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "4-E01-T08"
+purpose = "Register job prfixer-ci-poll (FE-1137)"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "4-E01-T08"
+purpose = "Send prfixer-ci-poll with singletonKey runId"
+
+[[uses]]
+interface = "coder-self-check/check-ai-self-check"
+from_task = "4-E01-T08"
+purpose = "Self-check bundle with build and lint also for the conflict check"

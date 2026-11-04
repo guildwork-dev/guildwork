@@ -1,0 +1,1196 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area eval of stage 0. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "0"
+
+[[epic]]
+id = "0-E20"
+title = "Eval package"
+goal = "Eval runner with `origin` lock and binding of private sets to the data path, statistics per 10 section 1.4, Gate A and Gate B as data, qualification matrix with `qualification_key` and mode decision, reference qualification, adapters ReviewBench and Harbor, download pins with checksum for R2, R4, R5, label tool with the first R1 labeling round and the framework of the suites S1 to S8 that all later stages use"
+sources = ["07 sections 1, 1.1, 2, 2.1, 5", "10 sections 1.2 to 1.6", "08 section 4 stage 0 item 7", "ADR-47, ADR-52, ADR-55, ADR-56, ADR-66, ADR-70"]
+depends_on = ["0-E02"]
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T01"
+title = "Package skeleton and schemas for set, case, labels and references"
+description = """Create packages `eval/core` (@guildwork/eval-core), `eval/runner` (@guildwork/eval-runner, command `guildwork-eval`), `eval/adapters/reviewbench`, `eval/adapters/harbor`, `eval/suites` (FE-700, FE-701, FE-730). In `eval/core/src/types.ts` and `eval/core/src/schemas/` build the types and TypeBox schemas from detailed design 07 section 2.2 (`SetManifest`, `SourceSpec`, `EvalCase`, `CaseInput`, `SourceRef`, label and reference rows). Command `guildwork-eval validate-set <dir>` checks schema, license rule (unknown rejected, noncommercial only `optional_download`), `origin` rule (vendor_output rejected, FE-706; narrowing per FE-729), pin form (commit 40 hex, revision not a branch) and that every label row points to a reference."""
+design = ["07-eval-and-qualification.md#21-directories-and-packages", "07-eval-and-qualification.md#22-set-and-case-format"]
+result = "eval/core/src/types.ts, eval/core/src/schemas/*.ts, eval/runner/src/cli.ts (validate-set), package.json of the five packages"
+done = [
+  "Tests schema.set.valid_minimal, schema.set.rejects_branch_pin, schema.case.rejects_unknown_origin, schema.labels.rejects_long_note green (pnpm --filter @guildwork/eval-core test)",
+  "`guildwork-eval validate-set eval/sets/_fixtures/vendor-output` ends with exit 1 and code EVAL_ORIGIN_VENDOR_OUTPUT (failure path)",
+  "`guildwork-eval validate-set eval/sets/_fixtures/minimal` ends with exit 0",
+  "make check green",
+]
+sources = ["07 section 1 (case metadata, vendor_output lock, license rule)", "ADR-52"]
+depends_on = ["0-E01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T01-S01"
+  title = "Create packages, wire build and test in the workspace"
+  done = "pnpm -r build and one placeholder test per package green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T01-S02"
+  title = "Test: schemas for set and case with valid and invalid fixtures"
+  done = "Tests red because schemas are missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T01-S03"
+  title = "Types and TypeBox schemas per section 2.2"
+  done = "Schema tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T01-S04"
+  title = "validate-set with license, origin and pin rules including failure path tests"
+  done = "Fixtures minimal (exit 0) and vendor-output, license-unknown, branch-pin (exit 1 with code) green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T02"
+title = "Statistics core: metrics, random numbers, quantile, cluster bootstrap"
+description = """In `eval/core/src/stats/` build the metrics from detailed design 07 section 2.8.1 (proportion, micro precision, micro recall, micro F-beta, Acc@k, resolve rate, deterministic rules) with the mean over repetitions per case, the random number generator `sfc32` with `splitmix32` seed from SHA-256 (FE-709), quantile type 7 (FE-710) and the cluster bootstrap (unpaired, paired with a shared draw, fixed reference; direction "lower is better") per section 2.8.3 as well as agreement and Cohen's kappa per section 2.8.4. Pure functions without IO."""
+design = ["07-eval-and-qualification.md#28-statistics-core"]
+result = "eval/core/src/stats/{rng,metrics,quantile,bootstrap,agreement}.ts with tests"
+done = [
+  "Tests stats.fbeta.f2_known, stats.fbeta.equal_pr, stats.fbeta.zero, stats.kappa.textbook green",
+  "Tests stats.bootstrap.proportion_400, stats.bootstrap.paired_green_without_power, stats.bootstrap.paired_red_clear, stats.bootstrap.paired_red_power, stats.bootstrap.paired_ne return intervals within the tolerance from section 2.8.8",
+  "Tests stats.bootstrap.cluster_whole, stats.bootstrap.deterministic_seed, stats.rng.uniform_chi2, stats.quantile7.matches_reference, stats.repetitions.mean_before_bootstrap green",
+  "Failure path: an empty cluster list and kappa with pe = 1 return an error result or null with a reason (test stats.edge.empty_and_undefined)",
+]
+sources = ["07 section 1.1", "10 section 1.4 (cluster bootstrap)", "ADR-56"]
+depends_on = ["0-E20-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T02-S01"
+  title = "Test and build: metrics with known values and mean over repetitions"
+  done = "stats.fbeta.*, stats.repetitions.mean_before_bootstrap green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T02-S02"
+  title = "Test and build: sfc32 with seed, integer without modulo bias, chi-square test"
+  done = "stats.rng.uniform_chi2 and determinism green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T02-S03"
+  title = "Test and build: quantile type 7"
+  done = "stats.quantile7.matches_reference green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T02-S04"
+  title = "Test: bootstrap cases from section 2.8.8 (normal approximations with tolerance)"
+  done = "Tests red because bootstrap is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T02-S05"
+  title = "Cluster bootstrap unpaired, paired, fixed reference, direction"
+  done = "all stats.bootstrap.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T02-S06"
+  title = "Agreement and kappa with interval, edge cases"
+  done = "stats.kappa.textbook and stats.edge.empty_and_undefined green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T03"
+title = "Decision rules: non-inferiority, minimum power, sample size, upper bound at zero errors"
+description = """`eval/core/src/stats/noninferiority.ts`, `power.ts`, `rule-of-three.ts` and `eval/core/src/gates/saturation.ts` per detailed design 07 sections 2.8.5 to 2.8.7: `decidePart` with a fixed order (not decidable up front: reference not readable, set saturated without `saturation_exempt`, estimated threshold before the first run; then green, red, not decidable; FE-711), part kinds `noninferiority`, `threshold` (default margin 0, FE-712) and `deterministic`, default margins 0.05 (B) and 0.10 (A), leave-producer-out cap (FE-714), `requiredN`, `halfWidthPaired`, `halfWidthIndependent` and the exact upper bound `1 - 0,05^(1/n)` with approximation 3/n (FE-734)."""
+design = ["07-eval-and-qualification.md#28-statistics-core"]
+result = "eval/core/src/stats/{noninferiority,power,rule-of-three}.ts, eval/core/src/gates/saturation.ts with tests"
+done = [
+  "Tests stats.n.independent_10, stats.n.power_independent_10, stats.n.power_paired_10, stats.n.power_paired_5, stats.n.power_independent_5, stats.hw.paired_100, stats.rule_of_three green with the values from section 2.8.8",
+  "Tests decide.pre.reference_unreadable, decide.pre.saturated, decide.pre.saturation_exempt_b1, decide.pre.estimated_threshold, decide.deterministic.zero_violations, decide.threshold.default_margin_zero, decide.lower_better_direction, decide.lpo_cap_to_ne green",
+  "Test decide.order.green_without_power: interval above minus margin with missed minimum power yields green (wording 10 section 1.4, backlog M139)",
+]
+sources = ["10 sections 1.4, 1.5", "07 sections 1.1, 5 (rule of three)", "ADR-56"]
+depends_on = ["0-E20-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Backlog M139 (contradiction in the wording on minimum power) is resolved by FE-711; text in 10 section 1.4 updated in the consistency run 2026-11-01."
+
+  [[task.part]]
+  id = "0-E20-T03-S01"
+  title = "Test and build: sample size and half-width formulas"
+  done = "stats.n.* and stats.hw.paired_100 green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T03-S02"
+  title = "Test and build: exact upper bound at zero errors"
+  done = "stats.rule_of_three green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T03-S03"
+  title = "Test: decidePart per branch of the decision table"
+  done = "decide.* red because the function is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T03-S04"
+  title = "decidePart with part kinds, default margins, saturation, estimated threshold"
+  done = "decide.* except lpo green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T03-S05"
+  title = "Leave-producer-out cap"
+  done = "decide.lpo_cap_to_ne green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T04"
+title = "Gate definitions as data and gate evaluation"
+description = """Schema `guildwork.gates/v1` and types `GateFile`, `GatePart` (detailed design 07 section 2.9), load check (a required part on a set with an unverified, unknown or noncommercial license, or a Gate B required part on a private set, is rejected, FE-732), status combination per judge, Gate A, Gate B (red before not decidable before open before green, report parts without effect, FE-713, FE-733) and `rules_hash` (without parts of kind `stage`, FE-755); combination per scope (FE-757); parts of kind `stage` for stage criteria with load check `GATES_STAGE_INVALID`. First file `eval/gates/reviewer.gates.json` with Gate A (R1, R5, R3) and B1 to B5 from 10 section 3 including source anchors; consistency test that every margin and every threshold appears in the cited line of 10 (FE-716). The gate files of the other services are created by their areas in their stage."""
+design = ["07-eval-and-qualification.md#29-gate-definitions-and-gate-evaluation"]
+result = "eval/core/src/gates/{types,evaluate,combine,judges,rules-hash}.ts, eval/core/src/schemas/gates.schema.ts, eval/gates/reviewer.gates.json"
+done = [
+  "Tests gates.combine.red_wins, gates.combine.open_without_required, gates.combine.report_never_changes_status, gates.judges.worst_counts, gates.rules_hash.changes_on_margin green",
+  "Test schema.gates.rejects_required_on_unverified green (failure path load check)",
+  "Test gates.consistency.reviewer_matches_10 green and fails when a margin in reviewer.gates.json is changed (counter-test in the test itself)",
+]
+sources = ["10 sections 1.2 item 6, 1.4, 1.5, 1.6, 3", "07 section 4", "ADR-28, ADR-55, ADR-56"]
+depends_on = ["0-E20-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Proposal from backlog M119 (gate thresholds as a machine-readable file with version hash) is implemented here."
+
+  [[task.part]]
+  id = "0-E20-T04-S01"
+  title = "Test: schema and load check of the gate file"
+  done = "Tests red because the schema is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T04-S02"
+  title = "Schema, types, load check"
+  done = "schema.gates.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T04-S03"
+  title = "Status combination and multi-judge rule with tests"
+  done = "gates.combine.*, gates.judges.worst_counts green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T04-S04"
+  title = "rules_hash over canonical form"
+  done = "gates.rules_hash.changes_on_margin green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T04-S05"
+  title = "reviewer.gates.json and consistency test against 10"
+  done = "gates.consistency.reviewer_matches_10 green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T05"
+title = "Qualification profile and qualification_key"
+description = """In `packages/config/src/qualification/` build `buildProfile`, `qualificationKey` (prefix `qk1-`) and `qualificationKeyNoCred` (prefix `qx1-`) per detailed design 07 section 2.10 (FE-702, FE-704, FE-705): JCS via `canonicalJson` from `@guildwork/core` (RFC 8785, built in 0-E01-T02; no separate implementation), SHA-256, model references resolved to provider and model, all keys with `x-qualification: true` with default values written out, `prompt_v` per stage, plugin versions of AgentRuntime, ModelProvider and Analyzer, library calls with the profile of the caller; inputs with `RepoFacts` (repo class, blueprint commands), `pools` and `isolation_min` as well as `ProfileContributions` for `deps.contributions` of the resolver (FE-754). The list of marked keys comes as input from the JSON Schema; the function does not depend on the resolver, so that the resolver (0-E06) can use it in the snapshot."""
+design = ["07-eval-and-qualification.md#210-qualification-profile-and-qualification_key"]
+result = "packages/config/src/qualification/{profile,key}.ts with tests"
+done = [
+  "Tests qkey.order_independent, qkey.defaults_written, qkey.verifier_model_changes_key, qkey.prompt_v_stage_changes_key, qkey.library_call_inherits_caller, qkey.nocred_ignores_credential_kind green",
+  "Test qkey.uses_core_canonical_json green (key equals sha256 over canonicalJson from @guildwork/core; 0-E01-T02 checks the RFC vectors)",
+  "Failure path: qkey.unresolved_model_ref_rejected returns QUAL_MODEL_REF_UNRESOLVED",
+]
+sources = ["07 section 2 (qualification profile)", "04 sections 1 rule 5, 7", "ADR-66"]
+depends_on = ["0-E01-T02", "0-E01-T08"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "The resolver (0-E06) stores profile and key in the snapshot and should point to this task."
+
+  [[task.part]]
+  id = "0-E20-T05-S01"
+  title = "Test: canonicalization via canonicalJson from core"
+  done = "qkey.uses_core_canonical_json green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T05-S02"
+  title = "Test: profile building from effective configuration and schema markings"
+  done = "qkey.* red because buildProfile is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T05-S03"
+  title = "buildProfile, qualificationKey, qualificationKeyNoCred"
+  done = "all qkey.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T06"
+title = "Eval tables: migration and repositories"
+description = """Migration 0010_eval.sql (detailed design 01 section 3.1a) for `eval_suites`, `eval_cases`, `eval_runs`, `qualification` and the new tables `eval_case_results`, `qualification_parts`, `eval_references`, `qualification_adoptions`, `shadow_ratings` with columns, keys and row-level security per detailed design 07 section 3 (FE-707), forward only via the migrator from 0-E02; the columns are listed in detailed design 07 section 3 (01 FE-128). Repositories in `packages/db/src/repos/eval/` with Kysely types (location per detailed design 01 section 2.3)."""
+design = ["07-eval-and-qualification.md#3-data"]
+result = "packages/db/migrations/0010_eval.sql, packages/db/src/repos/eval/*.ts"
+done = [
+  "Test db.eval.migration_applies_forward on a fresh Postgres container green",
+  "Test db.eval.rls_isolates_tenants: query with a foreign tenant_id returns 0 rows",
+  "Test db.eval.unique_case_result: duplicate (eval_run_id, case_pk, arm, repetition) is rejected (failure path)",
+  "Table directory in 01 section 3.1a and section 3 of 07 match (review evidence in the PR description)",
+]
+sources = ["08 section 4 stage 0 item 1", "06 section 5", "05 section 7"]
+depends_on = ["0-E02-T11"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T06-S01"
+  title = "Transfer columns from 07 section 3 into SQL"
+  done = "Every column and every key from 07 section 3 is in 0010_eval.sql (list in the PR description)"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T06-S02"
+  title = "Test: migration, RLS, uniqueness"
+  done = "Tests red because the migration is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T06-S03"
+  title = "Migration and repositories"
+  done = "db.eval.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T07"
+title = "Admission per case: origin lock, license rule, data path (ADR-70)"
+description = """`apps/control-plane/src/eval/admission.ts` per detailed design 07 section 4.4: `vendor_output` always rejected (FE-706), unknown license rejected, noncommercial only with run flag and `eval.allow_noncommercial`, copyleft never from the repo; private cases: repo class, visibility and `data_policy` fresh via the SCMProvider (FE-727), runtime and all models of the profile must be permitted under `data_policy`, with `subscription` the source repo must be in `operator_repos` and private. Every rejection writes `eval_case_results` with `reject_code` and an audit entry `eval.case.rejected`; logs only with IDs."""
+design = ["07-eval-and-qualification.md#44-admission-of-a-case-admissionts", "07-eval-and-qualification.md#5-failure-and-abort-paths"]
+result = "apps/control-plane/src/eval/admission.ts with tests"
+done = [
+  "Tests admission.vendor_output_rejected_audited, admission.license_unknown_rejected, admission.noncommercial_needs_both_flags green",
+  "Tests admission.private_subscription_repo_not_operator_zero_runs and admission.private_runtime_outside_data_policy_zero_runs: 0 platform runs started, one audit entry with code each",
+  "Tests admission.private_repo_turned_public_rejected and admission.public_set_over_subscription_allowed green",
+  "Tests admission.subscription_shell_public_set_operator_allowed, admission.subscription_shell_foreign_requester_rejected and admission.subscription_shell_write_method_rejected green (ADR-72, detailed design 07 FE-758)",
+]
+sources = ["07 section 1 (data path, lock, license rule)", "05 section 6 conditions 9 and 10", "ADR-70, ADR-52, ADR-72"]
+depends_on = ["0-E20-T01", "0-E20-T06", "0-E06", "0-E08-T02", "0-E13-T03", "0-E13-T08"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T07-S01"
+  title = "Test: origin and license rules with audit"
+  done = "Tests red because admission is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T07-S02"
+  title = "origin and license rules"
+  done = "admission.vendor_output_*, license_*, noncommercial_* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T07-S03"
+  title = "Test: data path of private cases with SCM fixture (class, visibility, operator_repos)"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T07-S04"
+  title = "Data path check via policy and fresh repo data"
+  done = "all admission.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T08"
+title = "Eval run: automaton, platform runs in record mode, repetitions, budget, ledger"
+description = """`apps/control-plane/src/eval/eval-run.ts` with the run automaton (detailed design 07 section 4.2) and the case automaton (section 4.3) as tables. Per admitted case, arm and repetition one platform run via the queue `orchestrator-intake` with `EvalRunStartV1` (detailed design 07 section 2.17.2, FE-746: trigger `EvalTriggerV1`, fixture instance `eval-fixture:<eval_run_id>` from 0-E20-T28, `effectSink: record`, `configRef`, pool); arm `bare` via the internal service `eval-bare` (FE-717, section 2.17.3, prompts under `eval/bare-prompts/`). Check of the `qualification_key` in the snapshot against the request (FE-731, `EVAL_PROFILE_DRIFT`). Retry on platform error up to `eval.retries`, then failure (FE-718). `max_cost_usd` reached: `partial` without gate status (FE-719). Store ledger counters before and after the run; a limit abort ends `aborted_limit` with `neutral` and a reason (S3). Configuration keys `eval.*` and `qualification.remeasure.*` from section 7 into the installation schema (x-qualification false)."""
+design = ["07-eval-and-qualification.md#42-states-of-an-eval-run", "07-eval-and-qualification.md#43-states-of-a-case-per-arm-and-repetition", "07-eval-and-qualification.md#7-configuration", "07-eval-and-qualification.md#2172-start-of-the-case-runs"]
+result = "apps/control-plane/src/eval/eval-run.ts, apps/control-plane/src/eval/states.ts, schema addition in packages/config, eval/bare-prompts/dummy.md"
+done = [
+  "Test evalrun.states.table_complete green (every non-final state has entries for cancel, deadline and error)",
+  "Tests evalrun.budget_partial_no_gate_status, evalrun.retry_then_error_counts_as_failure, evalrun.profile_drift_detected green",
+  "Tests evalrun.ledger_before_after_recorded and evalrun.limit_abort_neutral green (S3: counter measured before and after, hard abort)",
+  "Test eval.run.no_external_effects: fixture SCM counts 0 requests to a real endpoint",
+]
+sources = ["07 section 1 (platform run with record, execution on pool, limits before and after)", "10 section 1.7", "04 section 6 item 7", "ADR-27"]
+depends_on = ["0-E20-T05", "0-E20-T07", "0-E05", "0-E07", "0-E09-T03", "0-E16-T01", "0-E20-T28"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T08-S01"
+  title = "Automata as tables with completeness test"
+  done = "evalrun.states.table_complete green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T08-S02"
+  title = "Test: case runs with record, arm bare, profile drift"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T08-S03"
+  title = "Start of the platform runs via the orchestrator, arm bare, drift check"
+  done = "eval.run.no_external_effects, evalrun.profile_drift_detected green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T08-S04"
+  title = "Repetitions, errors as failure, deadlines"
+  done = "evalrun.retry_then_error_counts_as_failure green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T08-S05"
+  title = "Budget, ledger before and after, limit abort"
+  done = "evalrun.budget_*, evalrun.ledger_*, evalrun.limit_abort_neutral green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T08-S06"
+  title = "Schema keys eval.* and qualification.remeasure.*"
+  done = "config validate accepts the example from section 7, rejects an unknown key under eval"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T09"
+title = "Eval API with permissions"
+description = """Routes from detailed design 07 section 2.6 under `/admin/api/v1` via `registerAdminRoutes` (FE-745; `/eval/sets`, `/eval/sets/:id/cases`, `/eval/configs`, `/eval/runs`, `/eval/runs/:id`, `/cases`, `/cancel`, `/report`, `/eval/suite-runs`, `/qualification`, `/qualification/:key`, `/qualification/:key/evaluate`) with TypeBox schemas, error codes and role check (admin writes, viewer reads without contents of private cases). Runner client with admin session from `GUILDWORK_EVAL_SESSION_FILE` and CSRF from `/me` (section 2.17.5), guide `docs/ops/eval.md`. `adopt` and `shadow-ratings` come with 0-E20-T20."""
+design = ["07-eval-and-qualification.md#26-eval-service-and-runner", "07-eval-and-qualification.md#2175-runner-authentication-at-the-eval-api"]
+result = "apps/control-plane/src/eval/api.ts, eval/runner/src/client/*.ts"
+done = [
+  "Test api.eval.roles: viewer gets 403 on POST /eval/runs, admin 202",
+  "Test api.eval.private_cases_hidden: GET /eval/runs/:id/cases returns only metadata for private cases",
+  "Tests api.eval.errors: 404 EVAL_SET_NOT_FOUND, 409 EVAL_RUN_TERMINAL, 409 EVAL_REPORT_NOT_READY, 422 EVAL_PROFILE_UNRESOLVABLE",
+  "Runner client against the API in the test container: guildwork-eval status shows the state",
+]
+sources = ["07 section 1", "05 section 7", "ADR-52"]
+depends_on = ["0-E20-T08", "0-E17", "0-E20-T17"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T09-S01"
+  title = "Test: routes, roles, error codes"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T09-S02"
+  title = "Routes with schemas and roles"
+  done = "api.eval.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T09-S03"
+  title = "HTTP client in the runner, commands run and status"
+  done = "Runner client test green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T10"
+title = "Fetcher with pin and checksum, cache, check tool against foreign data in the repo"
+description = """`eval/runner/src/fetch/` per detailed design 07 section 2.3 (FE-703): sources `git` (archive of the commit), `hf_dataset` (file per revision), `oci` (digest check only), `refs_only`; SHA-256 per file, a wrong checksum deletes the cache entry and aborts; host allowlist, https only, offline mode for air gap. Read and verify the exact download URLs of the hosters (archive format, dataset files) once (unverified in the detailed design). Check tool `tools/check-eval-data` in `make check`: under `eval/sets/*/` only `set.json`, `labels/*.jsonl`, `refs/*.jsonl`, `README.md` (FE-728)."""
+design = ["07-eval-and-qualification.md#23-download-and-pins", "07-eval-and-qualification.md#6-security"]
+result = "eval/runner/src/fetch/{fetcher,cache,verify}.ts, tools/check-eval-data/ with tests, entry in make check"
+done = [
+  "Tests fetch.git.verifies_sha256, fetch.git.mismatch_deletes_cache, fetch.hf.revision_must_be_hash, fetch.offline_cache_miss, fetch.host_not_allowed green (local HTTPS test server, no real hosts)",
+  "Tests check_eval_data.rejects_foreign_file and check_eval_data.accepts_labels_refs green; make check fails with a foreign file under eval/sets",
+  "Download URL formats with evidence (source, date) entered in section 2.3 of the detailed design",
+]
+sources = ["07 section 1 (download scripts with pinned commit and checksum)", "ADR-52", "04 section 7 (air_gap)"]
+depends_on = ["0-E20-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T10-S01"
+  title = "Test: fetcher against a local HTTPS test server"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T10-S02"
+  title = "Fetcher git, hf_dataset, oci, cache, allowlist, offline"
+  done = "fetch.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T10-S03"
+  title = "Check tool check-eval-data with tests and make check entry"
+  done = "check_eval_data.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T10-S04"
+  title = "Verify the hosters' URL formats and enter them in section 2.3"
+  done = "Detailed design updated with source and date"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T11"
+title = "Adapter ReviewBench"
+description = """`eval/adapters/reviewbench` per detailed design 07 section 2.4: `prepare` creates a PR fixture for the platform run from a review case (repo at head, base, diff, title, text); `collect` translates recorded inline findings from the eval log into `findings.json` (`file`, `start_line`, `end_line`, `message`); `runContainerContract` runs a foreign candidate per the contract for the contract probe. Contract details per the result of 0-E20-T27."""
+design = ["07-eval-and-qualification.md#24-adapter-reviewbench"]
+result = "eval/adapters/reviewbench/src/*.ts with tests and fixtures (own mini PRs)"
+done = [
+  "Tests reviewbench.prepare_creates_pr_fixture, reviewbench.collect_only_inline_findings, reviewbench.contract_findings_json_shape green",
+  "Failure path: a case without a diff or with a repo snapshot without head SHA returns an error result instead of empty findings (test reviewbench.prepare_rejects_incomplete)",
+]
+sources = ["07 section 1 (shared adapters, ReviewBench container contract)", "ebene-review sections 4 and 7"]
+depends_on = ["0-E20-T01", "0-E20-T27", "0-E13", "0-E09-T01", "0-E20-T28"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T11-S01"
+  title = "Test: prepare with own mini PRs"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T11-S02"
+  title = "prepare as PR fixture"
+  done = "reviewbench.prepare_* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T11-S03"
+  title = "collect from recorded effects"
+  done = "reviewbench.collect_only_inline_findings green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T11-S04"
+  title = "Container contract for the contract probe"
+  done = "reviewbench.contract_findings_json_shape green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T12"
+title = "Set R2 (Martian offline): pin, scoring per scored judge, reference per judge"
+description = """`eval/sets/R2/set.json` with a `git` pin of the MIT benchmark repo (read and enter the commit and checksums of the golden comments and of `benchmark_dashboard.json` once) and scorer `eval/scorers/martian/`: score own findings via the benchmark judge (unchanged from the pinned repo, as a work item in the sandbox) under each judge from `EvalRunRequest.judges` (in the project the two Claude judges of the file, GPT-5.2 as "not scored" in the report; owner decision O28, detailed design 07 FE-760, 08 FE-854), F2 in profile `core` as micro mean, precision `core`; recompute reference values per judge from the file on every run and store them as `eval_references` with version (values per PR for the paired bootstrap). References as "third-party measurement" with source and date (FE-723). Judge outage per FE-715. In stage 0 only tested with fixtures in the Martian format; the first real run is part of 1-E09."""
+design = ["07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas", "07-eval-and-qualification.md#27-judges"]
+result = "eval/sets/R2/set.json, eval/scorers/martian/*.ts with tests and synthetic fixtures"
+done = [
+  "guildwork-eval validate-set eval/sets/R2 ends with exit 0; pin is a 40-character commit with checksums",
+  "Tests martian.f2_core_micro_from_fixture and martian.reference_recomputed_per_judge green",
+  "Failure path: a missing judge in the file makes the part not decidable (test martian.missing_judge_ne)",
+  "Test martian.unreached_judge_reported: a judge of the file that is not in `judges` appears in the report as not scored with a reason and does not change the status",
+  "guildwork-eval fetch R2 downloads and checks the pinned files (run once locally, output in the PR description)",
+]
+sources = ["07 section 3.1 R2", "10 section 3 B1, B2", "10 section 1.5 (neutral judge)", "ADR-56", "O28"]
+depends_on = ["0-E20-T04", "0-E20-T10", "0-E20-T11", "0-E20-T16"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "Backlog M120, M131 (judge outage, rule FE-715) and M94 (third-party reference with source, FE-723)."
+
+  [[task.part]]
+  id = "0-E20-T12-S01"
+  title = "Read pin and checksums, write set.json"
+  done = "validate-set exit 0"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T12-S02"
+  title = "Test: F2 core micro and reference per judge from a synthetic file"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T12-S03"
+  title = "Scorer with benchmark judge as work item"
+  done = "martian.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T12-S04"
+  title = "Reference values per judge as eval_references with version"
+  done = "martian.reference_recomputed_per_judge checks the stored version"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T13"
+title = "Set R4 (ReviewBench): pin, leaderboard judge, three runs, leave-producer-out"
+description = """`eval/sets/R4/set.json` with `git` pin (MIT) and `repetitions = 3`, scorer `eval/scorers/reviewbench/` with the judge of the benchmark (unchanged, work item in the sandbox): grounded recall and F1 on the full golden set; additionally leave-producer-out without `ccr:` and, for a candidate of the Claude family, without `llm_review:claude` and `ccr:claude` as a diagnostic; cap per FE-714. The reference value of the leaderboard is read before the first Gate B run and stored as `eval_references`; if it is missing, B3 is not decidable."""
+design = ["07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas"]
+result = "eval/sets/R4/set.json, eval/scorers/reviewbench/*.ts with tests"
+done = [
+  "guildwork-eval validate-set eval/sets/R4 ends with exit 0",
+  "Tests reviewbench.lpo_excludes_producers and reviewbench.three_runs_mean_per_case green",
+  "Failure path: without a stored leaderboard reference B3 is not decidable with reason reference_unreadable (test reviewbench.no_reference_ne)",
+]
+sources = ["07 section 3.1 R4", "10 section 3 B3", "ADR-56"]
+depends_on = ["0-E20-T04", "0-E20-T10", "0-E20-T11", "0-E20-T16"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Backlog M117: the current text in 10 section 3 B3 already scores on the full set like the leaderboard and uses leave-producer-out only as a diagnostic; whether the portal outputs findings per competitor is clarified by 0-E20-T27."
+
+  [[task.part]]
+  id = "0-E20-T13-S01"
+  title = "Pin and set.json"
+  done = "validate-set exit 0"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T13-S02"
+  title = "Test: scoring, mean over three runs, leave-producer-out"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T13-S03"
+  title = "Scorer with benchmark judge and producer filter"
+  done = "reviewbench.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T14"
+title = "Set R5 (SWE-PRBench, AACR-Bench): pins and recall against human feedback"
+description = """`eval/sets/R5-swe-prbench/set.json` (`hf_dataset`, CC-BY-4.0, revision as hash) and `eval/sets/R5-aacr/set.json` (`git`, Apache-2.0) with checksums; scorers `eval/scorers/swe-prbench/` and `eval/scorers/aacr/`: recall against human review feedback with an own judge (fixed prompt, pinned model, `judge-alt`: in the project a different Claude model than the candidate, O28). The cluster is the PR. Gate A part `A-R5` in reviewer.gates.json refers to both sets."""
+design = ["07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas", "07-eval-and-qualification.md#27-judges"]
+result = "eval/sets/R5-swe-prbench/set.json, eval/sets/R5-aacr/set.json, eval/scorers/{swe-prbench,aacr}/*.ts, eval/judges/review-match/1/{prompt.md,schema.json}"
+done = [
+  "validate-set for both sets exit 0",
+  "Tests swe_prbench.recall_against_human and aacr.recall_against_human green with synthetic fixtures in the set format",
+  "Failure path: a judge answer outside the schema is discarded and counted as a judge error (test judge.own.schema_enforced)",
+]
+sources = ["07 section 3.1 R5", "10 section 3 Gate A", "04 section 3a (judge-alt)"]
+depends_on = ["0-E20-T04", "0-E20-T10", "0-E20-T11", "0-E20-T16"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T14-S01"
+  title = "Pins and set.json for both sets"
+  done = "validate-set exit 0"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T14-S02"
+  title = "Judge prompt review-match version 1 with schema"
+  done = "Prompt and schema versioned under eval/judges"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T14-S03"
+  title = "Test and build of both scorers"
+  done = "swe_prbench.* and aacr.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T15"
+title = "Adapter Harbor with locked protocol"
+description = """`eval/adapters/harbor` per detailed design 07 section 2.5: `prepare` (instruction as ticket fixture, image by digest as `SandboxSpec.image`), `collect` (patch from the eval log), `verify` as worker step `harbor-verify` (item `kind: check`, `needsSandbox`, `HarborVerifyArgs`) in a fresh sandbox from the same image, enqueued via the run of the internal service `eval-judge` with `purpose: verify` (section 2.17.3, FE-747); a patch to verifier files yields `verifier_tampered`. Task format per the result of 0-E20-T27. Test with own mini tasks in the Harbor format and the dummy service; real coder tasks come in stage 2."""
+design = ["07-eval-and-qualification.md#25-adapter-harbor", "07-eval-and-qualification.md#2173-internal-services-eval-bare-and-eval-judge-worker-steps"]
+result = "eval/adapters/harbor/src/*.ts, eval/adapters/harbor/fixtures/<mini-tasks>"
+done = [
+  "Tests harbor.prepare_image_by_digest, harbor.verify_fresh_sandbox, harbor.verifier_tampered_not_resolved green",
+  "Failure path: an image without digest is rejected (test harbor.prepare_rejects_tag)",
+  "Integration test: a mini task runs end to end with the dummy service, resolved true or false as expected",
+]
+sources = ["07 section 1 (Harbor format, locked protocol)", "10 section 6 (measuring instrument)", "01 section 8"]
+depends_on = ["0-E20-T01", "0-E20-T08", "0-E20-T27", "0-E12", "0-E16", "0-E20-T16"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T15-S01"
+  title = "Mini tasks in the Harbor format as fixtures"
+  done = "three tasks: solvable, unsolvable, verifier tampering"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T15-S02"
+  title = "Test and build: prepare and collect"
+  done = "harbor.prepare_* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T15-S03"
+  title = "Test and build: verify in a fresh sandbox"
+  done = "harbor.verify_fresh_sandbox, harbor.verifier_tampered_not_resolved green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T15-S04"
+  title = "Integration test with dummy service"
+  done = "End-to-end test green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T16"
+title = "Judges: own and benchmark judges, multiple judges, calibration, outage"
+description = """`apps/control-plane/src/eval/judging.ts` and `eval/core` per detailed design 07 section 2.7: judge specification with pinned model and versioned prompt under `eval/judges/`; internal service `eval-judge` (section 2.17.3, FE-747): own judges as items `model_call` with `outputSchema`, choice of a model with `use: [eval_judge]` and a different family than the candidate, otherwise a different model of the same family with a note (in the project always a different Claude model, O28), never the same model as the candidate; benchmark judges as item `check` with worker step `eval-benchmark-judge`, for a runtime `subscription` with the model bridge outside the sandbox, which executes chat calls without tools as `claude -p` (architecture ADR-73, detailed design 07 FE-759); judges whose provider the installation does not reach appear as "not scored" in the report (FE-760); scoring per judge; calibration `guildwork-eval calibrate` as a run `kind = calibration` over a source run (FE-751, section 2.17.6) with agreement and kappa including interval; warning and alert `eval_judge_calibration_stale` after `eval.judge.calibration_max_age_days` (FE-726); outage rule FE-715."""
+design = ["07-eval-and-qualification.md#27-judges", "07-eval-and-qualification.md#2173-internal-services-eval-bare-and-eval-judge-worker-steps"]
+result = "apps/control-plane/src/eval/judging.ts, eval/core/src/judges/*.ts, eval/runner/src/cli.ts (calibrate)"
+done = [
+  "Tests judge.own.schema_enforced, judge.multi.status_per_judge, judge.calibration.kappa_textbook, judge.stale_calibration_warns green",
+  "Test judge.unavailable_parts_ne: a disabled judge (fixture provider returns 404 model) makes the affected parts not decidable, alert eval_judge_unavailable triggered",
+  "Test judge.family_preference: if a judge-alt of a different family is available it is chosen, otherwise a different model of the same family with a note in the report; test judge.same_model_rejected green",
+  "Tests judge.bridge_subscription_no_token_in_container, judge.bridge_foreign_provider_unreachable and judge.unreachable_judges_reported green (model bridge against fake-claude)",
+]
+sources = ["07 section 1 (judges)", "10 section 1.5 (neutral judge)", "01 section 7", "04 section 3a", "ADR-73", "O28"]
+depends_on = ["0-E20-T02", "0-E20-T08", "0-E13", "0-E15", "0-E19-T04"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "Backlog M120 and M131 (rule for judge outage) are implemented with FE-715."
+
+  [[task.part]]
+  id = "0-E20-T16-S01"
+  title = "Test: own judge with schema via fixture ModelProvider"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T16-S02"
+  title = "Own judge and family choice"
+  done = "judge.own.*, judge.family_preference green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T16-S03"
+  title = "Benchmark judge as work item, multiple judges"
+  done = "judge.multi.status_per_judge green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T16-S04"
+  title = "Calibration with kappa, age warning, alert"
+  done = "judge.calibration.*, judge.stale_calibration_warns green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T16-S05"
+  title = "Outage rule"
+  done = "judge.unavailable_parts_ne green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T17"
+title = "Qualification matrix, validity and mode decision shadow and live"
+description = """`apps/control-plane/src/eval/matrix.ts` per detailed design 07 section 2.11: rows per `qualification_key` and scope from `qualification` and `qualification_parts`; validity computed on every query (release, `rules_hash`, reference version, judge version, adoption active; FE-708); `qualified` only computed; `decideMode` per the decision table (ADR-47) with marking `standard_not_proven`, deviation only with a green Gate A (FE-735), audit `qualification.unproven_live_used` per snapshot; decision per scope; `isQualifiedForMergeGate` without deviation. Endpoint `POST /qualification/:key/evaluate` writes `qualification_parts` from completed runs (`QUAL_RUN_INCOMPLETE` for partial). The policy (0-E06) calls `decideMode` at run start; the connection there belongs to 0-E06 and uses the contract test of this task."""
+design = ["07-eval-and-qualification.md#211-qualification-matrix-and-mode-decision"]
+result = "apps/control-plane/src/eval/matrix.ts, contract test matrix.contract.test.ts for the policy"
+done = [
+  "Tests matrix.decide.live_qualified, matrix.decide.unproven_needs_gate_a, matrix.decide.unproven_labeled_and_audited, matrix.decide.not_qualified_shadow, matrix.scope_without_required_shadow green",
+  "Tests matrix.validity.release_changed and matrix.validity.reference_changed green (expiry without stored status)",
+  "Test matrix.merge_gate_ignores_unproven green",
+  "Failure path: evaluate with a run in state partial returns 409 QUAL_RUN_INCOMPLETE (test matrix.evaluate_rejects_partial)",
+]
+sources = ["07 section 2", "10 sections 1.2, 1.6", "02 section 0 (on, off, shadow)", "04 section 7 (allow_unproven_live)", "ADR-47, ADR-55, ADR-66"]
+depends_on = ["0-E20-T04", "0-E20-T05", "0-E20-T06", "0-E08-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "Backlog M78 (wording 'not qualified, marked as Gate B open') is implemented here as follows: status open, row not qualified."
+
+  [[task.part]]
+  id = "0-E20-T17-S01"
+  title = "Test: decision table decideMode per row"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T17-S02"
+  title = "Matrix query with computed validity"
+  done = "matrix.validity.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T17-S03"
+  title = "decideMode with scope, marking and audit"
+  done = "matrix.decide.*, matrix.scope_without_required_shadow green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T17-S04"
+  title = "isQualifiedForMergeGate and evaluate endpoint"
+  done = "matrix.merge_gate_ignores_unproven, matrix.evaluate_rejects_partial green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T17-S05"
+  title = "Contract test for the policy"
+  done = "matrix.contract.test.ts green, linkable in detailed design 02"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T18"
+title = "Export reference qualification"
+description = """`guildwork-eval export-reference --release <v>` per detailed design 07 section 2.12: file `reference-qualification-<release>.json` (schema `guildwork.reference-qualification/v1`) and `.md`; only public sets with a verified license, also rows with Gate B red, not decidable or open; logs only metadata, metrics and references, transcripts only per FE-722; third-party references with source and date (FE-723). Signing is handled by the release path of 0-E21 (FE-725); this task delivers file and schema."""
+design = ["07-eval-and-qualification.md#212-reference-qualification"]
+result = "eval/core/src/schemas/reference-qualification.schema.ts, eval/runner/src/export-reference.ts"
+done = [
+  "Tests reference.export.excludes_private, reference.export.excludes_unverified, reference.export.logs_metadata_only green",
+  "Test reference.export.schema_valid: the generated file passes the schema",
+  "Failure path: export without valid rows for the release ends with exit 1 and a message instead of an empty file (test reference.export.empty_fails)",
+]
+sources = ["07 section 2.1", "10 section 1.5", "12 section 10 (releases)", "ADR-52"]
+depends_on = ["0-E20-T17", "0-E20-T19", "0-E20-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Backlog M100 (logs only metadata) and M94 (third-party reference with source) implemented via FE-722 and FE-723."
+
+  [[task.part]]
+  id = "0-E20-T18-S01"
+  title = "Schema of the reference file with tests"
+  done = "reference.export.schema_valid red, then schema present"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T18-S02"
+  title = "Test: filter private, unverified, logs"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T18-S03"
+  title = "Export with Markdown version"
+  done = "reference.export.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T19"
+title = "Eval report: format, storage, publication filter"
+description = """`eval/core/src/report/` per detailed design 07 section 2.14: `eval-report.json` (schema `guildwork.eval-report/v1`) and Markdown with all sections (header, sets, judges, reference values, parts per judge, contamination, rejected cases without contents, cost and time with ledger before and after, limitations, publishability); storage in the BlobStore, reference in `eval_runs.report_ref`; `publish-filter.ts` removes private contents and unverified parts."""
+design = ["07-eval-and-qualification.md#214-eval-report"]
+result = "eval/core/src/report/{build,render-md,publish-filter}.ts, eval/core/src/schemas/report.schema.ts"
+done = [
+  "Tests report.schema_valid, report.md_contains_all_sections, report.publish_filter.removes_private, report.contamination_section_present green",
+  "Failure path: the report of a run in state partial carries no gate status and names the reason (test report.partial_without_gate)",
+]
+sources = ["07 sections 1, 2.1", "10 section 1.5 (contamination)", "10 section 1.3 (reference values with date and classification)"]
+depends_on = ["0-E20-T04", "0-E20-T06", "0-E20-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T19-S01"
+  title = "Test: schema and sections"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T19-S02"
+  title = "Build the report and render it as Markdown"
+  done = "report.schema_valid, report.md_contains_all_sections green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T19-S03"
+  title = "Publication filter and partial runs"
+  done = "report.publish_filter.*, report.partial_without_gate green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T20"
+title = "Adoption of the reference qualification, remeasurement in shadow, online expiry"
+description = """`apps/control-plane/src/eval/reference.ts` and endpoints `POST /qualification/adopt` and `POST /eval/shadow-ratings` per detailed design 07 sections 2.12 and 4.5: signature check against `qualification.reference_trust`, release equal, key equal or key without `credential_kind` equal with the same provider, reference versions equal, only qualified rows; `qualification_adoptions` with lifecycle and audit. Remeasurement of Gate A as a run `shadow_remeasure`, fallback only on red (FE-724); online metric from `shadow_ratings` starting at `qualification.remeasure.min_human_ratings`, expiry when the upper one-sided 95 % bound is below the reference value; alert `qualification_fallback_shadow`."""
+design = ["07-eval-and-qualification.md#212-reference-qualification", "07-eval-and-qualification.md#45-adoption-and-remeasurement"]
+result = "apps/control-plane/src/eval/reference.ts, routes adopt and shadow-ratings in api.ts"
+done = [
+  "Tests reference.adopt.signature_invalid, reference.adopt.release_mismatch, reference.adopt.nocred_same_provider_only green (failure paths with codes and audit qualification.adopt_rejected)",
+  "Tests reference.remeasure.red_expires and reference.remeasure.ne_keeps green",
+  "Test reference.online.expires_below_reference green; after expiry decideMode returns shadow with a reason (check via the matrix from 0-E20-T17)",
+  "Test api.shadow_ratings.roles: viewer 403, approver 201, duplicate rating 409",
+]
+sources = ["07 section 2.1", "10 section 1.2 item 2", "ADR-47, ADR-52, ADR-66"]
+depends_on = ["0-E20-T09", "0-E20-T17", "0-E20-T18"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "Backlog M24 (minimum size of the remeasurement: fallback only on decidable red) and M64 (number 50 as the named value qualification.remeasure.min_human_ratings)."
+
+  [[task.part]]
+  id = "0-E20-T20-S01"
+  title = "Test: adoption checks with a signed fixture file"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T20-S02"
+  title = "Adoption with signature, release, profile, reference, audit"
+  done = "reference.adopt.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T20-S03"
+  title = "Remeasurement of Gate A in shadow with fallback rule"
+  done = "reference.remeasure.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T20-S04"
+  title = "Ratings and online expiry"
+  done = "reference.online.*, api.shadow_ratings.roles green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T29"
+title = "Case contribution of the cross-cutting suites S1 to S8: defineSuiteCase and catalog"
+description = """`eval/suites` per detailed design 07 section 2.13 (FE-720, FE-721), formerly part of the suite framework: `defineSuiteCase` with header fields and variants, Vitest project `suites` via `*.suite.test.ts`, catalogs `catalog/s1.yaml` to `s8.yaml` (schema `SuiteCatalogFile`, `CatalogCase`) with all rows from 07 section 5 and the cases of stage 0 as IDs, each with `from_stage`, source and conditions (`expect`), MicroVM variants with `variant_from_stage` "9" (FE-721, FE-753); rows of later stages are entered by their tasks in the same PR as the test. A separate task without a dependency on the eval API and E2E stack, so that the areas of stage 0 (control plane, execution) can write their cases before the run via `guildwork-eval suites` exists (catalog reconciliation 2026-11-01: otherwise a cycle via 0-E20-T09 and 0-E16-T03). Lint, run and report are built by 0-E20-T21."""
+design = ["07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"]
+result = "eval/suites/src/define.ts, eval/suites/catalog/s1.yaml to s8.yaml, vitest.suites.config.ts"
+done = [
+  "Test suites.catalog.ids_unique green",
+  "Every row of the suite table in 07 section 5 is mapped to at least one catalog ID (test suites.catalog.covers_07_section5 via a list of the rows with source anchor)",
+  "An example case with defineSuiteCase runs in the Vitest project suites",
+]
+sources = ["07 section 5", "08 principles 1 and 5, section 3"]
+depends_on = ["0-E20-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Split out of 0-E20-T21 (subtasks S01 and S02 of the earlier version)."
+
+  [[task.part]]
+  id = "0-E20-T29-S01"
+  title = "defineSuiteCase and Vitest project suites"
+  done = "Example case runs in the project suites"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T29-S02"
+  title = "Catalogs S1 to S8 with all rows from 07 section 5"
+  done = "suites.catalog.ids_unique, suites.catalog.covers_07_section5 green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T21"
+title = "Framework of the cross-cutting suites S1 to S8: lint, run, report"
+description = """`eval/suites` per detailed design 07 section 2.13 (FE-720, FE-721) on top of the case contribution and catalog from 0-E20-T29: `guildwork-eval suites --lint` (in make check) reports catalog IDs without a test and tests without a catalog ID; `guildwork-eval suites --stage <s> --target <local|url>` with stage filter via the stage graph from 08 section 3, missing required cases count as red, report `suite-report.json` and `.md`, upload via `POST /eval/suite-runs`. The cases themselves are written by the areas that build the checked code; this task delivers lint, run and report."""
+design = ["07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8", "07-eval-and-qualification.md#46-suite-run-of-an-acceptance"]
+result = "eval/suites/src/{run,report,lint}.ts"
+done = [
+  "Tests suites.lint.missing_test_reported, suites.lint.test_without_catalog_id green",
+  "Tests suites.run.missing_counts_red, suites.run.expect_evaluated, suites.run.not_applicable_only_if_catalog, suites.stage_filter_uses_graph, suites.report.schema_valid green",
+  "guildwork-eval suites --stage 0 --target local ends with exit 1 and a list of the IDs when cases are missing (run once, output in the PR description)",
+]
+sources = ["07 section 5", "08 principles 1 and 5, section 3", "11 section 9 (matrix of the tests)"]
+depends_on = ["0-E20-T29", "0-E20-T09", "0-E16-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Backlog M132 (MicroVM in every release) resolved via from_stage and not_applicable_if (FE-721). The acceptance 0-E22 should point to this task. Case contribution and catalog are in 0-E20-T29 since the catalog reconciliation 2026-11-01."
+
+  [[task.part]]
+  id = "0-E20-T21-S01"
+  title = "Lint catalog against tests, in make check"
+  done = "suites.lint.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T21-S02"
+  title = "Test: run with stage filter, conditions, missing cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T21-S03"
+  title = "Run, condition check, stage filter"
+  done = "suites.run.*, suites.stage_filter_uses_graph green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T21-S04"
+  title = "Suite report JSON and Markdown, upload"
+  done = "suites.report.schema_valid green, upload stored in the test container"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T22"
+title = "Probes of the suites: effects, egress, secret scan, ledger, audit"
+description = """`eval/suites/src/probes/` per detailed design 07 section 2.13: `EffectProbe` (effects outside the command from `effects` and the eval log), `EgressProbe` (local test host that counts requests; DNS requests from the sandbox per the egress proxy), `SecretScanProbe` (canary value per run, search across all Postgres tables via information_schema, BlobStore contents, logs, work item envelopes, snapshots), `LedgerProbe` (counter per key before and after), `AuditProbe`. The probes measure on the real artifact, never from states of the checked module."""
+design = ["07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"]
+result = "eval/suites/src/probes/{effects,egress,secret-scan,ledger,audit}.ts with tests"
+done = [
+  "Tests probe.egress.test_host_counts, probe.secret_scan.finds_canary_in_db_blob_logs, probe.effects.count_outside_command, probe.ledger.before_after green",
+  "Counter-test: a canary value deliberately written into a table is found, without it the result is 0 (test probe.secret_scan.negative_and_positive)",
+]
+sources = ["07 section 5 (S1, S3)", "05 sections 3 and 6 condition 4", "ADR-57"]
+depends_on = ["0-E20-T21", "0-E07-T04", "0-E08-T02", "0-E08-T05", "0-E09-T03", "0-E12-T04"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T22-S01"
+  title = "Test and build: egress test host and DNS counter"
+  done = "probe.egress.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T22-S02"
+  title = "Test and build: secret scan over DB, BlobStore, logs, envelopes, snapshots"
+  done = "probe.secret_scan.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T22-S03"
+  title = "Test and build: effect, ledger and audit probe"
+  done = "probe.effects.*, probe.ledger.* green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T23"
+title = "End to end: eval run with dummy service and S2 cases on the data path"
+description = """Own mini set `eval/sets/_e2e-dummy/` (ten cases, `own_public`) and gate file `eval/gates/dummy.gates.json`; scoring `apps/control-plane/src/eval/scoring.ts` per detailed design 07 section 2.17.4 (FE-749: scorer, statistics, gates, report, `QualificationMatrix.evaluate` as the only writer of `qualification_parts`) with scorer `eval/scorers/dummy/`. Integration test `e2e.eval_dummy_set_through_platform`: the runner loads the set, run through the whole chain (router, policy, ledger, Work API, worker, sandbox, Effect Gateway in record mode), arms platform and bare, report, gate status in `qualification_parts`. Suite cases `S2-eval-private-case-subscription-not-operator-repo` and `S2-eval-private-case-runtime-outside-data-policy` as `*.suite.test.ts` with gate 0 runs (ADR-70)."""
+design = ["07-eval-and-qualification.md#41-sequence-of-an-eval-run", "07-eval-and-qualification.md#8-tests", "07-eval-and-qualification.md#2174-scoring-scoringts"]
+result = "apps/control-plane/src/eval/scoring.ts, eval/scorers/dummy/, eval/sets/_e2e-dummy/, eval/gates/dummy.gates.json, apps/control-plane/test/eval/e2e.test.ts, apps/control-plane/src/eval/admission.suite.test.ts"
+done = [
+  "Test e2e.eval_dummy_set_through_platform green: report present, Gate A computed, 0 effects outside the eval log",
+  "guildwork-eval suites --stage 0 --suite S2 shows both ADR-70 cases green with platform_runs_started = 0",
+  "Failure path in the same test: a case of the mini set with origin vendor_output is rejected and appears in the report with a code",
+]
+sources = ["07 sections 1, 5 (S2)", "08 stage 0 (eval package)", "ADR-70"]
+depends_on = ["0-E20-T08", "0-E20-T09", "0-E20-T11", "0-E20-T19", "0-E20-T21", "0-E20-T22", "0-E16", "0-E20-T12", "0-E20-T17"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T23-S01"
+  title = "Mini set and gate file of the dummy service"
+  done = "validate-set exit 0"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T23-S02"
+  title = "Test: run through the whole chain"
+  done = "Test red, then green after wiring"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T23-S03"
+  title = "Suite cases ADR-70 in S2"
+  done = "both cases green in the suite report"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T24"
+title = "Label tool and case selection R1"
+description = """`guildwork-eval label --set <id>` per FE-729: shows for each case the state at the PR (diff, human review comments, later fix commits as a hint), records labels per the R1 schema from 08 FE-826 (`issues[]` with file and lines or `no_issue`), stored as `eval/scorers/own-review/label.schema.ts` (section 2.17.6), and writes JSONL rows with `labeler = human:<pseudonym>` to `labels/<pseudonym>.jsonl`. Script for case selection for R1: merged PRs of the R1 source repo (Apache-2.0) with human review comments as references (`refs/*.jsonl`), excluding every comment of a third-party product (O18). Storage `eval/sets/R1/`. No name of the source repo in public texts except in the `set.json` pin."""
+design = ["07-eval-and-qualification.md#22-set-and-case-format", "07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas", "07-eval-and-qualification.md#2176-label-tool-and-calibration"]
+result = "eval/runner/src/label/*.ts, eval/sets/R1/{set.json,refs/*.jsonl}"
+done = [
+  "Test label.writes_jsonl_with_pseudonym green",
+  "Test label.excludes_vendor_comments: comments from third-party product accounts do not appear as a hint and never as a label source",
+  "guildwork-eval validate-set eval/sets/R1 exit 0 with at least 100 references (initial size 07 section 1.1)",
+]
+sources = ["07 section 3.1 R1", "07 section 1 (vendor_output lock)", "08 section 4 stage 0 item 7", "O18"]
+depends_on = ["0-E20-T01", "0-E20-T10"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E20-T24-S01"
+  title = "Test and build: label tool"
+  done = "label.writes_jsonl_with_pseudonym green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T24-S02"
+  title = "Case selection R1 with exclusion of third-party product comments"
+  done = "label.excludes_vendor_comments green, refs written"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T24-S03"
+  title = "set.json R1 and validation"
+  done = "validate-set exit 0"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T25"
+title = "First labeling round R1 (human labels)"
+description = """A human labels the first 100 cases with `guildwork-eval label --set R1` (initial size per 07 section 1.1). The agent prepares batches of 20 cases each, checks the labels against the schema and writes the statistics (share of cases with a problem, time per case) into `eval/sets/R1/README.md`. Labels are set only by humans; an agent sets no label."""
+design = ["07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas"]
+result = "eval/sets/R1/labels/*.jsonl, eval/sets/R1/README.md"
+done = [
+  "guildwork-eval validate-set eval/sets/R1 exit 0 with at least 100 labeled cases",
+  "Every label row has labeler human:<pseudonym> (check in validate-set)",
+  "Time per case measured and entered in README.md (basis for the estimate of further rounds)",
+]
+sources = ["07 section 3.1 R1", "08 section 4 stage 0 item 7"]
+depends_on = ["0-E20-T24"]
+owner = "agent+owner"
+estimate_h = 16
+status = "open"
+note = "Backlog M133: human labels are on the critical path to Gate A of the reviewer (1-E09); therefore the start is already in stage 0. Estimate 100 cases at about 10 minutes, unverified, will be measured with the first round."
+
+  [[task.part]]
+  id = "0-E20-T25-S01"
+  title = "Prepare batches of 20 cases each"
+  done = "five batches available in the tool"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T25-S02"
+  title = "Labeling round by the human"
+  done = "100 cases labeled"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T25-S03"
+  title = "Check and statistics in README.md"
+  done = "validate-set exit 0, time per case entered"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T26"
+title = "Decision sheet: account for eval, reference qualification and dogfooding"
+description = """The agent creates a decision sheet (in the ops repo, not public): need for model access for the candidate, own judges and benchmark judges (provider families from 07 section 1 and 10 section 3), credential kind per ADR-51 (no subscription for automated eval runs), path via WIF with `self-issuer` or a cloud provider, estimated cost of a trial run on the 25-PR test set of ReviewBench and of a full R2 and R4 run (estimate, unverified), spending limit only as a measurement (O22). The owner decides and creates the account; the agent executes none of it."""
+result = "Decision sheet in the ops repo; record of the decision in the note of this task"
+done = [
+  "Decision sheet with cost, effect, risks and recommendation exists",
+  "Owner decision recorded (account created or alternative)",
+]
+sources = ["07 section 1 (execution, judges)", "10 section 1.7", "05 section 6", "ADR-51, ADR-70", "O22"]
+depends_on = []
+owner = "agent+owner"
+estimate_h = 3
+status = "dropped"
+note = "Dropped due to owner decision O28 (2026-11-01, DECISIONS.md section 3.2): the project uses exclusively Claude via the owner's subscription, also for eval, reference qualification and dogfooding; an account or decision sheet is no longer needed. Backlog M127 is thereby done. The subscription runtime of the project installation is set up by 1-E09-T09."
+
+  [[task.part]]
+  id = "0-E20-T26-S01"
+  title = "Write decision sheet"
+  done = "Sheet in the ops repo"
+  status = "dropped"
+
+  [[task.part]]
+  id = "0-E20-T26-S02"
+  title = "Owner decision and account creation"
+  done = "Decision recorded"
+  status = "dropped"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T27"
+title = "Read and verify unverified statements about benchmarks at the pinned state"
+description = """Read at the commit to be pinned in each case and enter in detailed design 07 (sections 2.4, 2.5, 2.7, 10) with source and date as VERIFIED or still unverified: (1) ReviewBench agent contract (location of the diff, environment variables, optional fields of findings.json, judge CLI); (2) Harbor task format (files for instruction, environment, verifier, result); (3) Martian judge pipeline (files, invocation, output format) and whether raw outputs per tool are available for a re-scoring; (4) whether the ReviewBench portal outputs findings per competitor. Only read-only requests of public pages, no accounts, no submissions."""
+result = "docs/design/07-eval-and-qualification.md with verified statements"
+design = ["07-eval-and-qualification.md#10-open-points"]
+done = [
+  "All four items entered in the detailed design with source (URL and commit) and read date, or marked as still unverified with a reason",
+  "Section 10 of the detailed design updated",
+]
+sources = ["07 section 7", "10 section 18", "ebene-review section 8", "ebene-coding section 5"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Backlog M117, M120, M131 (raw outputs for re-scoring, portal output)."
+
+  [[task.part]]
+  id = "0-E20-T27-S01"
+  title = "Read ReviewBench contract and judge CLI"
+  done = "Section 2.4 verified"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T27-S02"
+  title = "Read Harbor task format"
+  done = "Section 2.5 verified"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T27-S03"
+  title = "Check Martian pipeline, raw outputs and ReviewBench portal"
+  done = "Sections 2.7 and 10 verified"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+[[task]]
+id = "0-E20-T28"
+title = "Fixture provider eval-fixture for case runs (SCMProvider and WorkItemReader from the BlobStore)"
+description = """Built-in plugin package `plugins/eval-fixture` (@guildwork/plugin-eval-fixture) per detailed design 07 section 2.17.1 (FE-748): SCMProvider read-only (`getChange`, `listChangedFiles`, `compare`, `getFile`, `getPermission`, `codeowners`, clone via a repo bundle from the BlobStore) and WorkItemReader (`getItem`, `getComments`) from the fixtures `PrFixtureV1` and `TicketFixtureV1` that `prepare` of the adapters stores; every writing method and every `mintToken` returns `unsupported` and counts `eval_fixture.write_attempts`. Instance per eval run `eval-fixture:<eval_run_id>`, never in routing or trigger. Contract suite SCMProvider (read-only required cases) and WorkItemReader against a mini fixture, `contract-attestation.json`."""
+design = ["07-eval-and-qualification.md#2171-fixture-provider-eval-fixture"]
+result = "plugins/eval-fixture/src/*.ts with manifest.json, contract-attestation.json and tests"
+done = [
+  "Tests fixture.pr_read_matches_fixture, fixture.ticket_read_matches_fixture and fixture.writes_unsupported_counted green (pnpm --filter @guildwork/plugin-eval-fixture test)",
+  "Contract suite SCMProvider (read-only required cases) and WorkItemReader against the mini fixture green; plugin loads with attestation",
+  "Failure path: a missing blob of a fixture returns PluginError not_found instead of an empty answer (test fixture.missing_blob_not_found)",
+]
+sources = ["07 section 1 (fixtures instead of SCM)", "ADR-52"]
+depends_on = ["0-E20-T01", "0-E13-T06", "0-E13-T08", "0-E03-T01", "0-E11-T05", "0-E12-T09", "0-E10-T02"]   # gap round: input grants extend the Work API (03 FE-334), worker lifecycle (FE-335), input token via key ring (FE-307)
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Completeness run area 07 (2026-11-01): without this provider no eval run had a source for SCM and ticket answers."
+
+  [[task.part]]
+  id = "0-E20-T28-S01"
+  title = "Test: read-only SCM and ticket answers from a mini fixture"
+  done = "Tests red because the plugin is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T28-S02"
+  title = "Plugin with manifest, read-only methods and blocked write methods"
+  done = "fixture.* green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E20-T28-S03"
+  title = "Contract suite and attestation"
+  done = "Suite green, plugin loads"
+  status = "open"

@@ -1,0 +1,196 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-saetze-stufe-7"
+title = "Sets K1, K3, K4, K5, ST1, T1, T2 with adapters"
+kind = "eval"
+path = "eval/sets/"
+stage = "7"
+purpose = "The eval sets and adapters of stage 7 (sets under eval/sets/<id>/ according to 07 section 2.2, FE-1268; adapters under eval/adapters/kb-*, gh-aw-triage) with their reports: choice of the embedding model (K5), KB approval for the Reviewer (K1), Ask against reference agents (K4, K3), rules (ST1), triage (T1, T2 and comparison with gh-aw), plus the repo mode of T1 for the gate triage_t1. Not here: cross-cutting suites S1 to S8, stage report and release (prozess-abnahme-stufe-7), eval runner and statistics (area 07)."
+design = [
+  "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06",
+  "12-expansion.md#22-embedder-and-vector-search-7-e01",
+  "12-expansion.md#26-triage-service-7-e04",
+]
+built_by = [
+  "7-E01-T01",
+  "7-E06-T01",
+  "7-E06-T02",
+  "7-E06-T03",
+  "7-E06-T04",
+  "7-E06-T05",
+]
+
+[[provides]]
+name = "adapter-k5"
+kind = "contract"
+title = "Eval adapter kb-k5 (CoIR subset with free data licenses, RepoQA) with pinned download script"
+defined_in = "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"
+from_task = "7-E01-T01"
+
+[[provides]]
+name = "saetze-t1-t2"
+kind = "file"
+title = "Sets T1 (duplicates, labels, assignees) and T2 (spam, slop) under eval/sets/t1 and t2: only references and own labels, texts via script, adapter for the eval runner, Gate A report"
+defined_in = "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"
+from_task = "7-E06-T01"
+
+[[provides]]
+name = "t1-repo-modus"
+kind = "contract"
+title = "Case generator T1 in repo mode: cases from the repo itself, run with the current qualification_key, after which the eval service writes the row triage_t1 into repo_eval_gates (FE-1262)"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E06-T01"
+
+[[provides]]
+name = "satz-k1"
+kind = "file"
+title = "K1 under eval/sets/k1 on R1 and R5, paired with and without KB; report eval/reports/stufe-7-k1.md with the decision knowledge.use for the Reviewer"
+defined_in = "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"
+from_task = "7-E06-T02"
+
+[[provides]]
+name = "adapter-k4-k3"
+kind = "contract"
+title = "Eval adapters kb-k4 (SWE-QA v2, DeepCodeBench) and kb-k3 (ContextBench verified) with remeasurement of the reference agents; report eval/reports/stufe-7-k4.md"
+defined_in = "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"
+from_task = "7-E06-T03"
+
+[[provides]]
+name = "satz-st1"
+kind = "file"
+title = "ST1 under eval/sets/st1: Reviewer with and without rules, B1 parity, B2 online; report eval/reports/stufe-7-st1.md"
+defined_in = "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"
+from_task = "7-E06-T04"
+
+[[provides]]
+name = "adapter-gh-aw"
+kind = "contract"
+title = "Eval adapter gh-aw-triage (only with a VERIFIED free license) and report eval/reports/stufe-7-t1-gh-aw.md"
+defined_in = "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"
+from_task = "7-E06-T05"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "7-E01-T01"
+purpose = "Adapter kb-k5 according to EvalAdapter (prepare, collect)"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "7-E01-T01"
+purpose = "SetManifest, SourceSpec and PinnedFile for pinned third-party data"
+
+[[uses]]
+interface = "eval-runner/fetcher"
+from_task = "7-E01-T01"
+purpose = "Load third-party sets via download script with revision and checksum"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "7-E06-T01"
+purpose = "T1 and T2 as a set directory with set.json, labels and refs"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "7-E06-T01"
+purpose = "License, origin and pin rules of the sets"
+
+[[uses]]
+interface = "eval-runner/check-eval-data"
+from_task = "7-E06-T01"
+purpose = "only references and own labels in the repo (ADR-52)"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "7-E06-T01"
+purpose = "Create runs and fetch reports"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "7-E06-T01"
+purpose = "Decide Gate A paired, with margin and minimum size"
+
+[[uses]]
+interface = "eval-statistik/kennzahlen-und-bootstrap"
+from_task = "7-E06-T01"
+purpose = "Precision, recall and intervals via cluster bootstrap"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "7-E06-T01"
+purpose = "eval/gates/triage.gates.json, indexer.gates.json, standards.gates.json (section 8.7)"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "7-E06-T01"
+purpose = "Gate status per part from the gate files"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "7-E06-T01"
+purpose = "Reports eval/reports/stufe-7-*.md"
+
+[[uses]]
+interface = "eval-dienst/eval-api"
+from_task = "7-E06-T01"
+purpose = "Run of the suite t1 in repo mode via POST /admin/api/v1/eval/runs"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "7-E06-T01"
+purpose = "Create the case runs of the repo mode in shadow"
+
+[[uses]]
+interface = "service-triage/typen"
+from_task = "7-E06-T01"
+purpose = "Evaluate TriageArtifact"
+
+[[uses]]
+interface = "service-triage/tabelle-repo-eval-gates"
+from_task = "7-E06-T01"
+purpose = "Write the row triage_t1 after the repo mode (FE-1262)"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "7-E06-T01"
+purpose = "current qualification_key of the triage in repo mode"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r1-verweise"
+from_task = "7-E06-T02"
+purpose = "K1 on R1 (human_labeled)"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r5"
+from_task = "7-E06-T02"
+purpose = "K1 and ST1 on R5"
+
+[[uses]]
+interface = "eval-adapter-reviewer/adapter"
+from_task = "7-E06-T02"
+purpose = "Run the Reviewer paired with and without KB"
+
+[[uses]]
+interface = "reviewer-kontextquellen/quelle-kb"
+from_task = "7-E06-T02"
+purpose = "Arm with KB: knowledge.use on for the Reviewer"
+
+[[uses]]
+interface = "eval-richter/richter-api"
+from_task = "7-E06-T03"
+purpose = "the same judge for the Ask pipeline and the reference agents"
+
+[[uses]]
+interface = "eval-core/bezugswert"
+from_task = "7-E06-T03"
+purpose = "re-measured reference agents as ReferenceValue with date"
+
+[[uses]]
+interface = "indexer-schichten/ask"
+from_task = "7-E06-T03"
+purpose = "Score AskAnswer of the Ask pipeline and count citation validity"
+
+[[uses]]
+interface = "service-standards/http-regel-kennzahlen"
+from_task = "7-E06-T04"
+purpose = "B1 parity of the metrics per rule via the API"

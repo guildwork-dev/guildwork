@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "tofu-azure"
+title = "OpenTofu module azure with workflow azure-apply"
+kind = "delivery"
+path = "deploy/tofu/azure/"
+stage = "0b"
+purpose = "OpenTofu module azure: network with NSG, VM of the control plane with cloud-init from generic-vm, Managed Identity, Flexible Server with vector, storage with immutability, Key Vault with roles and worker VM pool, checked with mock providers, real apply only via azure-apply with owner go; no Container Apps in 0b (FE-626) and no secret as input or output (FE-627)."
+design = ["06-installation-operations-ui.md#214-opentofu-modules", "06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22", "06-installation-operations-ui.md#811-opentofu-and-azure-drivers"]
+built_by = ["0b-E03-T01", "0b-E03-T02", "0b-E03-T03", "0b-E03-T04", "0b-E03-T05", "0b-E03-T06", "0b-E03-T09"]
+
+[[provides]]
+name = "treiber-konfig-ausgabe"
+kind = "config"
+title = "Output installation.yaml excerpt with driver configuration azure-blob and azure-keyvault, without secret"
+defined_in = "06-installation-operations-ui.md#214-opentofu-modules"
+from_task = "0b-E03-T03"
+
+[[provides]]
+name = "modul-azure"
+kind = "config"
+title = "Module interface: variables location, name_prefix, create_resource_group, VM sizes, worker_count, pg_*, admin_ssh_public_key, ssh_source_cidrs, public_hostname, guildwork_version, checksums, tags; outputs control_public_ip, admin_url, postgres_fqdn, storage_account_name, key_vault_uri, managed_identity_client_id, worker_private_ips"
+defined_in = "06-installation-operations-ui.md#214-opentofu-modules"
+from_task = "0b-E03-T04"
+
+[[provides]]
+name = "azure-apply-workflow"
+kind = "file"
+title = "azure-apply.yml: workflow_dispatch, environment azure-apply, OIDC, apply in a throwaway resource group, smoke, destroy with always(), cost query after 24 h"
+defined_in = "06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"
+from_task = "0b-E03-T06"
+
+[[uses]]
+interface = "tofu-generic-vm/modul-generic-vm"
+from_task = "0b-E03-T01"
+purpose = "cloud-init of the VMs from module.generic_vm"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "0b-E03-T02"
+purpose = "CREATE EXTENSION vector by migrate"
+
+[[uses]]
+interface = "driver-blob-azure/azure-blob-config"
+from_task = "0b-E03-T03"
+purpose = "installation.yaml excerpt for azure-blob"
+
+[[uses]]
+interface = "driver-secret-azure-keyvault/azure-keyvault-config"
+from_task = "0b-E03-T03"
+purpose = "installation.yaml excerpt for azure-keyvault"
+
+[[uses]]
+interface = "audit-kette/konfig-audit-anchor"
+from_task = "0b-E03-T03"
+purpose = "Container audit-anchor as sink blob"
+
+[[uses]]
+interface = "tofu-generic-vm/tofu-workflow"
+from_task = "0b-E03-T05"
+purpose = "Job tofu (azure) in the same workflow"
+
+[[uses]]
+interface = "portabilitaetstest/smoke"
+from_task = "0b-E03-T06"
+purpose = "Smoke after the apply"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0b-E03-T06"
+purpose = "doctor over SSH"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "0b-E03-T06"
+purpose = "azure-apply.yml with policy and actionlint"

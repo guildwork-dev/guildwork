@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-analyzer-ast-grep"
+title = "Analyzer ast-grep for repo rules"
+kind = "plugin"
+path = "plugins/analyzer-ast-grep/"
+package = "@guildwork/plugin-analyzer-ast-grep"
+stage = "9"
+purpose = "Runs the ast-grep rules compiled by standards under .agents/rules/ast-grep/ from the base SHA in the review, offline, with the same engine version as the image engines. Not: its own default rule set, third-party rule collections or the compiling and testing of rules (that is done by standards)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#275-analyzer-ast-grep-for-repo-rules",
+  "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07",
+  "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins",
+]
+built_by = ["9-E07-T05"]
+
+[[provides]]
+name = "analyzer-vertrag"
+kind = "contract"
+title = "Implementation of the analyzer contract v1alpha1 with analyzer ID ast-grep (mode run, AnalyzerManifestExt offline, image deploy/images/analyzer-ast-grep by digest), toSarif with fingerprints, without rules passed with guildwork/rules 0, rules_invalid yields neutral (FE-1453)"
+defined_in = "14-stage-9-breadth-and-hardening.md#275-analyzer-ast-grep-for-repo-rules"
+from_task = "9-E07-T05"
+
+[[provides]]
+name = "repo-regeln"
+kind = "file"
+title = "Repo rules under .agents/rules/ast-grep/ at the base SHA, exported via REPO_RULE_DIRS of the analyzer runner"
+defined_in = "14-stage-9-breadth-and-hardening.md#275-analyzer-ast-grep-for-repo-rules"
+from_task = "9-E07-T05"
+
+[[provides]]
+name = "an1-fixtures"
+kind = "file"
+title = "20 fixture repos with rules under .agents/rules/ast-grep/ for the contract suite AN1"
+defined_in = "14-stage-9-breadth-and-hardening.md#275-analyzer-ast-grep-for-repo-rules"
+from_task = "9-E07-T05"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "9-E07-T05"
+purpose = "Implement the analyzer contract v1alpha1 (run, describe, AnalyzerManifestExt)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E07-T05"
+purpose = "Plugin manifest with license, distribution bundled after the license gate, offline"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E07-T05"
+purpose = "Load the plugin; standards recognizes the loaded analyzer ID ast-grep (12 FE-1265)"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "9-E07-T05"
+purpose = "Fingerprints and required fields of the SARIF output from toSarif"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "9-E07-T05"
+purpose = "Execution in the tool sandbox without network; entry ast-grep in REPO_RULE_DIRS for the rule export from the base SHA"
+
+[[uses]]
+interface = "reviewer-analyzer-ingest/quelle-run"
+from_task = "9-E07-T05"
+purpose = "Findings as candidates in the review like every analyzer in mode run"
+
+[[uses]]
+interface = "service-standards/engine-image"
+from_task = "9-E07-T05"
+purpose = "the same pinned ast-grep version as the image engines (test ast-grep version equal to engines image)"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "9-E07-T05"
+purpose = "Image deploy/images/analyzer-ast-grep by digest"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "9-E07-T05"
+purpose = "License gate of the image"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "9-E07-T05"
+purpose = "License note of the engine with source location"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "9-E07-T05"
+purpose = "Contract suite AN1 with 20 fixture repos"

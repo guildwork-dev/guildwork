@@ -1,0 +1,155 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "registry-cache"
+title = "Registry cache offline: lockfile parser, filling, server per item"
+kind = "package"
+path = "packages/registry-cache/"
+package = "@guildwork/registry-cache"
+stage = "2"
+purpose = "Delivers packages from npm, PyPI and Go to the sandbox only from what the worker loaded from the lockfile in the setup phase, and never asks upstream; plus the worker parts apps/worker/src/registry. Not: loading single dependencies later at the agent's request (propose-dependency) and no other ecosystems in stage 2."
+design = ["10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache", "10-planner-architect-coder.md#34-blobstore-keys"]
+built_by = ["2-E01-T02", "2-E01-T10", "2-E01-T11"]
+
+[[provides]]
+name = "lockfile-parser"
+kind = "ts-api"
+title = "Ecosystem, LockedArtifact, LockfileParser per format (package-lock, pnpm-lock, yarn.lock v1, requirements with hash, poetry.lock, uv.lock, go.sum)"
+defined_in = "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"
+from_task = "2-E01-T10"
+
+[[provides]]
+name = "content-store"
+kind = "ts-api"
+title = "ContentStore per tenant on the worker host and CacheIndex per environment snapshot"
+defined_in = "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"
+from_task = "2-E01-T10"
+
+[[provides]]
+name = "befuellung"
+kind = "ts-api"
+title = "Filling in the setup phase by the worker with integrity check (apps/worker/src/registry/fill.ts), part of EnvironmentService.acquire"
+defined_in = "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"
+from_task = "2-E01-T10"
+
+[[provides]]
+name = "cache-index-datei"
+kind = "file"
+title = "Registry cache index t/<tenant>/repos/<repoId>/env/<snapshotKey>/cache-index.json"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E01-T10"
+
+[[provides]]
+name = "konfig-upstreams"
+kind = "config"
+title = "registry_cache.upstreams (installation): sources of the filling"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E01-T10"
+
+[[provides]]
+name = "metrik-lockfile-integrity-mismatch"
+kind = "metric"
+title = "guildwork.registry.integrity_mismatch with ecosystem"
+defined_in = "10-planner-architect-coder.md#51-metrics-of-this-area"
+from_task = "2-E01-T10"
+
+[[provides]]
+name = "registry-server"
+kind = "http"
+title = "RegistryServer per item as registry-cache.internal: npm packument and tarballs, PyPI PEP 503 and files, Go module proxy; otherwise 404"
+defined_in = "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"
+from_task = "2-E01-T11"
+
+[[provides]]
+name = "image-registry-cache"
+kind = "file"
+title = "Image deploy/images/registry-cache (own network without a route to the outside)"
+defined_in = "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"
+from_task = "2-E01-T11"
+
+[[provides]]
+name = "metrik-registry-cache-miss"
+kind = "metric"
+title = "guildwork.registry.cache_miss with ecosystem"
+defined_in = "10-planner-architect-coder.md#51-metrics-of-this-area"
+from_task = "2-E01-T11"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "2-E01-T10"
+purpose = "Result in LockfileParser.parse"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E01-T10"
+purpose = "blueprint.ecosystems with lockfile paths"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "2-E01-T10"
+purpose = "Store CacheIndex in the BlobStore"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/env-snapshot-dienst"
+from_task = "2-E01-T10"
+purpose = "Hook the filling into EnvironmentService.acquire, store the index with the environment snapshot"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E01-T10"
+purpose = "Filling as part of EnvironmentService.acquire"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "2-E01-T10"
+purpose = "registry_cache.upstreams and registry_mirror with air_gap"
+
+[[uses]]
+interface = "telemetry/instrumente"
+from_task = "2-E01-T10"
+purpose = "Counters lockfile_integrity_mismatch and registry_cache_miss"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E01-T10"
+purpose = "Audit registry.integrity_mismatch via the report of the worker"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "2-E01-T10"
+purpose = "Test upstream with network block in registry.*"
+
+[[uses]]
+interface = "egress-proxy/ctl-api"
+from_task = "2-E01-T11"
+purpose = "Target registry-cache.internal only in the policy of the coder"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T11"
+purpose = "Start of the cache container per item on the sandbox network"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "2-E01-T11"
+purpose = "Build the image registry-cache in the matrix of images.yml, by digest (the image itself is provided by this component)"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "2-E01-T11"
+purpose = "License gate for the image registry-cache"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E01-T10"
+purpose = "sha256Hex for blobs in the ContentStore"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E01-T10"
+purpose = "Result, ok and err as return values of the public functions"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E01-T10"
+purpose = "new counters of stage 2 in the metric catalog"

@@ -1,0 +1,268 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "auto-approve"
+title = "Automatic approval of human PRs with withdrawal"
+kind = "service"
+path = "services/reviewer/src/autoapprove/"
+package = "@guildwork/service-reviewer"
+stage = "6"
+purpose = "Detects agent PRs, decides deterministically after a full run on the approval of a human PR (conditions from ADR-61, no model), stores the decision, triggers the platform effects approve_human and withdraw_approve and shows why auto_approve has no effect. Not here: the executors approve_human and withdraw_approve (04), the SCM methods approve, withdrawApprove, approvalProtection (GitHub plugin) and the contract tests against GitHub."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs",
+  "09-reviewer-companion-features-and-learnings.md#31-new-tables",
+  "09-reviewer-companion-features-and-learnings.md#46-automatic-approval-and-withdrawal",
+  "09-reviewer-companion-features-and-learnings.md#5-failure-and-abort-paths",
+  "09-reviewer-companion-features-and-learnings.md#6-security",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E06-T04", "6-E06-T05", "6-E06-T06", "6-E06-T07", "6-E06-T08"]
+
+[[provides]]
+name = "agent-pr-erkennung"
+kind = "ts-api"
+title = "isAgentPr(c, meta, pushedByGateway, commitsBaseToHead): one attribute suffices (FE-928)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"
+from_task = "6-E06-T04"
+
+[[provides]]
+name = "entscheidung"
+kind = "ts-api"
+title = "decide(input) as a pure function with ConditionId, ConditionResult, AutoApproveDecision, DecisionInput"
+defined_in = "09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"
+from_task = "6-E06-T05"
+
+[[provides]]
+name = "konfig-auto-approve"
+kind = "config"
+title = "Effect of services.reviewer.auto_approve and services.reviewer.auto_approve_risk_cap (short form review.auto_approve, FE-932)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E06-T05"
+
+[[provides]]
+name = "tabelle-entscheidungen"
+kind = "table"
+title = "Table review_auto_approve_decisions (migration block 0600)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#31-new-tables"
+from_task = "6-E06-T05"
+
+[[provides]]
+name = "metrik-entscheidungen"
+kind = "metric"
+title = "guildwork.autoapprove.decisions"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E06-T05"
+
+[[provides]]
+name = "tabelle-freigaben"
+kind = "table"
+title = "Table review_auto_approvals with state table (pending, active, withdrawn, rejected_head_moved, failed)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#31-new-tables"
+from_task = "6-E06-T06"
+
+[[provides]]
+name = "policy-regel-auto-approve"
+kind = "ts-api"
+title = "Policy rule reviewer.auto_approve (approve_human only with a stored decision decision_id, FE-927)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"
+from_task = "6-E06-T06"
+
+[[provides]]
+name = "alarm-approve-failed"
+kind = "metric"
+title = "Alarm rule auto_approve_failed"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E06-T06"
+
+[[provides]]
+name = "policy-regel-withdraw"
+kind = "ts-api"
+title = "Policy rule system.withdraw_approve and triggers of the withdrawal (push, new P0/P1, auto_approve off, @agent pause; FE-930)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"
+from_task = "6-E06-T07"
+
+[[provides]]
+name = "metrik-und-alarm-rueckzug"
+kind = "metric"
+title = "guildwork.autoapprove.withdrawals and alarm rule auto_approve_withdraw_failed"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E06-T07"
+
+[[provides]]
+name = "doctor-approval-protection"
+kind = "cli"
+title = "doctor check per repo with auto_approve: approvalProtection readable and hoster settings according to ADR-61 (a)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#5-failure-and-abort-paths"
+from_task = "6-E06-T08"
+
+[[provides]]
+name = "hinweis-wirkungslos"
+kind = "ui"
+title = "Notice auto_approve has no effect, with the reason, in the admin UI and the status comment"
+defined_in = "09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"
+from_task = "6-E06-T08"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "6-E06-T04"
+purpose = "SHA chain of the commits pushed by the Effect Gateway"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "6-E06-T04"
+purpose = "getChange, getPermission and fork information"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "6-E06-T04"
+purpose = "getChange with branch and app as the opener"
+
+[[uses]]
+interface = "plugin-github-scm/approve"
+from_task = "6-E06-T05"
+purpose = "approvalProtection as an input of decide"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "6-E06-T05"
+purpose = "Capability APPROVE_HUMAN"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "6-E06-T05"
+purpose = "Qualified live operation according to ADR-47 (FE-929)"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "6-E06-T05"
+purpose = "Effective mode of the reviewer"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/pause-zustand"
+from_task = "6-E06-T05"
+purpose = "PauseState as an input"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/run-record-review-modus"
+from_task = "6-E06-T05"
+purpose = "Mode of the latest run at the head"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/finding-feedback-actor-role"
+from_task = "6-E06-T05"
+purpose = "Withdrawal by the author alone does not count"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/risk-level"
+from_task = "6-E06-T05"
+purpose = "riskLevel against auto_approve_risk_cap"
+
+[[uses]]
+interface = "reviewer-befunde/befund-repositories"
+from_task = "6-E06-T05"
+purpose = "Open P0/P1 at the head"
+
+[[uses]]
+interface = "reviewer-ausgabe/check-ai-review"
+from_task = "6-E06-T05"
+purpose = "Result of the check run ai-review"
+
+[[uses]]
+interface = "reviewer-ausgabe/statuszeile"
+from_task = "6-E06-T05"
+purpose = "Notice with the first unmet condition"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "6-E06-T05"
+purpose = "auto_approve and auto_approve_risk_cap in the section services.reviewer"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "6-E06-T05"
+purpose = "protected_paths and auto_approve effective"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "6-E06-T05"
+purpose = "Tables in block 0600"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "6-E06-T05"
+purpose = "RLS pattern of the new tables"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E06-T05"
+purpose = "Metrics autoapprove.*"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "6-E06-T06"
+purpose = "submitPlatform approve_human with decision_id"
+
+[[uses]]
+interface = "effect-gateway/effekt-katalog"
+from_task = "6-E06-T06"
+purpose = "Catalog entry approve_human"
+
+[[uses]]
+interface = "effect-gateway/idempotency-key"
+from_task = "6-E06-T06"
+purpose = "Key approve:<repoId>:<pr>:<headSha>"
+
+[[uses]]
+interface = "effect-gateway/effect-events"
+from_task = "6-E06-T06"
+purpose = "effect.applied and .failed maintain review_auto_approvals"
+
+[[uses]]
+interface = "effekt-executoren/approve-human"
+from_task = "6-E06-T06"
+purpose = "Executor approve_human"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "6-E06-T06"
+purpose = "Rules reviewer.auto_approve and system.withdraw_approve"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "6-E06-T06"
+purpose = "evaluateEffect for approve_human"
+
+[[uses]]
+interface = "reviewer-ausgabe/schattenbetrieb"
+from_task = "6-E06-T06"
+purpose = "In shadow mode only the eval log"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "6-E06-T06"
+purpose = "Alarm rules auto_approve_*"
+
+[[uses]]
+interface = "effekt-executoren/withdraw-approve"
+from_task = "6-E06-T07"
+purpose = "Executor withdraw_approve"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "6-E06-T07"
+purpose = "synchronized and pushed_default as triggers of the withdrawal"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "6-E06-T08"
+purpose = "Register the doctor check approval_protection"
+
+[[uses]]
+interface = "ui-betrieb/pools-services-audit-api"
+from_task = "6-E06-T08"
+purpose = "Extend ServiceView with the notice auto_approve has no effect"
+
+[[uses]]
+interface = "ui-betrieb/seiten-pools-services-audit"
+from_task = "6-E06-T08"
+purpose = "Notice on the page Services"

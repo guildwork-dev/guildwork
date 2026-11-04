@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "ui-faehigkeitsmatrix"
+title = "Capability matrix in the admin UI"
+kind = "ui"
+path = "apps/admin-ui/src/pages/capabilities/"
+package = "@guildwork/admin-ui"
+stage = "9"
+purpose = "Shows per plugin and instance all capabilities with level native, fallback or none, fallback chains, signature strength and weak token level, built on each request from the loaded instances; export as JSON. Not: a stored copy of the matrix (FE-1443)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#281-capability-matrix",
+  "14-stage-9-breadth-and-hardening.md#88-acceptance-9-e08",
+]
+built_by = ["9-E08-T01"]
+
+[[provides]]
+name = "capability-matrix"
+kind = "ts-api"
+title = "CapabilityMatrix from apps/control-plane/src/admin/capabilities.ts, built from registry.list() and capabilities()"
+defined_in = "14-stage-9-breadth-and-hardening.md#281-capability-matrix"
+from_task = "9-E08-T01"
+
+[[provides]]
+name = "admin-api-capabilities"
+kind = "http"
+title = "GET /admin/api/v1/capabilities?format=json (role viewer)"
+defined_in = "14-stage-9-breadth-and-hardening.md#281-capability-matrix"
+from_task = "9-E08-T01"
+
+[[provides]]
+name = "seite-faehigkeiten"
+kind = "ui"
+title = "Admin UI page capabilities: table instance by capability, filter per kind, hints for weak signature and token level"
+defined_in = "14-stage-9-breadth-and-hardening.md#281-capability-matrix"
+from_task = "9-E08-T01"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E08-T01"
+purpose = "registry.list() and capabilitiesAt of the loaded instances"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E08-T01"
+purpose = "Capabilities per kind"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E08-T01"
+purpose = "PluginKind, DriverKind"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "9-E08-T01"
+purpose = "Driver rows of the matrix"
+
+[[uses]]
+interface = "plugin-host/trust"
+from_task = "9-E08-T01"
+purpose = "TrustLevel per instance"
+
+[[uses]]
+interface = "plugin-host/plugin-artifacts"
+from_task = "9-E08-T01"
+purpose = "Trust level of admitted artifacts"
+
+[[uses]]
+interface = "plugin-host/subprozess-host"
+from_task = "9-E08-T01"
+purpose = "capabilities() also from subprocess plugins"
+
+[[uses]]
+interface = "scm-common/ersatzkette"
+from_task = "9-E08-T01"
+purpose = "Names of the fallback levels"
+
+[[uses]]
+interface = "release-werkzeuge/release-json"
+from_task = "9-E08-T01"
+purpose = "Field release of the matrix"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "9-E08-T01"
+purpose = "GET /admin/api/v1/capabilities"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "9-E08-T01"
+purpose = "Role viewer"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "9-E08-T01"
+purpose = "Page capabilities"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "9-E08-T01"
+purpose = "typed client"
+
+[[uses]]
+interface = "admin-ui/ui-e2e-grundlage"
+from_task = "9-E08-T01"
+purpose = "UI test of the page"

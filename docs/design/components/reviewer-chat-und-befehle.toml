@@ -1,0 +1,351 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-chat-und-befehle"
+title = "Chat in the thread, remember, pause and resume"
+kind = "service"
+path = "services/reviewer/src/chat/"
+package = "@guildwork/service-reviewer"
+stage = "6"
+purpose = "Replies in threads of the platform (classification, finding feedback with actor_role, reply via propose_reply) and the commands @agent remember, @agent pause and @agent review including the pause state (services/reviewer/src/chat/ and src/pause/); in stage 6 creates the tables learnings and learning_events and stores candidates. Not here: the lifecycle of the Learnings from 7a on (learnings-lebenszyklus) and the gate that reads the pause (08)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands",
+  "09-reviewer-companion-features-and-learnings.md#31-new-tables",
+  "09-reviewer-companion-features-and-learnings.md#32-extensions-of-existing-tables-expand-migration-in-block-0600",
+  "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats",
+  "09-reviewer-companion-features-and-learnings.md#42-reply-in-the-thread",
+  "09-reviewer-companion-features-and-learnings.md#43-pause-and-resume",
+  "09-reviewer-companion-features-and-learnings.md#48-learning-lifecycle",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E03-T01", "6-E03-T02", "6-E03-T03", "6-E03-T04", "6-E03-T05"]
+
+[[provides]]
+name = "thread-antwort-erkennung"
+kind = "ts-api"
+title = "isPlatformThreadReply(ev), ThreadReply, AuthorRole (role fetched fresh from the provider, FE-914)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T01"
+
+[[provides]]
+name = "befehle-im-pr"
+kind = "cli"
+title = "Commands @agent remember, @agent pause, @agent review [full] in the PR (routing, command_permissions with scm: write, delivery to active runs according to ADR-68)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T01"
+
+[[provides]]
+name = "work-item-chat"
+kind = "queue"
+title = "Work item type reviewer.chat (input ThreadReply, FindingView, codeAtHead; output ChatOutcome without feedback)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats"
+from_task = "6-E03-T02"
+
+[[provides]]
+name = "chat-outcome"
+kind = "ts-api"
+title = "ChatOutcome and ReplyIntent (learningCandidate is read by the harvest in the indexer)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T02"
+
+[[provides]]
+name = "prompt-chat"
+kind = "prompt"
+title = "Prompt and schema of the chat classification in the work item reviewer.chat"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T02"
+
+[[provides]]
+name = "finding-feedback-actor-role"
+kind = "table"
+title = "Expand migration finding_feedback: actor_role and kind values withdrawn, confirmed, question, marked_fixed_dev, addressed"
+defined_in = "09-reviewer-companion-features-and-learnings.md#32-extensions-of-existing-tables-expand-migration-in-block-0600"
+from_task = "6-E03-T02"
+
+[[provides]]
+name = "metrik-chat"
+kind = "metric"
+title = "guildwork.reviewer.chat.outcomes"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E03-T02"
+
+[[provides]]
+name = "pause-zustand"
+kind = "ts-api"
+title = "PauseState, isPaused, pause, notePush, noteReviewedHead on review_pr_state (FE-915)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T03"
+
+[[provides]]
+name = "fortsetzen"
+kind = "ts-api"
+title = "lift(change, actor) through @agent review [full]"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T04"
+
+[[provides]]
+name = "run-record-review-modus"
+kind = "file"
+title = "Fields review.mode and review.pausedDuringRun in the Run Record of the reviewer (read by the automatic approval)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats"
+from_task = "6-E03-T04"
+
+[[provides]]
+name = "tabellen-learnings"
+kind = "table"
+title = "Tables learnings and learning_events with RLS (migration block 0600, FE-934)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#31-new-tables"
+from_task = "6-E03-T05"
+
+[[provides]]
+name = "remember"
+kind = "ts-api"
+title = "parseRemember(cmd, text, thread) with RememberCommand and storage as a candidate (FE-916)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands"
+from_task = "6-E03-T05"
+
+[[provides]]
+name = "metrik-learnings-rejected"
+kind = "metric"
+title = "guildwork.learnings.rejected"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E03-T05"
+
+[[provides]]
+name = "konfig-chat"
+kind = "config"
+title = "services.reviewer.chat.enabled and services.reviewer.chat.max_replies_per_thread with default, range and x-qualification (FE-948)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E03-T02"
+
+[[provides]]
+name = "konfig-user-prefs"
+kind = "config"
+title = "knowledge.learnings.user_prefs in packages/config/src/schema/knowledge.ts (stage 6, for remember --me; the other knowledge.learnings.* from 7a on, FE-954)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E03-T05"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "6-E03-T01"
+purpose = "review_comment commented and commands in the TriggerEvent"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "6-E03-T01"
+purpose = "Recognize the commands remember, pause, review"
+
+[[uses]]
+interface = "event-schema/routing-name"
+from_task = "6-E03-T01"
+purpose = "Routing name of the thread reply"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "6-E03-T01"
+purpose = "routing and command_permissions with minimum permission scm write"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "6-E03-T01"
+purpose = "Route to the reviewer"
+
+[[uses]]
+interface = "control-plane-router/skip-gruende"
+from_task = "6-E03-T01"
+purpose = "Skipped(permission) with audit and reply rule"
+
+[[uses]]
+interface = "control-plane-router/orchestrator-intake"
+from_task = "6-E03-T01"
+purpose = "Single-service run or delivery to an active run (ADR-68)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-followups"
+from_task = "6-E03-T01"
+purpose = "merged follow-up job with an active run"
+
+[[uses]]
+interface = "service-reviewer/befehle"
+from_task = "6-E03-T01"
+purpose = "Extend the commands of the reviewer by remember and pause"
+
+[[uses]]
+interface = "reviewer-ausgabe/kommentar-marker"
+from_task = "6-E03-T01"
+purpose = "Marker gw:f in the platform thread for the fingerprint"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "6-E03-T01"
+purpose = "getPermission fresh for authorRole"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "6-E03-T01"
+purpose = "getPermission, getThreads, getFile"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "6-E03-T01"
+purpose = "mention_handle for mentions"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "6-E03-T01"
+purpose = "Reply text as untrusted"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "6-E03-T02"
+purpose = "services.reviewer.chat.* and auto_pause_after"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "6-E03-T02"
+purpose = "Keys chat.* and knowledge.learnings.user_prefs"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/konfig-summary"
+from_task = "6-E03-T02"
+purpose = "models.companion for the chat classification"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "6-E03-T02"
+purpose = "Work item reviewer.chat with kind model_call"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "6-E03-T02"
+purpose = "Handler reviewer.chat"
+
+[[uses]]
+interface = "service-reviewer/registrierung"
+from_task = "6-E03-T02"
+purpose = "Register handler reviewer.chat"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "6-E03-T02"
+purpose = "generate with schema ChatOutcome without feedback"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "6-E03-T02"
+purpose = "Prompt of the chat classification"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "6-E03-T02"
+purpose = "Finding for FindingView"
+
+[[uses]]
+interface = "reviewer-befunde/befund-repositories"
+from_task = "6-E03-T02"
+purpose = "feedback-repo for finding_feedback with actor_role"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.finding-feedback"
+from_task = "6-E03-T02"
+purpose = "Expand migration actor_role and kind values"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "6-E03-T02"
+purpose = "Migrations in block 0600"
+
+[[uses]]
+interface = "reviewer-inkrement-und-feedback/befund-lebenszyklus"
+from_task = "6-E03-T02"
+purpose = "Finding state withdrawn or confirmed"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "6-E03-T02"
+purpose = "propose_reply with profile review"
+
+[[uses]]
+interface = "effekt-executoren/reply"
+from_task = "6-E03-T02"
+purpose = "Executor reply answers in the same thread"
+
+[[uses]]
+interface = "service-reviewer/manifest"
+from_task = "6-E03-T02"
+purpose = "propose_reply in the manifest of the reviewer"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "6-E03-T02"
+purpose = "Policy test propose_reply only in platform threads"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E03-T02"
+purpose = "Metrics chat.outcomes and learnings.rejected"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "6-E03-T02"
+purpose = "recorded model and GitHub responses"
+
+[[uses]]
+interface = "service-reviewer/review-pr-state"
+from_task = "6-E03-T03"
+purpose = "Pause columns in review_pr_state"
+
+[[uses]]
+interface = "service-reviewer/speicher-port"
+from_task = "6-E03-T03"
+purpose = "Read and write prState with CAS"
+
+[[uses]]
+interface = "reviewer-gate/gate-regeln"
+from_task = "6-E03-T03"
+purpose = "Gate skips with Skipped(review_paused)"
+
+[[uses]]
+interface = "reviewer-ausgabe/statuszeile"
+from_task = "6-E03-T03"
+purpose = "Notice Review paused in the status comment"
+
+[[uses]]
+interface = "reviewer-inkrement-und-feedback/inkrement"
+from_task = "6-E03-T04"
+purpose = "Resuming starts an incremental run"
+
+[[uses]]
+interface = "service-reviewer/run-notes"
+from_task = "6-E03-T04"
+purpose = "review.mode and review.pausedDuringRun in the Run Record"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "6-E03-T05"
+purpose = "redactSecrets before every storage"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "6-E03-T05"
+purpose = "RLS pattern for learnings and learning_events"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "6-E03-T05"
+purpose = "Audit learning.rejected and learning.created"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/quote-hash"
+from_task = "6-E03-T05"
+purpose = "quote_hash of the code reference"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "6-E03-T05"
+purpose = "Secret scan over the table learnings"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "6-E03-T05"
+purpose = "real Postgres instance for migration and tests"

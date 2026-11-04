@@ -1,0 +1,177 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-runner"
+title = "Eval runner CLI: validate-set, client, fetcher with pins, label tool, export; plus check tool tools/check-eval-data"
+kind = "eval"
+path = "eval/runner/"
+package = "@guildwork/eval-runner"
+stage = "0"
+purpose = "Command guildwork-eval as a client without own permissions: check sets, load and check pinned sources, prepare cases and start and query runs via the eval API, calibrate, label, export the reference qualification; plus the check tool against third-party data in the repo. Not for admission, run state machine or matrix (server-side in the eval service, FE-700) and not for the installer command guildwork (FE-730)."
+design = [
+  "07-eval-and-qualification.md#26-eval-service-and-runner",
+  "07-eval-and-qualification.md#23-download-and-pins",
+  "07-eval-and-qualification.md#6-security",
+  "07-eval-and-qualification.md#212-reference-qualification",
+  "07-eval-and-qualification.md#2175-runner-authentication-at-the-eval-api",
+  "07-eval-and-qualification.md#2176-label-tool-and-calibration"
+]
+built_by = ["0-E20-T01", "0-E20-T09", "0-E20-T10", "0-E20-T11", "0-E20-T12", "0-E20-T15", "0-E20-T16", "0-E20-T18", "0-E20-T24"]
+
+[[provides]]
+name = "cli-validate-set"
+kind = "cli"
+title = "guildwork-eval validate-set <dir>: schema, license, origin and pin rules, labels against references; exit 1 with code"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "cli-run-status-report"
+kind = "cli"
+title = "guildwork-eval run, status, report: prepare cases, create a run, query state and report"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T09"
+
+[[provides]]
+name = "eval-client"
+kind = "ts-api"
+title = "HTTP client of the eval API (eval/runner/src/client), also for uploading the suite reports"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T09"
+
+[[provides]]
+name = "cli-fetch"
+kind = "cli"
+title = "guildwork-eval fetch <set>: load the source, check SHA-256 per file, cache, offline mode"
+defined_in = "07-eval-and-qualification.md#23-download-and-pins"
+from_task = "0-E20-T10"
+
+[[provides]]
+name = "fetcher"
+kind = "ts-api"
+title = "Fetcher.fetch with FetchResult and FetchError (git, hf_dataset, oci, refs_only)"
+defined_in = "07-eval-and-qualification.md#23-download-and-pins"
+from_task = "0-E20-T10"
+
+[[provides]]
+name = "check-eval-data"
+kind = "cli"
+title = "tools/check-eval-data in make check: under eval/sets/*/ only manifest, labels, references, README"
+defined_in = "07-eval-and-qualification.md#6-security"
+from_task = "0-E20-T10"
+
+[[provides]]
+name = "cli-calibrate"
+kind = "cli"
+title = "guildwork-eval calibrate --set <id> --judge <id> --source-run <id>: run of kind calibration (FE-751)"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T16"
+
+[[provides]]
+name = "cli-export-reference"
+kind = "cli"
+title = "guildwork-eval export-reference --release <v>: reference qualification as a file for the release path"
+defined_in = "07-eval-and-qualification.md#212-reference-qualification"
+from_task = "0-E20-T18"
+
+[[provides]]
+name = "cli-label"
+kind = "cli"
+title = "guildwork-eval label --set <id>: label tool, writes LabelLine with labeler human:<pseudonym>"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T24"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T01"
+purpose = "SetManifest, EvalCase, SourceRef in validate-set"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "0-E20-T01"
+purpose = "Schemas set, case, labels, refs in validate-set"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "0-E20-T01"
+purpose = "Read the set directory (set.json, labels, refs, fixtures under _<name>)"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E20-T01"
+purpose = "Error codes and exit codes of the commands"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E20-T01"
+purpose = "Runner log only with IDs, codes and paths"
+
+[[uses]]
+interface = "eval-core/eval-run-request"
+from_task = "0-E20-T09"
+purpose = "Request of guildwork-eval run and calibrate"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "0-E20-T09"
+purpose = "PrepareCtx with store via the eval API, adapter registry of the runner"
+
+[[uses]]
+interface = "eval-dienst/eval-api"
+from_task = "0-E20-T09"
+purpose = "Client for sets, cases, runs, report and suite reports"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "0-E20-T09"
+purpose = "Session, role and CSRF header of the admin API for the client (FE-745)"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "0-E20-T09"
+purpose = "Evaluate Problem (RFC 9457) and AdminErrorCode of the responses"
+
+[[uses]]
+interface = "testkit/test-idp"
+from_task = "0-E20-T09"
+purpose = "Admin session in the client test against the test container"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "0-E20-T10"
+purpose = "tools/check-eval-data as part of make check"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "0-E20-T10"
+purpose = "Register the gate check-eval-data in quality/gates.toml"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "0-E20-T10"
+purpose = "guardNetwork in the fetcher tests (only local HTTPS test server)"
+
+[[uses]]
+interface = "eval-adapter-reviewbench/adapter"
+from_task = "0-E20-T11"
+purpose = "Adapter reviewbench in the adapter registry of run"
+
+[[uses]]
+interface = "eval-adapter-harbor/adapter"
+from_task = "0-E20-T15"
+purpose = "Adapter harbor in the adapter registry of run"
+
+[[uses]]
+interface = "eval-dienst/qualification-api"
+from_task = "0-E20-T18"
+purpose = "Read rows, parts and runs of the release for export-reference"
+
+[[uses]]
+interface = "eval-core/referenz-qualifikation-format"
+from_task = "0-E20-T18"
+purpose = "Schema and type of the exported file"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "0-E20-T12"
+purpose = "Scorer.loadCases produces the raw cases for prepare in guildwork-eval run"

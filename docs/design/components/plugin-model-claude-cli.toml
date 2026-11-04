@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-model-claude-cli"
+title = "ModelProvider claude-cli"
+kind = "plugin"
+path = "plugins/model-claude-cli/"
+package = "@guildwork/plugin-model-claude-cli"
+stage = "0"
+purpose = "ModelProvider claude-cli for required single calls in the personal operator mode: starts claude -p per call with the start path subscription in a sandbox of the item, without tools and without MCP, with schema output and an audited fallback level (ADR-58). Not for tool calls (tools yields unsupported) and without cost in USD."
+design = [
+  "05-plugins-and-contracts.md#217-modelprovider-claude-cli-adr-58-ruling-fe-533",
+  "05-plugins-and-contracts.md#46-single-call-via-claude-cli",
+]
+built_by = ["0-E15-T09"]
+
+[[provides]]
+name = "model-provider"
+kind = "contract"
+title = "ModelProvider claude-cli: generate in rt.sandbox with messages as the prompt, --json-schema, --max-turns 1, nativeTools none, empty MCP configuration; cost source none; capabilities fallback or none; FallbackRecorder per call"
+defined_in = "05-plugins-and-contracts.md#217-modelprovider-claude-cli-adr-58-ruling-fe-533"
+from_task = "0-E15-T09"
+
+[[provides]]
+name = "eingebautes-paket"
+kind = "ts-api"
+title = "BuiltinPluginPackage claude-cli with manifest.json (operator_supplied, FE-520) and contract-attestation.json"
+defined_in = "05-plugins-and-contracts.md#217-modelprovider-claude-cli-adr-58-ruling-fe-533"
+from_task = "0-E15-T09"
+
+[[uses]]
+interface = "claude-code-startwege/launch-export"
+from_task = "0-E15-T09"
+purpose = "Start path subscription with nativeTools none and empty MCP configuration"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "0-E15-T09"
+purpose = "ModelProvider contract and generate with rt.sandbox (FE-550)"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E15-T09"
+purpose = "spawn in the sandbox of the item"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E15-T09"
+purpose = "Render messages with untrusted blocks"
+
+[[uses]]
+interface = "plugin-rahmen/capability-resolver"
+from_task = "0-E15-T09"
+purpose = "FallbackRecorder per call"
+
+[[uses]]
+interface = "worker-harness-umgebung/build-harness-env"
+from_task = "0-E15-T09"
+purpose = "Token via the worker's spawn wrapper (FE-550)"
+
+[[uses]]
+interface = "contract-harness/fake-claude"
+from_task = "0-E15-T09"
+purpose = "generate cases with fake-claude"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E15-T09"
+purpose = "ModelProvider suite"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "0-E15-T09"
+purpose = "contract-attestation.json"

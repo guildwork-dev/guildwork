@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# process.env is read only in loader modules (FE-016, FE-063): one source of
+# configuration. Every access to process.env is reported outside the allowlist,
+# also as process["env"], globalThis.process.env, require("node:process").env,
+# env destructured out of process, and through an import of node:process. A new
+# loader module comes with a reason into the allowlist below and into the table
+# "Variables outside the control plane roles" of the detailed design, with the
+# task that builds it. The test file globs
+# equal [test_only].file_globs of quality/layers.toml (checked by
+# tools/ci/tests/test_opengrep_test.py). Tests:
+# .opengrep/tests/gw-process-env-only-in-loaders/ (make opengrep).
+rules:
+  - id: gw-process-env-only-in-loaders
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      process.env is read only in loader modules (FE-016, FE-063). Take the value
+      from the configuration that the loader passes in, or add a loader module to
+      the allowlist of this rule with a reason.
+    paths:
+      exclude:
+        # Loader modules.
+        - "packages/config/src/env.ts"
+        - "packages/telemetry/src/**"
+        - "apps/*/src/main.ts"
+        # Writes only into the environment of the child process.
+        - "apps/worker/src/runtime-env/**"
+        # Test files, as in quality/layers.toml.
+        - "**/*.test.ts"
+        - "**/test/**"
+        - "eval/suites/**"
+        - "**/vitest.config.ts"
+        - "**/global-setup.ts"
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $PO.env
+              - pattern: $PO?.env
+              - pattern: $PO["env"]
+              - pattern: $PO?.["env"]
+          - metavariable-regex:
+              metavariable: $PO
+              regex: ^(process|globalThis\.process|globalThis\[["'`]process["'`]\]|require\(["'`](node:)?process["'`]\))$
+      # Destructuring env out of the process object.
+      - patterns:
+          - pattern-either:
+              - pattern: $OBJ = $PO
+              - pattern: var $OBJ = $PO
+          - metavariable-regex:
+              metavariable: $PO
+              regex: ^(process|globalThis\.process|globalThis\[["'`]process["'`]\]|require\(["'`](node:)?process["'`]\))$
+          - metavariable-regex:
+              metavariable: $OBJ
+              regex: (?s)^\{(.*[\s,{])?env\b
+      - patterns:
+          - pattern: import {..., env, ...} from "$MOD"
+          - metavariable-regex:
+              metavariable: $MOD
+              regex: ^(node:)?process$
+      # A namespace, default or require import of the process module.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  import * as $P from "$MOD";
+                  ...
+              - pattern-inside: |
+                  import $P from "$MOD";
+                  ...
+              - pattern-inside: |
+                  var $P = require("$MOD");
+                  ...
+          - metavariable-regex:
+              metavariable: $MOD
+              regex: ^(node:)?process$
+          - pattern-either:
+              - pattern: $P.env
+              - pattern: $P["env"]
+              - patterns:
+                  - pattern-either:
+                      - pattern: $OBJ = $P
+                      - pattern: var $OBJ = $P
+                  - metavariable-regex:
+                      metavariable: $OBJ
+                      regex: (?s)^\{(.*[\s,{])?env\b

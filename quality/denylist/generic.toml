@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Generic rules of the deny-list scanner (tools/denylist/scan.py). They apply in
+# every run, also without the private list (DENYLIST_FLAGS=--allow-missing), and
+# report instance data that has no place in a public repository. The text rule
+# instance-data (tools/hooks/text_rules.py) reads the same rules through
+# scan.load_generic() instead of a copy.
+#
+# [[rule]]
+#   id     finding id, generic-<name>; quality/denylist/exceptions.toml uses it
+#   kind   regex             patterns: Python regular expressions
+#          ipv4              networks: reported ranges; allowed_networks: ranges
+#                            never reported (documentation ranges of RFC 5737)
+#          mail              allowed_domains: domains and their subdomains never
+#                            reported; the addresses of quality/commits/bots.txt
+#                            and of ALLOW_AUTHORS_FILE are allowed as well
+#
+# The patterns avoid matching their own text, so this file passes the scan; the
+# network list needs the exceptions in quality/denylist/exceptions.toml.
+
+[[rule]]
+id = "generic-home-path"
+kind = "regex"
+patterns = [
+  '/Users/[A-Za-z0-9._-]+/',
+  '/home/[A-Za-z0-9._-]+/',
+  '[A-Za-z]:\\Users\\[A-Za-z0-9._ -]+\\',
+]
+
+[[rule]]
+id = "generic-private-ipv4"
+kind = "ipv4"
+networks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"]
+allowed_networks = ["192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24"]
+
+[[rule]]
+id = "generic-mail-address"
+kind = "mail"
+allowed_domains = ["example.com", "example.org", "example.net"]

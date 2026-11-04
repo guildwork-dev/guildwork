@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "gw-browser"
+title = "Browser tool of the E2E sandbox with contract test BROWSER"
+kind = "tool"
+path = "tools/gw-browser/"
+stage = "3"
+purpose = "Command line helper gw-browser and image sandbox-e2e with Chromium and Playwright, through which E2E agents control the browser via the shell, plus the contract test of the pool capability BROWSER per isolation; no MCP server and no test logic."
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#21-directories", "11-qa-prfix-automerge.md#6-security"]
+built_by = ["3-E03-T01", "3-E03-T02"]
+
+[[provides]]
+name = "cli"
+kind = "cli"
+title = "gw-browser open, snapshot, act, screenshot with JSON output GwBrowserResult"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E03-T01"
+
+
+[[provides]]
+name = "contract-browser"
+kind = "contract"
+title = "Contract test BROWSER and DinD under gVisor per isolation, prerequisite of the pool capability BROWSER"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E03-T01"
+
+[[provides]]
+name = "password-regel"
+kind = "contract"
+title = "No screenshot with a filled password field (error password_field)"
+defined_in = "11-qa-prfix-automerge.md#6-security"
+from_task = "3-E03-T02"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "3-E03-T01"
+purpose = "Base of the image sandbox-e2e"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "3-E03-T01"
+purpose = "License gate over the SBOM of the image"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "3-E03-T01"
+purpose = "Pool capability and isolation in the contract test BROWSER"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "3-E03-T01"
+purpose = "Contract test under sysbox and gvisor"
+
+[[uses]]
+interface = "worker/probe"
+from_task = "3-E03-T01"
+purpose = "report the verified capability BROWSER per worker"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "3-E03-T01"
+purpose = "Requirement of the item towards the pool (BROWSER, dockerInDocker)"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "3-E03-T02"
+purpose = "Screenshot upload via uploadUrl"
+
+[[uses]]
+interface = "container-images/image.sandbox-e2e"
+from_task = "3-E03-T01"
+purpose = "Image sandbox-e2e into which the helper gw-browser is built"

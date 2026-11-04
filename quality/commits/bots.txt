@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Commit author addresses that may commit without a DCO sign-off, one per line.
+# tools/hooks/commit_msg.py compares the author address byte for byte with each
+# line; there is no pattern and no case folding. Only the sign-off rules are
+# waived; the subject rules still apply. A maintainer takes over a bot pull
+# request with an own signed-off commit. The address of the Renovate app is
+# added once the app is installed on the product repository.

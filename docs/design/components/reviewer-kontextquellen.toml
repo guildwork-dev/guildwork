@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-kontextquellen"
+title = "Ticket, CI, KB and Learnings context with injection protection"
+kind = "service"
+path = "services/reviewer/src/controller/context-sources.ts"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Loads in the controller the context sources behind the port ContextSource (ticket and CI from stage 1, Learnings from 7a, knowledge base from 7) as sanitized untrusted parts with status. No tailoring to shards and no loading of other repos (FE-820)."
+design = [
+  "08-reviewer.md#46-context-building-and-token-budget",
+  "08-reviewer.md#29-building-blocks-of-the-controller",
+  "08-reviewer.md#6-security",
+  "09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context",
+  "12-expansion.md#7-configuration",
+]
+built_by = ["1-E02-T06", "7a-E02-T04", "7a-E02-T05", "7-E02-T05"]
+
+[[provides]]
+name = "kontextquelle-port"
+kind = "ts-api"
+title = "ContextSource, ContextSourceInput, ContextSourceResult and contextSources() with a fixed list per stage (FE-845)"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E02-T06"
+
+[[provides]]
+name = "quelle-ticket-und-ci"
+kind = "ts-api"
+title = "Sources ticket (linked issues of the same repo, acceptance criteria) and ci (checkEvidence, failures only)"
+defined_in = "08-reviewer.md#46-context-building-and-token-budget"
+from_task = "1-E02-T06"
+
+[[provides]]
+name = "metrik-kontextquellen"
+kind = "metric"
+title = "reviewer_context_source_total{source,status}"
+defined_in = "08-reviewer.md#5-failure-and-abort-paths"
+from_task = "1-E02-T06"
+
+[[provides]]
+name = "quelle-learnings"
+kind = "ts-api"
+title = "Source learnings: queryLearnings for the changed paths at the head, untrusted framing, IDs in the Run Record"
+defined_in = "09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context"
+from_task = "7a-E02-T04"
+
+[[provides]]
+name = "quelle-kb"
+kind = "ts-api"
+title = "Source kb: knowledge base only with services.reviewer.knowledge.use on (own qualification profile)"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E02-T05"
+
+[[uses]]
+interface = "service-reviewer/registrierung"
+from_task = "1-E02-T06"
+purpose = "ReviewerHost with scm and blobs for contextSources()"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E02-T06"
+purpose = "Budgets of the sources ticket and ci"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "1-E02-T06"
+purpose = "WorkItemReader getItem and getLinks for linked issues"
+
+[[uses]]
+interface = "plugin-github-issues/issues-lesend"
+from_task = "1-E02-T06"
+purpose = "Read issues of the same repo fresh (github-issues)"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "1-E02-T06"
+purpose = "checkEvidence at the head for the source ci"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E02-T06"
+purpose = "ReadonlySCM and blobs from the ControllerHost"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "1-E02-T06"
+purpose = "Ticket and CI texts sanitized as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-knowledge-store-learnings"
+from_task = "7a-E02-T04"
+purpose = "LearningV1 as a hit of the source learnings"
+
+[[uses]]
+interface = "plugin-pg-kb/query-learnings"
+from_task = "7a-E02-T04"
+purpose = "queryLearnings for the changed paths at the head"
+
+[[uses]]
+interface = "learnings-lebenszyklus/konfig-knowledge-learnings"
+from_task = "7a-E02-T04"
+purpose = "max_per_review and max_chars_per_review as the budget of the source"
+
+[[uses]]
+interface = "learnings-lebenszyklus/lebenszyklus"
+from_task = "7a-E02-T05"
+purpose = "Length limit of 500 characters at create"
+
+[[uses]]
+interface = "learnings-lebenszyklus/redaktion-und-zitat"
+from_task = "7a-E02-T05"
+purpose = "redactLearningText before inclusion"
+
+[[uses]]
+interface = "core/markdown-bereinigung"
+from_task = "7a-E02-T05"
+purpose = "Remove links and images from Learnings"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "7a-E02-T05"
+purpose = "Proof: Learning text triggers no effect outside a command"
+
+[[uses]]
+interface = "kb/abfrage-typen"
+from_task = "7-E02-T05"
+purpose = "KnowledgeQueryV7 for the source kb"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "7-E02-T05"
+purpose = "services.reviewer.knowledge.use with x-qualification true"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "7-E02-T05"
+purpose = "knowledge.use changes the qualification_key"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "7-E02-T05"
+purpose = "knowledge.use on without a qualified row at most shadow"

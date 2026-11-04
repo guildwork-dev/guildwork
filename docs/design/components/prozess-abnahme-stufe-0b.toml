@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-0b"
+title = "Owner steps for Azure and acceptance of stage 0b"
+kind = "process"
+path = "-"
+stage = "0b"
+purpose = "Owner steps with costs and an external account for stage 0b: recording against real Azure, setup of the environment azure-apply with a federated credential, and a real apply with destroy and cost query (O22); agents prepare scripts and decision sheets but start none of them themselves."
+design = ["06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22", "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"]
+built_by = ["0b-E01-T05", "0b-E03-T07", "0b-E03-T08"]
+
+[[provides]]
+name = "umgebung-azure-apply"
+kind = "config"
+title = "GitHub environment azure-apply with required reviewer owner and a federated credential only for this environment"
+defined_in = "06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"
+from_task = "0b-E03-T07"
+
+[[provides]]
+name = "stufenbericht-0b"
+kind = "file"
+title = "docs/berichte/stufe-0b.md with apply, smoke and destroy log and cost query"
+defined_in = "06-installation-operations-ui.md#47-real-apply-azure-owner-go-o22"
+from_task = "0b-E03-T08"
+
+[[uses]]
+interface = "driver-blob-azure/azure-recorder"
+from_task = "0b-E01-T05"
+purpose = "Recording in mode record against real Azure"
+
+[[uses]]
+interface = "tofu-azure/azure-apply-workflow"
+from_task = "0b-E03-T07"
+purpose = "Environment azure-apply for the workflow"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-0/release-v0-1-0"
+from_task = "0b-E03-T08"
+purpose = "real apply with a published version"

@@ -1,0 +1,315 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-backend-ci-dispatch-github"
+title = "ExecutionBackend ci-dispatch-github with runner workflow, OIDC login, nested sandbox and slot limit"
+kind = "plugin"
+path = "plugins/backend-ci-dispatch-github/"
+package = "@guildwork/plugin-backend-ci-dispatch-github"
+stage = "8"
+purpose = "Starts work items as one-shot workers in GitHub Actions of a runner repo: plugin with dispatch and minting of the dispatch token, dispatcher job ci-dispatch-tick with the table dispatch_records in the control plane, template of the runner workflow, nested setup in the job, slot limit, expiry and metrics (ADR-45, FE-1350 to FE-1353). Not included: the OIDC login at the Work API (work-api), the mode --once (worker) and the broker profile dispatch (credential-broker)."
+design = [
+  "13-stage-8-providers-and-bases.md#25-backend-ci-dispatch-8-e05",
+  "13-stage-8-providers-and-bases.md#251-plugin-and-configuration",
+  "13-stage-8-providers-and-bases.md#252-broker-profile-dispatch-and-dispatch-app",
+  "13-stage-8-providers-and-bases.md#253-runner-workflow-and-one-shot-worker",
+  "13-stage-8-providers-and-bases.md#255-nested-setup",
+  "13-stage-8-providers-and-bases.md#256-slot-limit-expiry-and-metrics",
+  "13-stage-8-providers-and-bases.md#48-ci-dispatch",
+  "13-stage-8-providers-and-bases.md#32-tables-of-stage-8",
+  "13-stage-8-providers-and-bases.md#85-ci-dispatch-8-e05",
+]
+built_by = ["8-E05-T02", "8-E05-T03", "8-E05-T04", "8-E05-T05"]
+
+[[provides]]
+name = "executionbackend-dispatch"
+kind = "contract"
+title = "CiDispatchBackend (ExecutionBackend with dispatch): pools, maxConcurrency, dispatch(item) with workflow_dispatch and only item_hint, create returns unsupported; loaded only in the control plane"
+defined_in = "13-stage-8-providers-and-bases.md#251-plugin-and-configuration"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "dispatch-token"
+kind = "ts-api"
+title = "mintDispatchToken(pool): app JWT of the dispatch app, installation token only for runnerRepo with actions write, ScopedToken profile dispatch, TTL 300 s; the only caller is the broker"
+defined_in = "13-stage-8-providers-and-bases.md#251-plugin-and-configuration"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "konfig-pool"
+kind = "config"
+title = "pools[ci-dispatch]: CiDispatchPoolConfig (runnerRepo, workflow, ref, maxConcurrency, dispatchAppRef, oidc.*, isolation, claimTimeoutS, fallbackPool) and ci_dispatch.tick_s"
+defined_in = "13-stage-8-providers-and-bases.md#251-plugin-and-configuration"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "tabelle-dispatch-records"
+kind = "table"
+title = "dispatch_records (states requested to expired, oidc_jti unique) with the columns pools.health, pools.unhealthy_since and work_items.pool_alt, migration 0802_dispatch_records.sql"
+defined_in = "13-stage-8-providers-and-bases.md#32-tables-of-stage-8"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "dispatcher"
+kind = "ts-api"
+title = "CiDispatcher.tick(pool) as the job ci-dispatch-tick of the role orchestrator (apps/control-plane/src/ci-dispatch/dispatcher.ts)"
+defined_in = "13-stage-8-providers-and-bases.md#252-broker-profile-dispatch-and-dispatch-app"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "zustandsautomat"
+kind = "ts-api"
+title = "nextState(record, event, now, cfg) with DispatchRecord and DispatchEvent according to table 4.8"
+defined_in = "13-stage-8-providers-and-bases.md#256-slot-limit-expiry-and-metrics"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "audit-ci-dispatch"
+kind = "event"
+title = "Audit ci_dispatch.dispatched, ci_dispatch.refused, ci_dispatch.expired (item, pool, reason, fingerprint of the token)"
+defined_in = "13-stage-8-providers-and-bases.md#34-events-and-audit-actions"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "runner-workflow"
+kind = "file"
+title = "Template deploy/ci-dispatch/runner-workflow.yml with input item_hint, permissions id-token write, actions pinned by SHA"
+defined_in = "13-stage-8-providers-and-bases.md#253-runner-workflow-and-one-shot-worker"
+from_task = "8-E05-T03"
+
+[[provides]]
+name = "verschachtelter-aufbau"
+kind = "file"
+title = "deploy/ci-dispatch/nested: Compose file and up.sh with worker, egress proxy (the only exit) and sandbox on the internal network"
+defined_in = "13-stage-8-providers-and-bases.md#255-nested-setup"
+from_task = "8-E05-T04"
+
+[[provides]]
+name = "suite-s1-ci-dispatch"
+kind = "file"
+title = "eval/suites/s1/ci-dispatch with the case S1-ci-dispatch-nested-credential-scan and the checks (a) to (c)"
+defined_in = "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8"
+from_task = "8-E05-T04"
+
+[[provides]]
+name = "slot-grenze"
+kind = "ts-api"
+title = "canDispatch(SlotState) with slot_limit or pool_unhealthy; expiry after claimTimeoutS, fallback pool via pool_alt"
+defined_in = "13-stage-8-providers-and-bases.md#256-slot-limit-expiry-and-metrics"
+from_task = "8-E05-T05"
+
+[[provides]]
+name = "konfig-grenzen"
+kind = "config"
+title = "ci_dispatch.claim_timeout_s and ci_dispatch.failure_alarm_count"
+defined_in = "13-stage-8-providers-and-bases.md#7-configuration"
+from_task = "8-E05-T05"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "guildwork.ci_dispatch.wait (histogram, s), guildwork.ci_dispatch.active (gauge), guildwork.ci_dispatch.expired, guildwork.ci_dispatch.failed with status, guildwork.ci_dispatch.slot_full, each with pool"
+defined_in = "13-stage-8-providers-and-bases.md#51-metrics-of-this-area"
+from_task = "8-E05-T05"
+
+[[provides]]
+name = "alarm-ci-dispatch-failing"
+kind = "event"
+title = "Required alert ci_dispatch_failing after accumulated rejected dispatches; pool unhealthy until the next accepted dispatch"
+defined_in = "13-stage-8-providers-and-bases.md#256-slot-limit-expiry-and-metrics"
+from_task = "8-E05-T05"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-8/runner-repo-und-dispatch-app"
+from_task = "8-E05-T02"
+purpose = "Runner repo and dispatch app for recording and test"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "8-E05-T02"
+purpose = "ExecutionBackend with dispatch (05 section 2.11.6)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E05-T02"
+purpose = "Manifest of the plugin"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "8-E05-T02"
+purpose = "ctx.http and AuditSink"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "8-E05-T02"
+purpose = "dispatchAppRef via ctx.secrets.resolve"
+
+[[uses]]
+interface = "credential-broker/profil-dispatch"
+from_task = "8-E05-T02"
+purpose = "The broker calls mintDispatchToken with profile dispatch"
+
+[[uses]]
+interface = "plugin-github/app-manifest-flow"
+from_task = "8-E05-T02"
+purpose = "buildAppManifest with profiles dispatch"
+
+[[uses]]
+interface = "cli/cmd-github-app-create"
+from_task = "8-E05-T02"
+purpose = "Switch --dispatch --repo <runnerRepo>"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "8-E05-T02"
+purpose = "Loading only in the control plane"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "8-E05-T02"
+purpose = "dispatch(item) with WorkItemEnvelopeV1"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.work-items"
+from_task = "8-E05-T02"
+purpose = "available items of the pool; column pool_alt via expand"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.pools"
+from_task = "8-E05-T02"
+purpose = "Columns health and unhealthy_since via expand"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "8-E05-T02"
+purpose = "Migration 0802_dispatch_records.sql"
+
+[[uses]]
+interface = "db/repos"
+from_task = "8-E05-T02"
+purpose = "Access to dispatch_records"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "8-E05-T02"
+purpose = "Queries under withTenant"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "8-E05-T02"
+purpose = "Schedule of the job ci-dispatch-tick"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "8-E05-T02"
+purpose = "Job ci-dispatch-tick in the list of the queues"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "8-E05-T02"
+purpose = "Audit ci_dispatch.dispatched, refused, expired"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "8-E05-T02"
+purpose = "Fingerprint of the token"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "8-E05-T02"
+purpose = "Tests of the states with a real database"
+
+[[uses]]
+interface = "worker/cli-once"
+from_task = "8-E05-T03"
+purpose = "One-shot worker in the runner workflow"
+
+[[uses]]
+interface = "work-api/auth-ci-oidc"
+from_task = "8-E05-T03"
+purpose = "Claim with the OIDC token of the run"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "8-E05-T03"
+purpose = "runner-workflow.yml passes the workflow policy"
+
+[[uses]]
+interface = "container-images/image.agent-worker"
+from_task = "8-E05-T04"
+purpose = "Worker container in the nested setup"
+
+[[uses]]
+interface = "container-images/image.egress-proxy"
+from_task = "8-E05-T04"
+purpose = "Egress proxy as the only container with an exit"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "8-E05-T04"
+purpose = "Sandbox on the internal network"
+
+[[uses]]
+interface = "egress-proxy/egress-yaml"
+from_task = "8-E05-T04"
+purpose = "egress.yaml of the egress proxy in the job"
+
+[[uses]]
+interface = "socket-proxy/docker-api"
+from_task = "8-E05-T04"
+purpose = "The worker talks to Docker via the socket proxy"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "8-E05-T04"
+purpose = "Sandbox in the job via exec-docker (FE-1350)"
+
+[[uses]]
+interface = "compose-buendel/host-prepare"
+from_task = "8-E05-T04"
+purpose = "gVisor registration on GitHub-hosted runners"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "8-E05-T04"
+purpose = "Test (c): LLM call via the relay in the job"
+
+[[uses]]
+interface = "testkit/fake-anthropic"
+from_task = "8-E05-T04"
+purpose = "Fake LLM behind the relay"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "8-E05-T04"
+purpose = "Case S1-ci-dispatch-nested-credential-scan"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "8-E05-T04"
+purpose = "SecretScanProbe and EgressProbe"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "8-E05-T05"
+purpose = "Metrics ci_dispatch_* in the catalog"
+
+[[uses]]
+interface = "telemetry/instrumente"
+from_task = "8-E05-T05"
+purpose = "Histogram ci_dispatch_wait_seconds in the OTel export"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "8-E05-T05"
+purpose = "Required alert ci_dispatch_failing"
+
+[[uses]]
+interface = "work-api/http-claim"
+from_task = "8-E05-T05"
+purpose = "The claim takes work_items.pool_alt into account"
+
+[[uses]]
+interface = "ui-betrieb/pools-services-audit-api"
+from_task = "8-E05-T05"
+purpose = "PoolView shows the pool as unhealthy"

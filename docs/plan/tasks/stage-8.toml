@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Header of stage 8. Epics and tasks are in stage-8.<area>.toml.
+# depends_on_stages must match the edges in docs/architecture/08-roadmap.md section 3 (plan.py checks this).
+stage = "8"
+title = "Jira, further providers and bases"
+depends_on_stages = ["2", "0b"]

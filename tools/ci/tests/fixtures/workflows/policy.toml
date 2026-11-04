@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Policy of the fixture workflows in this directory. Same shape as
+# quality/ci/policy.toml; the values are fixed here so that the tests do not
+# change when the repository policy changes.
+
+allowed_runners = ["ubuntu-24.04", "ubuntu-24.04-arm"]
+max_timeout_minutes = 30
+max_jobs_per_run = 6
+public_only_workflows = ["codeql.yml", "scorecard.yml"]
+push_workflows = ["ci.yml", "denylist-main.yml", "codeql.yml"]
+known_workflows = ["ci.yml", "denylist-main.yml", "codeql.yml", "scorecard.yml", "advisories.yml"]
+
+[job_permissions."codeql.yml".analyze]
+security-events = "write"
+actions = "read"
+
+[job_permissions."scorecard.yml".analysis]
+security-events = "write"
+id-token = "write"

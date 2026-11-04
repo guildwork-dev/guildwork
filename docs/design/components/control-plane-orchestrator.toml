@@ -1,0 +1,456 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "control-plane-orchestrator"
+title = "Orchestrator with run state machine, intake, steps, deadlines, status comment, queues"
+kind = "role"
+path = "apps/control-plane/src/orchestrator/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Drives every run according to the run state machine (one JSON file as the only source): intake with object lock and reservation, transitions in one transaction, steps via the service controllers, control commands, deadlines, status comment, lifting on upgrade, plus the list and registration of all queues. Decides no policy and no budget itself and never writes past the Effect Gateway."
+design = [
+  "02-control-plane.md#44-orchestrator-and-run-state-machine",
+  "02-control-plane.md#45-run-start-intake",
+  "02-control-plane.md#49-queues-pg-boss",
+  "02-control-plane.md#492-queue-definitions-and-handlers",
+  "02-control-plane.md#3-data",
+  "02-control-plane.md#10-open-points",
+]
+built_by = [
+  "0-E05-T01",
+  "0-E05-T02",
+  "0-E05-T03",
+  "0-E05-T04",
+  "0-E05-T05",
+  "0-E05-T06",
+  "0-E05-T07",
+  "0-E05-T08",
+  "0-E05-T09",
+  "0-E05-T11",
+  "0-E05-T12",
+  "0-E05-T13",
+  "0-E18-T12",
+  "9-E06-T02",
+  "0-E16-T01",
+  "0-E20-T08",
+  "1-E07-T02",
+  "1-E08-T04",
+  "9-E06-T03",
+  "10-E03-T01",
+  "10-E05-T01",
+  "2-E04-T10",
+]
+
+[[provides]]
+name = "run-automat"
+kind = "file"
+title = "run-automaton.v1.json: states, table A (mandatory events), table B, upgradeFrom (FE-220); follow-up versions of later stages according to FE-258"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E05-T01"
+
+[[provides]]
+name = "automat-typen"
+kind = "ts-api"
+title = "RunState, RunEventType, SideEffect, AutomatonFile from automaton/generated.ts"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E05-T01"
+
+[[provides]]
+name = "orchestrator-event"
+kind = "queue"
+title = "Queue orchestrator-event with RunEvent: the only input for work API, Effect Gateway, ledger, timers and commands"
+defined_in = "02-control-plane.md#3-data"
+from_task = "0-E05-T02"
+
+[[provides]]
+name = "create-run"
+kind = "ts-api"
+title = "Orchestrator.createRun(tx, CreateRunRequest): create a run and pass through intake, also for eval runs with EvalTriggerV1 and effectSink record (FE-241)"
+defined_in = "02-control-plane.md#45-run-start-intake"
+from_task = "0-E05-T03"
+
+[[provides]]
+name = "controller-host"
+kind = "contract"
+title = "Implementation of ControllerHost and the adapter from ServiceController to ServiceControllerModule for services from @guildwork/sdk-service (FE-242)"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E05-T09"
+
+[[provides]]
+name = "alarmregeln"
+kind = "ts-api"
+title = "AlertRules job_dead_letter, ingress_rejected_burst, router_permission_lookup_failed, settlement_retried (FE-274)"
+defined_in = "02-control-plane.md#52-alert-rules-of-this-area"
+from_task = "0-E05-T13"
+
+[[provides]]
+name = "queue-registry"
+kind = "ts-api"
+title = "QUEUES, QueueDef, HandlerRegistration, registerHandlers: list of table 4.9 and handlers of all areas"
+defined_in = "02-control-plane.md#492-queue-definitions-and-handlers"
+from_task = "0-E05-T05"
+
+[[provides]]
+name = "dead-letter"
+kind = "queue"
+title = "Queue dead-letter: permanently failed jobs per queue, basis of the alarm job_dead_letter"
+defined_in = "02-control-plane.md#49-queues-pg-boss"
+from_task = "0-E05-T05"
+
+[[provides]]
+name = "fristen-queues"
+kind = "queue"
+title = "Queues orchestrator-deadline (startAfter = deadline_at, version check) and orchestrator-sweep (every minute)"
+defined_in = "02-control-plane.md#49-queues-pg-boss"
+from_task = "0-E05-T06"
+
+[[provides]]
+name = "status-comment-render"
+kind = "queue"
+title = "Queue status-comment-render with payload { tenantId, objectKey }, singletonKey objectKey, debouncing"
+defined_in = "02-control-plane.md#3-data"
+from_task = "0-E05-T07"
+
+[[provides]]
+name = "status-marker"
+kind = "file"
+title = "Hidden marker <!-- guildwork:status v1 <base64url(JSON)> --> in the status comment, idempotency key status:<objectKey>:<version>"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E05-T07"
+
+[[provides]]
+name = "upgrade-lift"
+kind = "queue"
+title = "Queue orchestrator-upgrade-lift: lift open runs to the new state machine version, idempotent via lift:<N> (FE-229)"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E05-T08"
+
+[[provides]]
+name = "service-controller"
+kind = "contract"
+title = "ServiceControllerModule, ControllerContext, PlannedStep, ControllerOutcome, registerControllers: internal hook point of the service controllers (FE-240, FE-242)"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E05-T09"
+
+[[provides]]
+name = "konfig-orchestrator"
+kind = "config"
+title = "orchestrator.step_max_attempts, queued_neutral_after_min, reply_rate_window_s, status_comment.debounce_ms"
+defined_in = "02-control-plane.md#7-configuration"
+from_task = "0-E05-T02"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "guildwork.orchestrator.duplicate_event, event_rejected, delivered, command_unmatched, guildwork.run.duration, guildwork.queue.dead_lettered"
+defined_in = "02-control-plane.md#51-metrics-of-this-area"
+from_task = "0-E05-T04"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E05-T01"
+purpose = "TypeBox schema of the state machine file and check on load"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "0-E05-T01"
+purpose = "Comparison of the state list with the CHECK of runs.state; from 0-E05-T02 state, version, deadline, end"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-transitions"
+from_task = "0-E05-T02"
+purpose = "Idempotency per (run_id, event_key) and history with outcome"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E05-T02"
+purpose = "Tx of the transition with SELECT FOR UPDATE on the run"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E05-T02"
+purpose = "withTenant per job; withInstallationScope for orchestrator_sweep and upgrade_lift"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E05-T02"
+purpose = "Repositories runs, run_transitions, steps, approvals with optimistic version"
+
+[[uses]]
+interface = "db-queue/send-in-tx"
+from_task = "0-E05-T02"
+purpose = "Follow-up jobs in the transaction of the transition (FE-271)"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E05-T02"
+purpose = "Job type of the handlers; from 0-E05-T05 ensureQueue, work, schedule"
+
+[[uses]]
+interface = "config-resolver/expr"
+from_task = "0-E05-T02"
+purpose = "Guards of the state machine file in the context automaton.guard"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E05-T02"
+purpose = "Audit run.transition, run.event_rejected, run.delivered, run.upgrade_lift"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "0-E05-T02"
+purpose = "Platform effects comment (not possible), status_comment and ack via submitPlatform; from 0-E05-T09 submit for ControllerHost.propose"
+
+[[uses]]
+interface = "effect-gateway/idempotency-key"
+from_task = "0-E05-T07"
+purpose = "Substitute keys of the platform effects, such as status:<objectKey>:<version>"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E05-T02"
+purpose = "Counters guildwork.orchestrator.* and histogram guildwork.run.duration"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E05-T02"
+purpose = "Clock for deadlines, ended_at and reply window"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E05-T02"
+purpose = "UUIDv7 for runs, transitions and steps"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E05-T02"
+purpose = "Log per transition with runId and traceparent"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E05-T02"
+purpose = "Engine and intake tests against a real Postgres with pg-boss"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "0-E05-T02"
+purpose = "FakeClock for deadlines and reply window"
+
+[[uses]]
+interface = "control-plane-router/orchestrator-intake"
+from_task = "0-E05-T03"
+purpose = "Handler of the queue orchestrator-intake"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "0-E05-T03"
+purpose = "Target, permissions, repo and base SHA of the run start"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "0-E05-T03"
+purpose = "resolve at the base SHA for the run start"
+
+[[uses]]
+interface = "config-resolver/snapshot"
+from_task = "0-E05-T03"
+purpose = "Snapshot in the transaction of the transition from received"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "0-E05-T03"
+purpose = "evaluateRunStart and record; from 0-E05-T09 evaluateWorkItem per step"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "0-E05-T03"
+purpose = "Effective mode per service of the run (off, shadow, live, unproven)"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "0-E05-T03"
+purpose = "decideMode per service before evaluateServiceMode (FE-255)"
+
+[[uses]]
+interface = "limit-ledger/schluesselkette"
+from_task = "0-E05-T03"
+purpose = "keyChain and ensureBuckets from the snapshot"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "0-E05-T03"
+purpose = "Reservation after the object lock; rejection leads to paused_budget"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "0-E05-T03"
+purpose = "Object lock per object and service, unique_violation means delivery"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-followups"
+from_task = "0-E05-T03"
+purpose = "One follow-up job per object and service (FE-226)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.events"
+from_task = "0-E05-T03"
+purpose = "events.state run_started or delivered with run_id"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "0-E05-T04"
+purpose = "Approvals G1, G4, G5 with bound plan hash or SHA"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-steer-messages"
+from_task = "0-E05-T04"
+purpose = "store_steer_message for @agent say until delivery"
+
+[[uses]]
+interface = "control-plane-ingress/plugin-lookup"
+from_task = "0-E05-T04"
+purpose = "SCMProvider for codeowner_of at the head SHA and permissions of the run initiator"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E05-T04"
+purpose = "codeowners, getChange (head SHA) for codeowner_of"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-process"
+from_task = "0-E05-T05"
+purpose = "Register the handler"
+
+[[uses]]
+interface = "control-plane-ingress/trigger-queues"
+from_task = "0-E05-T05"
+purpose = "Register handler and schedule per plugin instance"
+
+[[uses]]
+interface = "control-plane-ingress/router-route"
+from_task = "0-E05-T05"
+purpose = "Register the handler of the router"
+
+[[uses]]
+interface = "db/wartung"
+from_task = "0-E05-T05"
+purpose = "Register the handlers of the jobs db-partition-maintenance and db-retention"
+
+[[uses]]
+interface = "limit-ledger/settle"
+from_task = "0-E05-T06"
+purpose = "Effects release_reservation and settle_reservation (job ledger-settle)"
+
+[[uses]]
+interface = "limit-ledger/ledger-queues"
+from_task = "0-E05-T06"
+purpose = "Send the job ledger-settle on the transition into a final state or after merged"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "0-E05-T06"
+purpose = "revoke with RevokeReason stop, deadline, budget_exhausted; from 0-E05-T09 enqueue per step"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.status-comments"
+from_task = "0-E05-T07"
+purpose = "Compare-and-swap on version per object"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "0-E05-T07"
+purpose = "unproven per service for the row standard not proven"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "0-E05-T07"
+purpose = "Cost so far per run in the status comment"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.schema-state"
+from_task = "0-E05-T08"
+purpose = "Maintain automaton_versions; do not execute runs of an unknown state machine version (0-E18-T12)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.steps"
+from_task = "0-E05-T09"
+purpose = "Steps with attempt and result_lease_id"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "0-E05-T09"
+purpose = "Artifact references of the step results, reuse of plan and triage, StatusRow"
+
+[[uses]]
+interface = "work-api/step-events"
+from_task = "0-E05-T09"
+purpose = "Translate StepEvent on orchestrator-event into events of table B"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "0-E05-T09"
+purpose = "Envelope and requirements of the work item from StepRequest"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "0-E05-T09"
+purpose = "StepResultV1 and StepErrorV1 for CompletedStep and FailedStep"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "0-E05-T09"
+purpose = "ServiceController and ControllerHost: call the controllers of the services, implement the host"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "0-E05-T09"
+purpose = "Register ServiceDefinition per service; a manifest without a controller prevents the start"
+
+[[uses]]
+interface = "control-plane-ingress/blob-store-port"
+from_task = "0-E05-T09"
+purpose = "ControllerHost.blobs get and put"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E05-T09"
+purpose = "ControllerHost.statusRow: redact text before storing"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "0-E05-T13"
+purpose = "Alarm rules of this area as AlertRule with an entry in ALERT_RULE_IDS"
+
+[[uses]]
+interface = "coder-erweiterte-steuerung/handoff"
+from_task = "9-E06-T02"
+purpose = "handoff and resume as events of table B with WIP branch and bundle"
+
+[[provides]]
+name = "service-lader"
+kind = "ts-api"
+title = "loadServices(defs, deps): LoadedServices with ServiceControllerModule per service, manifests, implementation of McpManifestSource and ResolverServiceInfo; BUNDLED_SERVICES (FE-244, 00 FE-050)"
+defined_in = "02-control-plane.md#44-orchestrator-and-run-state-machine"
+from_task = "0-E16-T01"
+
+[[provides]]
+name = "eval-start"
+kind = "contract"
+title = "Acceptance of EvalRunStartV1 on orchestrator-intake: createRun with eval fields (fixture instance, profile file, pool), effectSink record mandatory, internal services only via this path (FE-245)"
+defined_in = "02-control-plane.md#45-run-start-intake"
+from_task = "0-E20-T08"
+
+[[uses]]
+interface = "plattform-mcp/manifest-source"
+from_task = "0-E16-T01"
+purpose = "Implement McpManifestSource.allowed from the loaded manifests"
+
+[[uses]]
+interface = "not-aus/kill-switch-gate"
+from_task = "1-E08-T04"
+purpose = "Accept stop with source killswitch; KillSwitchGate.match at createRun outside the router path (FE-218)"
+
+[[uses]]
+interface = "control-plane-router/event-run-steer"
+from_task = "2-E04-T10"
+purpose = "Choose the delivery path per state according to 10 section 4.6 (live_steer, next_item, pending)"

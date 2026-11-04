@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-github-issues"
+title = "GitHub WorkItemProvider github-issues reading and writing"
+kind = "plugin"
+path = "plugins/github/src/issues/"
+package = "@guildwork/plugin-github"
+stage = "0"
+purpose = "WorkItemProvider github-issues: read GitHub Issues as tickets (router, platform MCP) and, per stage, the write methods that an Effect Gateway executor needs first. Uses the token of the linked scm instance via the broker; Jira and other ticket systems are separate plugins."
+design = [
+  "05-plugins-and-contracts.md#2148-github-issues-reading-and-writing",
+  "05-plugins-and-contracts.md#212-sketches-sketch-not-binding-in-v1alpha1",
+  "12-expansion.md#27-github-capabilities-for-triage-7-e05",
+]
+built_by = [
+  "0-E14-T10",
+  "0-E14-T14",
+  "2-E01-T17",
+  "7-E05-T01",
+  "7-E05-T02",
+  "7-E05-T03",
+  "7-E05-T04",
+  "7-E05-T07",
+]
+
+[[provides]]
+name = "issues-lesend"
+kind = "contract"
+title = "WorkItemReader github-issues: getItem (status category, untrusted), getComments, search (only repos of the installation), getAttachments empty, getLinks, userPermission, whoami, renderMention"
+defined_in = "05-plugins-and-contracts.md#2148-github-issues-reading-and-writing"
+from_task = "0-E14-T10"
+
+[[provides]]
+name = "kommentare"
+kind = "contract"
+title = "WorkItemWriter.addComment with hidden marker and updateComment only for own comments, token with profile comment_issue"
+defined_in = "05-plugins-and-contracts.md#2148-github-issues-reading-and-writing"
+from_task = "0-E14-T14"
+
+[[provides]]
+name = "transition-link"
+kind = "contract"
+title = "WorkItemWriter.transition (done closes, todo opens, otherwise no_status) and linkExternal (fallback level comment with marker)"
+defined_in = "05-plugins-and-contracts.md#2148-github-issues-reading-and-writing"
+from_task = "2-E01-T17"
+
+[[provides]]
+name = "labels-anlegen"
+kind = "contract"
+title = "WorkItemWriter.setLabels (SET_LABELS) and createItem with marker and idempotency (CREATE_ISSUE)"
+defined_in = "12-expansion.md#27-github-capabilities-for-triage-7-e05"
+from_task = "7-E05-T03"
+
+[[provides]]
+name = "verknuepfen-duplikate"
+kind = "contract"
+title = "linkItems (fallback level comment), searchRelated (text search), closeAsDuplicate (native or fallback level per recording)"
+defined_in = "12-expansion.md#27-github-capabilities-for-triage-7-e05"
+from_task = "7-E05-T04"
+
+[[provides]]
+name = "hide-comment"
+kind = "contract"
+title = "WorkItemWriter.hideComment via GraphQL minimizeComment with reason SPAM, capability COMMENT_HIDE, profile labels"
+defined_in = "05-plugins-and-contracts.md#2148-github-issues-reading-and-writing"
+from_task = "7-E05-T07"
+
+[[provides]]
+name = "list-labels"
+kind = "contract"
+title = "WorkItemReader.listLabels: labels of the repo (GET /repos/{o}/{r}/labels) with capability LIST_LABELS, basis of the label list of the triage verifier (FE-558)"
+defined_in = "05-plugins-and-contracts.md#2148-github-issues-reading-and-writing"
+from_task = "7-E05-T02"
+
+[[uses]]
+interface = "plugin-github/client"
+from_task = "0-E14-T10"
+purpose = "REST calls of the issue methods"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "0-E14-T10"
+purpose = "Configuration { scm } of the instance github-issues"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "0-E14-T10"
+purpose = "Implement WorkItemReader and WorkItemWriter"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E14-T10"
+purpose = "Title, text and comments as untrusted"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E14-T10"
+purpose = "Read token via ctx.scmTokens.read (FE-551)"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "0-E14-T10"
+purpose = "Read cases from cassettes"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E14-T14"
+purpose = "ScopedToken with profile comment_issue or labels"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "7-E05-T02"
+purpose = "Target profile of the test repo for the recording"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "7-E05-T02"
+purpose = "Recording of real responses with target check"

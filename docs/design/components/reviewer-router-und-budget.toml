@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-router-und-budget"
+title = "Router, depth, context package and budget split per step"
+kind = "service"
+path = "services/reviewer/src/controller/router.ts"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Splits the run budget into prepare, finder, verifier and reserve, chooses depth and finders, distributes files to shards and builds the context package with a token budget per shard. Loads no context sources itself (that is done by reviewer-kontextquellen)."
+design = [
+  "08-reviewer.md#45-router-and-depth",
+  "08-reviewer.md#46-context-building-and-token-budget",
+  "08-reviewer.md#416-cost-and-time-budgets",
+  "08-reviewer.md#29-building-blocks-of-the-controller",
+]
+built_by = ["1-E02-T02", "1-E02-T08", "1-E06-T04", "6-E01-T02", "6-E01-T08"]
+
+[[provides]]
+name = "budgetaufteilung"
+kind = "ts-api"
+title = "splitBudget(RunLimits, Plan, Konfig): BudgetPlan with ItemBudget per item (FE-827); from 6-E01-T02 on, item companions (10 %, 09 FE-952)"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E02-T02"
+
+[[provides]]
+name = "router"
+kind = "ts-api"
+title = "route(): RoutePlan with depth, finders, shards, riskScore and riskLevel (from 6-E01-T08 on via riskLevelOf from 09, FE-946)"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E02-T08"
+
+[[provides]]
+name = "kontextpaket"
+kind = "file"
+title = "ContextPack per shard (guildwork.review-context/v1), blob runs/<runId>/reviewer/context-<shard>.json, buildContextPack()"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E02-T08"
+
+[[provides]]
+name = "impact-set"
+kind = "file"
+title = "ImpactSet (guildwork.review-impact/v1) from impactSetOf(SymbolsResult), blob runs/<runId>/reviewer/impact.json for the companion generators"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "6-E01-T02"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E02-T02"
+purpose = "limits.service.reviewer and shares per step"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "1-E02-T02"
+purpose = "Item budgets in FindInput and VerifyInput"
+
+[[uses]]
+interface = "service-reviewer/controller"
+from_task = "1-E02-T02"
+purpose = "Step reserve and required events budget_exhausted, deadline"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "1-E02-T02"
+purpose = "Reservation of the full run budget by the orchestrator at intake (step 3); amount from limits.service.reviewer"
+
+[[uses]]
+interface = "limit-ledger/settle"
+from_task = "1-E02-T02"
+purpose = "Settlement and release by the orchestrator at run end and paused_budget (checked in the test s6.reviewer.budget_in_verifying_paused)"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "1-E02-T02"
+purpose = "Abort via heartbeat cancel when exceeded"
+
+[[uses]]
+interface = "limit-ledger/konfig-ledger"
+from_task = "1-E02-T02"
+purpose = "Evaluation of limits.service.reviewer"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "1-E02-T02"
+purpose = "Transition to paused_budget"
+
+[[uses]]
+interface = "reviewer-gate/reviewer.prepare"
+from_task = "1-E02-T08"
+purpose = "PrepareOutput as input of route()"
+
+[[uses]]
+interface = "reviewer-kontextquellen/kontextquelle-port"
+from_task = "1-E02-T08"
+purpose = "ContextSourceResult as parts 4, 8, 11, 12 of the context package"
+
+[[uses]]
+interface = "guidelines/lader-stufe-1"
+from_task = "1-E02-T08"
+purpose = "Guidelines per shard (part 3) and condition guidelinesApply"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "1-E02-T08"
+purpose = "sanitize and renderUntrustedBlock for untrusted parts"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "1-E02-T08"
+purpose = "approvals.protected_paths for the depth deep"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E02-T08"
+purpose = "Context package as a blob via ControllerHost.blobs"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-sarif"
+from_task = "1-E06-T04"
+purpose = "Analyzer candidates as part 9 of the context package"

@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "tofu-generic-vm"
+title = "OpenTofu module generic-vm with CI workflow tofu"
+kind = "delivery"
+path = "deploy/tofu/generic-vm/"
+stage = "0b"
+purpose = "OpenTofu module that sets up an existing Linux host via cloud-init output or SSH (role full or worker), without cloud resource and without secret as input or output (FE-629), with workflow tofu.yml and a real apply in SSH mode on the runner; basis of the module azure."
+design = ["06-installation-operations-ui.md#214-opentofu-modules", "06-installation-operations-ui.md#811-opentofu-and-azure-drivers"]
+built_by = ["0b-E02-T01", "0b-E02-T02", "0b-E02-T03", "0b-E02-T04", "0b-E02-T05"]
+
+[[provides]]
+name = "modul-generic-vm"
+kind = "config"
+title = "Module interface: variables mode, role, host, ssh_user, ssh_port, guildwork_version, bundle_sha256, cli_sha256, install_dir, public_url, ingress_mode, blob_driver, isolation, work_api_url, pool; outputs cloud_init, install_dir, admin_url, version"
+defined_in = "06-installation-operations-ui.md#214-opentofu-modules"
+from_task = "0b-E02-T02"
+
+[[provides]]
+name = "tofu-workflow"
+kind = "file"
+title = "tofu.yml: path filter deploy/tofu/**, fmt, init -backend=false, validate, test, plan per module, part of ci-ok"
+defined_in = "06-installation-operations-ui.md#214-opentofu-modules"
+from_task = "0b-E02-T03"
+
+[[provides]]
+name = "apply-localhost"
+kind = "file"
+title = "Job generic-vm-apply: real apply in SSH mode on the runner, doctor --strict and probe run"
+defined_in = "06-installation-operations-ui.md#811-opentofu-and-azure-drivers"
+from_task = "0b-E02-T04"
+
+[[uses]]
+interface = "cli/sea-binary"
+from_task = "0b-E02-T02"
+purpose = "Download and check of the CLI in cloud-init"
+
+[[uses]]
+interface = "release-werkzeuge/buendel"
+from_task = "0b-E02-T02"
+purpose = "Download and check of the bundle"
+
+[[uses]]
+interface = "compose-buendel/host-prepare"
+from_task = "0b-E02-T02"
+purpose = "Root step in cloud-init"
+
+[[uses]]
+interface = "cli-install/cmd-install"
+from_task = "0b-E02-T02"
+purpose = "guildwork install --yes with the variables"
+
+[[uses]]
+interface = "worker-paket/compose-worker"
+from_task = "0b-E02-T02"
+purpose = "role worker installs the worker package"
+
+[[uses]]
+interface = "ci-workflows/ci-ok"
+from_task = "0b-E02-T03"
+purpose = "Job tofu as part of ci-ok"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "0b-E02-T03"
+purpose = "tofu.yml with policy and actionlint"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0b-E02-T04"
+purpose = "doctor --strict after the apply"
+
+[[uses]]
+interface = "portabilitaetstest/smoke"
+from_task = "0b-E02-T04"
+purpose = "Probe run of the dummy in shadow"

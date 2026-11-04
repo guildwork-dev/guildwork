@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-model-bedrock"
+title = "ModelProvider bedrock"
+kind = "plugin"
+path = "plugins/model-bedrock/"
+package = "@guildwork/plugin-model-bedrock"
+stage = "8"
+purpose = "ModelProvider for single calls via Amazon Bedrock (Vercel AI SDK), executed in the worker as work item model_call, access via the grant bedrock and the relay with SigV4 or in passthrough (FE-1327). Not included: the start path bedrock of the harness claude-code, the STS identity (driver-identity-aws) and the relay extension."
+design = [
+  "13-stage-8-providers-and-bases.md#226-modelprovider-bedrock-vertex-and-foundry",
+  "13-stage-8-providers-and-bases.md#45-start-with-bedrock-vertex-and-foundry",
+  "13-stage-8-providers-and-bases.md#82-providers-8-e02",
+]
+built_by = ["8-E02-T04"]
+
+[[provides]]
+name = "modelprovider"
+kind = "contract"
+title = "ModelProvider bedrock (manifest id bedrock): generate, models, capabilities TOOLS native, STRICT_SCHEMA fallback, PROMPT_CACHE regional, REGION_EU for eu. profiles; cost.source price_table without usd; contract attestation"
+defined_in = "13-stage-8-providers-and-bases.md#226-modelprovider-bedrock-vertex-and-foundry"
+from_task = "8-E02-T04"
+
+[[provides]]
+name = "konfig-models"
+kind = "config"
+title = "models[] with plugin bedrock: BedrockModelConfig (id, credential of kind bedrock, models)"
+defined_in = "13-stage-8-providers-and-bases.md#226-modelprovider-bedrock-vertex-and-foundry"
+from_task = "8-E02-T04"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "8-E02-T04"
+purpose = "Contract ModelProvider with models and generate"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E02-T04"
+purpose = "Manifest with id bedrock and contract attestation"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "8-E02-T04"
+purpose = "fetch via ctx.http.asFetch, never direct network"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "8-E02-T04"
+purpose = "Foreign content via renderUntrustedBlock"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "8-E02-T04"
+purpose = "Capabilities TOOLS, STRICT_SCHEMA, PROMPT_CACHE, REGION_EU"
+
+[[uses]]
+interface = "work-item-umschlag/grants-v1"
+from_task = "8-E02-T04"
+purpose = "Access from the grant of the work item model_call (FE-1327)"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "8-E02-T04"
+purpose = "Base URL relay with placeholder for relay: true"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "8-E02-T04"
+purpose = "Registration as a built-in package, loaded in the worker"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "8-E02-T04"
+purpose = "Suite ModelProvider with recorded responses"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "8-E02-T04"
+purpose = "Recordings from the accounts of 8-E02-T01"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "8-E02-T04"
+purpose = "contract-attestation.json as a load condition"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-8/cloud-konten"
+from_task = "8-E02-T04"
+purpose = "Documentation cassettes for the contract suite; recording only with an optional owner account"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "8-E02-T04"
+purpose = "License gate for the provider's package in the Vercel AI SDK"
+
+[[uses]]
+interface = "credential-relay/sigv4"
+from_task = "8-E02-T04"
+purpose = "SigV4 in the relay for relay: true"

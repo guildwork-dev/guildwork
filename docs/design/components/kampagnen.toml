@@ -1,0 +1,413 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "kampagnen"
+title = "Campaigns across many repos with ledger key, abort rule and UI"
+kind = "role"
+path = "apps/control-plane/src/campaigns/"
+package = "@guildwork/control-plane"
+stage = "10"
+purpose = "One change by recipe across many repos: parent run with plan and G1, per repo a normal pipeline run campaign-child with all gates, a shared budget in the ledger key campaign, abort on failure rate, admin API and admin UI. No auto-merge, no Coder child runs from stage 9 (FE-1236) and no replacement for the limits of the repos."
+design = [
+  "15-stage-10-edge-layers.md#27-campaigns-10-e05",
+  "15-stage-10-edge-layers.md#271-types-and-recipe",
+  "15-stage-10-edge-layers.md#272-controller-ledger-automaton",
+  "15-stage-10-edge-layers.md#273-admin-api-and-admin-ui",
+  "15-stage-10-edge-layers.md#31-tables-of-stage-10-ddl",
+  "15-stage-10-edge-layers.md#48-campaign",
+  "15-stage-10-edge-layers.md#49-states",
+  "15-stage-10-edge-layers.md#85-campaigns-10-e05",
+]
+built_by = ["10-E05-T01", "10-E05-T02", "10-E05-T03"]
+
+[[provides]]
+name = "tabelle-campaigns"
+kind = "table"
+title = "Table campaigns (migration 1001_campaigns)"
+defined_in = "15-stage-10-edge-layers.md#31-tables-of-stage-10-ddl"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "tabelle-campaign-children"
+kind = "table"
+title = "Table campaign_children (migration 1001_campaigns)"
+defined_in = "15-stage-10-edge-layers.md#31-tables-of-stage-10-ddl"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "runs-campaign-id"
+kind = "table"
+title = "Column runs.campaign_id, runs.state extended by campaign_running, runs.object_kind by campaign_child, buckets.key_kind by campaign (migration 1001, K6)"
+defined_in = "15-stage-10-edge-layers.md#31-tables-of-stage-10-ddl"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "typen"
+kind = "ts-api"
+title = "CampaignRecipe, CampaignPlan, CampaignExclusion, CampaignView, CampaignState, ChildState in packages/contracts/src/artifacts/campaign.ts"
+defined_in = "15-stage-10-edge-layers.md#271-types-and-recipe"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "rezept-datei"
+kind = "file"
+title = "Recipe .agents/campaigns/<name>.yaml in the ticket repo at the default branch SHA (FE-1529)"
+defined_in = "15-stage-10-edge-layers.md#271-types-and-recipe"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "CampaignController: create, prepare, onG1Granted, tick, onChildTransition (called by the orchestrator after every transition of a run with campaign_id)"
+defined_in = "15-stage-10-edge-layers.md#272-controller-ledger-automaton"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "controller-stop-resume"
+kind = "ts-api"
+title = "CampaignController.stop and resume with abort rule and states halted_failure_rate, halted_budget, stopped, done"
+defined_in = "15-stage-10-edge-layers.md#272-controller-ledger-automaton"
+from_task = "10-E05-T02"
+
+[[provides]]
+name = "automat-campaign-running"
+kind = "ts-api"
+title = "Run state machine version n+1: state campaign_running, transitions of the pipeline campaign, side effects start_campaign_children and cancel_campaign_children (K5, FE-1530)"
+defined_in = "15-stage-10-edge-layers.md#49-states"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "pipelines"
+kind = "config"
+title = "Pipelines campaign and campaign-child (coder, reviewer and qa, prfixer; merge.mode fixed to human) (K7, FE-1532)"
+defined_in = "15-stage-10-edge-layers.md#272-controller-ledger-automaton"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "ledger-schluessel-campaign"
+kind = "ts-api"
+title = "Bucket kind campaign (BucketKeyKind) with buckets campaign:<id>, metric tokens and optionally usd, window none (K4, FE-1534)"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "campaign.max_failure_rate, .min_children_for_rate, .max_parallel, .max_repos, .max_days"
+defined_in = "15-stage-10-edge-layers.md#7-configuration"
+from_task = "10-E05-T01"
+
+[[provides]]
+name = "admin-api"
+kind = "http"
+title = "Route family /admin/api/v1/campaigns*: create, list, detail, stop, resume, budget"
+defined_in = "15-stage-10-edge-layers.md#273-admin-api-and-admin-ui"
+from_task = "10-E05-T02"
+
+[[provides]]
+name = "admin-ui"
+kind = "ui"
+title = "Admin UI /admin/campaigns: list, detail with child table, rate, budget bar, actions stop and resume"
+defined_in = "15-stage-10-edge-layers.md#273-admin-api-and-admin-ui"
+from_task = "10-E05-T02"
+
+[[provides]]
+name = "ereignisse"
+kind = "event"
+title = "Internal events campaign.child_ended { campaignId, repoKey, state } and campaign.halted { campaignId, reason }"
+defined_in = "15-stage-10-edge-layers.md#32-artifacts-events-markers"
+from_task = "10-E05-T02"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "campaign_rejected_total, campaign_child_skipped_total, campaign_stopped_total, alert rules campaign_halted_failure_rate and campaign_halted_budget, audit actions campaign.* and admin.campaign.*"
+defined_in = "15-stage-10-edge-layers.md#51-metrics-of-this-stage"
+from_task = "10-E05-T02"
+
+[[provides]]
+name = "kettenfaelle"
+kind = "file"
+title = "S5 cases S5-campaign-child-fails, -budget-exhausted, -stop and S6-campaign-upgrade-lifts-runs"
+defined_in = "15-stage-10-edge-layers.md#85-campaigns-10-e05"
+from_task = "10-E05-T03"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E05-T01"
+purpose = "planId = hash(tenant, campaignId, repo), sha256 of the recipe"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "10-E05-T02"
+purpose = "Counters campaign_*"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "10-E05-T02"
+purpose = "Metrics of the campaigns in the catalog (section 5.1)"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "10-E05-T01"
+purpose = "RepoRef, WorkItemRef, Actor"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "10-E05-T01"
+purpose = "TypeBox schemas CampaignRecipe, CampaignPlan, CampaignView"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "10-E05-T01"
+purpose = "getFile of the recipe at the default branch SHA, getPermission of the approver per repo"
+
+[[uses]]
+interface = "db/connect"
+from_task = "10-E05-T01"
+purpose = "Transaction Tx of the controller calls"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "10-E05-T01"
+purpose = "RLS of the new tables"
+
+[[uses]]
+interface = "db/repos"
+from_task = "10-E05-T01"
+purpose = "Repositories campaigns and campaign_children"
+
+[[uses]]
+interface = "db/schema-typen"
+from_task = "10-E05-T01"
+purpose = "Kysely types of the new tables"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "10-E05-T01"
+purpose = "Migration 1001_campaigns with phase expand"
+
+[[uses]]
+interface = "db-migrator/tabellenverzeichnis"
+from_task = "10-E05-T01"
+purpose = "Tables campaigns and campaign_children in the directory (block 1000)"
+
+[[uses]]
+interface = "migration-lint/lint"
+from_task = "10-E05-T01"
+purpose = "Expand check of the migration 1001"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "10-E05-T01"
+purpose = "Column campaign_id and extended check constraints (K6)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.buckets"
+from_task = "10-E05-T01"
+purpose = "key_kind campaign (K4)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "10-E05-T01"
+purpose = "G1 of the parent plan"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "10-E05-T01"
+purpose = "CampaignPlan and PlanArtifact per child"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "10-E05-T01"
+purpose = "approved_by_identity_id"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "10-E05-T01"
+purpose = "Policy tenant_isolation for the new tables"
+
+[[uses]]
+interface = "propose-dependency/tabelle-approvals-bound-subject"
+from_task = "10-E05-T01"
+purpose = "bound_subject campaign:<id>:<planHash>"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "10-E05-T01"
+purpose = "State machine version n+1 with campaign_running (K5)"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "10-E05-T01"
+purpose = "RunState and SideEffect start_campaign_children, cancel_campaign_children"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "10-E05-T01"
+purpose = "Events g1_granted, campaign_finished, campaign_budget_exhausted"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "10-E05-T01"
+purpose = "onChildTransition after every transition of a run with campaign_id"
+
+[[uses]]
+interface = "control-plane-orchestrator/status-comment-render"
+from_task = "10-E05-T01"
+purpose = "Status comment on the campaign ticket with counters"
+
+[[uses]]
+interface = "control-plane-orchestrator/fristen-queues"
+from_task = "10-E05-T01"
+purpose = "deadline after campaign.max_days"
+
+[[uses]]
+interface = "control-plane-orchestrator/upgrade-lift"
+from_task = "10-E05-T03"
+purpose = "S6: lift parent and child runs on upgrade"
+
+[[uses]]
+interface = "limit-ledger/schluesselkette"
+from_task = "10-E05-T01"
+purpose = "BucketKeyKind campaign and ensureBuckets"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "10-E05-T01"
+purpose = "Reservation per child with key campaign, atomic"
+
+[[uses]]
+interface = "limit-ledger/settle"
+from_task = "10-E05-T01"
+purpose = "Settlement of the children against the key campaign"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/pipeline-runner"
+from_task = "10-E05-T01"
+purpose = "PipelineDef campaign and campaign-child (K7)"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/stage-registry"
+from_task = "10-E05-T01"
+purpose = "Stages coder, reviewer, qa, prfixer of the child pipeline"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/konfig-pipeline"
+from_task = "10-E05-T01"
+purpose = "Pipelines with merge.mode fixed to human"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/befehl-approve-plan"
+from_task = "10-E05-T01"
+purpose = "G1 on the campaign ticket bound to CampaignPlan.hash"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "10-E05-T01"
+purpose = "PlanArtifact per repo from the recipe (FE-1532)"
+
+[[uses]]
+interface = "service-coder/controller"
+from_task = "10-E05-T01"
+purpose = "Stage coder of the child run with on_disabled fail"
+
+[[uses]]
+interface = "qa-klassifikation-und-ausgabe/pipeline-stufe-qa"
+from_task = "10-E05-T01"
+purpose = "Stage qa of the child run with on_disabled skip"
+
+[[uses]]
+interface = "service-prfixer/pipeline-stufe-prfixer"
+from_task = "10-E05-T01"
+purpose = "Stage prfixer of the child run with until and max_rounds"
+
+[[uses]]
+interface = "agent-ci/claim-pruefung"
+from_task = "10-E05-T01"
+purpose = "Exclusion no_safe_ci for the child"
+
+[[uses]]
+interface = "coder-harte-gates/g4-vor-push"
+from_task = "10-E05-T01"
+purpose = "G4 in the child run unchanged"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "10-E05-T01"
+purpose = "Configuration per target repo in prepare (coder off, repo class)"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "10-E05-T01"
+purpose = "Keys campaign.* in the schema"
+
+[[uses]]
+interface = "config-resolver/expr"
+from_task = "10-E05-T01"
+purpose = "Guard run.pipeline == campaign in the state machine"
+
+[[uses]]
+interface = "orchestrator-effekte/orchestrator-effects-api"
+from_task = "10-E05-T01"
+purpose = "status_comment on the parent run"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "10-E05-T01"
+purpose = "Audit admin.campaign.* and exclusions"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "10-E05-T02"
+purpose = "Route family /admin/api/v1/campaigns*"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "10-E05-T02"
+purpose = "Roles admin, approver, viewer and Problem responses"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "10-E05-T02"
+purpose = "Register the page /admin/campaigns"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "10-E05-T02"
+purpose = "typed client of the campaign API"
+
+[[uses]]
+interface = "admin-ui/ui-e2e-grundlage"
+from_task = "10-E05-T02"
+purpose = "UI test of the campaign page"
+
+[[uses]]
+interface = "ui-run-record/seite-run-record"
+from_task = "10-E05-T02"
+purpose = "Run link per child in the detail view"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "10-E05-T02"
+purpose = "Alert rules campaign_halted_failure_rate and campaign_halted_budget"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "10-E05-T01"
+purpose = "Integration and migration tests"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "10-E05-T03"
+purpose = "S5 and S6 cases with ledger counters"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "10-E05-T03"
+purpose = "S5 and S6 cases of the campaigns"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "10-E05-T03"
+purpose = "LedgerProbe: counters before and after"

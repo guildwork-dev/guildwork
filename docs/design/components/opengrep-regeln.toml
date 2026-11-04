@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "opengrep-regeln"
+title = "Opengrep rules of the repo with rule tests (write subpath and write methods only in executors, environment, clock, foreign content)"
+kind = "tool"
+path = ".opengrep/"
+stage = "R"
+purpose = "Own Opengrep rules under Apache-2.0 with rule tests that enforce code rules within packages (write subpath of the plugins only in the executors of the Effect Gateway, no model credentials from the environment, process.env only in loader modules, no direct clock, no foreign content in the log). From 0-E09-T05 additionally the rule single write path for calls of write methods (00 FE-054, 04 FE-445; the type-aware test from 04 FE-439 is dropped). Not the analyzer plugin for customer repos (plugin-analyzer-opengrep)."
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#6-security", "04-effects-audit-credentials.md#6-security"]
+built_by = ["R-E02-T04", "0-E09-T05"]
+
+[[provides]]
+name = "regelsatz"
+kind = "file"
+title = "Rules .opengrep/rules/*.yaml: gw-scm-write-only-in-effect-gateway, gw-no-model-credential-env, gw-process-env-only-in-loaders, gw-no-direct-clock, gw-no-untrusted-in-log"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T04"
+
+[[provides]]
+name = "regeltests"
+kind = "file"
+title = "Rule tests .opengrep/tests/<rule-id>/bad_*.ts and good_*.ts with annotations, path-dependent cases under paths/"
+defined_in = "00-codebase-and-conventions.md#83-naming-convention"
+from_task = "R-E02-T04"
+
+[[provides]]
+name = "make-opengrep"
+kind = "cli"
+title = "make opengrep: scan over the repo (.semgrepignore, without version check) and rule tests via tools/ci/opengrep_test.py"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E02-T04"
+
+[[provides]]
+name = "regel-schreibweg-executors"
+kind = "file"
+title = "Rule gw-plugin-write-only-in-executors: write methods of the plugins (WRITE_METHODS) only under apps/control-plane/src/effects/executors/, with an equality test against WRITE_METHODS (00 FE-054, 04 FE-445)"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "0-E09-T05"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/tools-toml"
+from_task = "R-E02-T04"
+purpose = "Opengrep binary with checksum from tools.toml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E02-T04"
+purpose = "Register the gate opengrep"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E02-T04"
+purpose = "tools/ci/opengrep_test.py: test mode of the engine per rule, path-dependent cases via opengrep scan in the scratch directory"
+
+[[uses]]
+interface = "effect-gateway/executor-vertrag"
+from_task = "0-E09-T05"
+purpose = "Path apps/control-plane/src/effects/executors/ as the only permitted place for write methods"
+
+[[uses]]
+interface = "plugin-rahmen/transport"
+from_task = "0-E09-T05"
+purpose = "Method list of the rule gw-plugin-write-only-in-executors equal to WRITE_METHODS (FE-054)"

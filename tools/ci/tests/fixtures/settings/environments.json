@@ -1,0 +1,55 @@
+{
+  "total_count": 2,
+  "environments": [
+    {
+      "id": 161088068,
+      "node_id": "MDExOkVudmlyb25tZW50MTYxMDg4MDY4",
+      "name": "denylist",
+      "url": "https://api.github.com/repos/guildwork-dev/guildwork/environments/denylist",
+      "html_url": "https://github.com/guildwork-dev/guildwork/deployments/activity_log?environments_filter=denylist",
+      "created_at": "2020-11-23T22:00:40Z",
+      "updated_at": "2020-11-23T22:00:40Z",
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 161088069,
+      "node_id": "MDExOkVudmlyb25tZW50MTYxMDg4MDY5",
+      "name": "release",
+      "url": "https://api.github.com/repos/guildwork-dev/guildwork/environments/release",
+      "html_url": "https://github.com/guildwork-dev/guildwork/deployments/activity_log?environments_filter=release",
+      "created_at": "2020-11-23T22:00:40Z",
+      "updated_at": "2020-11-23T22:00:40Z",
+      "protection_rules": [
+        {
+          "id": 3755,
+          "node_id": "MDQ6R2F0ZTM3NTU=",
+          "prevent_self_review": false,
+          "type": "required_reviewers",
+          "reviewers": [
+            {
+              "type": "Team",
+              "reviewer": {
+                "id": 1,
+                "node_id": "MDQ6VGVhbTE=",
+                "url": "https://api.github.com/teams/1",
+                "html_url": "https://github.com/orgs/guildwork-dev/teams/maintainers",
+                "name": "maintainers",
+                "slug": "maintainers",
+                "privacy": "closed",
+                "permission": "push",
+                "parent": null
+              }
+            }
+          ]
+        },
+        {
+          "id": 3756,
+          "node_id": "MDQ6R2F0ZTM3NTY=",
+          "type": "branch_policy"
+        }
+      ],
+      "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true }
+    }
+  ]
+}

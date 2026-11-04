@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-saetze-prfixer"
+title = "Sets F1 to F6 and rule suite of the PR fixer"
+kind = "eval"
+path = "eval/sets/f1/"
+stage = "4"
+purpose = "Eval sets F1, F1x, F2, F3, F4, F5, F6 and the rule set prfix-rules of the PR fixer (prohibitions, rounds, no-op) in the set format from 07 under eval/sets/<id>/ (FE-1153) with paired gate A measurement; F4 is extended in stage 10 for the profile dependency_update; builds nothing on the service."
+design = ["11-qa-prfix-automerge.md#8-tests", "11-qa-prfix-automerge.md#9-rulings"]
+built_by = ["4-E03-T03", "4-E06-T01", "4-E06-T02", "4-E06-T03", "4-E06-T04", "4-E06-T05", "10-E02-T03"]
+
+[[provides]]
+name = "satz-f5"
+kind = "file"
+title = "eval/sets/f5 as a hard fix rule; copies with built-in errors in the own public repo via git pin"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "4-E03-T03"
+
+[[provides]]
+name = "saetze-f1-f1x"
+kind = "file"
+title = "eval/sets/f1 and f1x with origin human_labeled"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "4-E06-T01"
+
+[[provides]]
+name = "saetze-f2-f6"
+kind = "file"
+title = "eval/sets/f2 and f6"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "4-E06-T02"
+
+[[provides]]
+name = "satz-f3"
+kind = "file"
+title = "eval/sets/f3 conflicts"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "4-E06-T03"
+
+[[provides]]
+name = "satz-f4"
+kind = "file"
+title = "eval/sets/f4 without profile dependency_update (FE-1130)"
+defined_in = "11-qa-prfix-automerge.md#9-rulings"
+from_task = "4-E06-T04"
+
+[[provides]]
+name = "suite-prfix-rules"
+kind = "file"
+title = "eval/sets/prfix-rules: prohibitions, rounds, no-op"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "4-E06-T05"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "4-E03-T03"
+purpose = "Sets f1 to f6 in the format eval/sets"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "4-E03-T03"
+purpose = "Case schema with origin and license"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "4-E03-T03"
+purpose = "Runs and reports"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "4-E03-T03"
+purpose = "Report with gate B status"
+
+[[uses]]
+interface = "eval-runner/check-eval-data"
+from_task = "4-E06-T01"
+purpose = "only references and own labels"
+
+[[uses]]
+interface = "eval-richter/richter-api"
+from_task = "4-E06-T01"
+purpose = "LLM judge judge-alt (a different Claude model than the subject, O28) with sample"
+
+[[uses]]
+interface = "eval-dienst/eval-bare"
+from_task = "4-E06-T05"
+purpose = "Arm bare harness for gate A, paired"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "4-E06-T05"
+purpose = "paired evaluation"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "4-E06-T05"
+purpose = "Gate file eval/gates/prfixer.gates.json"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "4-E03-T03"
+purpose = "Case runs of the PR fixer via the eval service"

@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-6"
+title = "Stage report, release and follow-up list for stage 6"
+kind = "process"
+path = "-"
+stage = "6"
+purpose = "Acceptance of stage 6: stage report with evidence per done criterion, ledger reconciliation over the shadow period, release with S8 and upgrade test, follow-up list of the architecture. No own code."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08",
+  "09-reviewer-companion-features-and-learnings.md#10-open-points",
+]
+built_by = ["6-E07-T08"]
+
+[[provides]]
+name = "stufenbericht-stufe-6"
+kind = "file"
+title = "Stage report for stage 6 with command and output per criterion, release log and follow-up list"
+defined_in = "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"
+from_task = "6-E07-T08"
+
+[[uses]]
+interface = "review-analytics/http-reconciliation"
+from_task = "6-E07-T08"
+purpose = "Ledger reconciliation over the shadow period"
+
+[[uses]]
+interface = "eval-suite-r6/eval-bericht-stufe-6"
+from_task = "6-E07-T08"
+purpose = "R6 and gates in the stage report"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "6-E07-T08"
+purpose = "Suites S1, S2, S4, S6"
+
+[[uses]]
+interface = "reviewer-suites/s8-faelle"
+from_task = "6-E07-T08"
+purpose = "S8 and upgrade test"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "6-E07-T08"
+purpose = "Release of stage 6"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "6-E07-T08"
+purpose = "Guard test with BUILT_STAGES extended by stage 6"

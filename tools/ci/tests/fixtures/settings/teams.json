@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "node_id": "MDQ6VGVhbTE=",
+    "url": "https://api.github.com/teams/1",
+    "html_url": "https://github.com/orgs/guildwork-dev/teams/maintainers",
+    "name": "maintainers",
+    "slug": "maintainers",
+    "description": null,
+    "privacy": "closed",
+    "notification_setting": "notifications_enabled",
+    "permission": "push",
+    "permissions": {
+      "pull": true,
+      "triage": true,
+      "push": true,
+      "maintain": false,
+      "admin": false
+    },
+    "parent": null
+  }
+]

@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "pruef-proxy-operator-test"
+title = "Inspection proxy for the LLM endpoint (profile operator_test)"
+kind = "role"
+path = "apps/egress-proxy/src/llm-inspection/"
+package = "@guildwork/egress-proxy"
+stage = "1"
+purpose = "Module in the egress proxy of the worker host that, with profile operator_test, terminates TLS only for the LLM host, checks requests with the filter of the credential relay, books usage and passes the auth header on unchanged and never logged (ADR-18, FE-534). No credential replacement as with the relay and no path for other hosts (they go through as a tunnel)."
+design = [
+  "05-plugins-and-contracts.md#220-inspection-proxy-for-operator_test-stage-1-adr-18-ruling-fe-534",
+  "05-plugins-and-contracts.md#48-states",
+  "05-plugins-and-contracts.md#82-contract-and-suite-cases-with-the-real-system-owner-runs",
+]
+built_by = ["1-E07-T03", "1-E07-T04"]
+
+[[provides]]
+name = "inspektion"
+kind = "http"
+title = "Inspection path for the LLM host via CONNECT on port 3128: TLS termination with its own CA, path allowlist, rejection of mcp_servers and server tools, anthropic-beta and model allowlist, max_tokens limit, response 403 with reason"
+defined_in = "05-plugins-and-contracts.md#220-inspection-proxy-for-operator_test-stage-1-adr-18-ruling-fe-534"
+from_task = "1-E07-T03"
+
+[[provides]]
+name = "steuer-api"
+kind = "http"
+title = "Extension of the control API: ItemRegistration.inspection, GET /ctl/v1/inspection (active, caCertPem, caSha256), usage and rejections per item (FE-548)"
+defined_in = "05-plugins-and-contracts.md#220-inspection-proxy-for-operator_test-stage-1-adr-18-ruling-fe-534"
+from_task = "1-E07-T03"
+
+[[provides]]
+name = "ca-zertifikat"
+kind = "file"
+title = "CA per worker host (ECDSA P-256) under /var/lib/guildwork-egress/inspection-ca/, placed by the worker into the trust store of the sandbox via SandboxSpec.trustedCaCerts; key readable only by the proxy user"
+defined_in = "05-plugins-and-contracts.md#220-inspection-proxy-for-operator_test-stage-1-adr-18-ruling-fe-534"
+from_task = "1-E07-T03"
+
+[[provides]]
+name = "audit-inspektion"
+kind = "event"
+title = "Audit action inspection_proxy.request_rejected (path, reason, never body or headers)"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "1-E07-T03"
+
+[[provides]]
+name = "pfad-allowlist"
+kind = "config"
+title = "Verified path allowlist of the subscription start behind the inspection proxy (measurement run in mode recordOnly, then fixed)"
+defined_in = "05-plugins-and-contracts.md#220-inspection-proxy-for-operator_test-stage-1-adr-18-ruling-fe-534"
+from_task = "1-E07-T04"
+
+[[uses]]
+interface = "egress-proxy/connect-proxy"
+from_task = "1-E07-T03"
+purpose = "CONNECT on port 3128, terminate TLS only for the LLM host"
+
+[[uses]]
+interface = "egress-proxy/ctl-api"
+from_task = "1-E07-T03"
+purpose = "ItemRegistration.inspection and GET /ctl/v1/inspection (FE-548)"
+
+[[uses]]
+interface = "credential-relay/inspect-messages-request"
+from_task = "1-E07-T03"
+purpose = "Filters R3 to R9 shared with the relay (FE-534)"
+
+[[uses]]
+interface = "credential-relay/usage-zaehler"
+from_task = "1-E07-T03"
+purpose = "Book usage from JSON and SSE"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "1-E07-T03"
+purpose = "CA into the sandbox via SandboxSpec.trustedCaCerts"
+
+[[uses]]
+interface = "worker/item-lebenszyklus"
+from_task = "1-E07-T03"
+purpose = "Abort inspection_proxy_missing before the agent start"
+
+[[uses]]
+interface = "core/logger"
+from_task = "1-E07-T03"
+purpose = "Logger with header allowlist without authorization"
+
+[[uses]]
+interface = "claude-code-startwege/launch-export"
+from_task = "1-E07-T04"
+purpose = "CA variable in runtimeExtra"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "1-E07-T04"
+purpose = "Start with subscription behind the inspection proxy"

@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "contract-harness"
+title = "Contract harness: cassettes, replay, recording, attestation, abstract suites"
+kind = "package"
+path = "packages/testkit/src/contract/"
+package = "@guildwork/testkit"
+stage = "0"
+purpose = "Checks every plugin and every driver against its contract with recorded real responses: cassette format, strict replay without network, recording without external effect, redaction, attestation and the abstract suites per kind with reference fakes. Not here: the implementations of the plugins and drivers and the load check at runtime (plugin-rahmen)."
+design = [
+  "05-plugins-and-contracts.md#210-contract-harness",
+  "05-plugins-and-contracts.md#24-manifest-and-versioning",
+  "04-effects-audit-credentials.md#241-loading-and-capabilities",
+  "04-effects-audit-credentials.md#8-tests",
+]
+built_by = ["0-E03-T01", "0-E13-T07", "0-E13-T08", "2-E05-T01", "8-E01-T05", "8-E01-T06"]
+
+[[provides]]
+name = "harness-api"
+kind = "ts-api"
+title = "defineContractSuite, runContractSuite, ContractSuite, ContractCase, CaseHelpers, ReplayHttp, RecordingHttp, fixturesHash"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T07"
+
+[[provides]]
+name = "kassettenformat"
+kind = "file"
+title = "Cassettes guildwork-cassette/1 (Cassette, Interaction) under plugins/<p>/contract/fixtures/ with header allowlists and redaction"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T07"
+
+[[provides]]
+name = "aufzeichnungsprofil"
+kind = "file"
+title = "Recording profile plugins/<p>/contract/targets/<name>.yaml: allowed hosts and repos, mode read_only or writes_to_test_targets"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T07"
+
+[[provides]]
+name = "attestation"
+kind = "file"
+title = "contract-attestation.json per plugin (type ContractAttestation from contracts, FE-552), written by make contract, check contract.attestation-current"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T07"
+
+[[provides]]
+name = "make-contract"
+kind = "cli"
+title = "make contract PLUGIN=<p> and make contract-record PLUGIN=<p> TARGET=<profile> [--allow-writes] (calls gitleaks and the deny list scanner)"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T07"
+
+[[provides]]
+name = "plugin-suites"
+kind = "ts-api"
+title = "Abstract suites TriggerSource, SCMProvider, AgentRuntime, ModelProvider, ExecutionBackend with required and failure path cases, suites/versions.ts (FE-539)"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T08"
+
+[[provides]]
+name = "referenz-fakes"
+kind = "ts-api"
+title = "Reference fakes per plugin kind under reference/ that pass their suite (also as stand-ins in tests of other packages)"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "0-E13-T08"
+
+[[provides]]
+name = "fake-claude"
+kind = "cli"
+title = "Fake binary fake-claude (replays NDJSON transcripts, checks the argv companion file, exit code 97 on deviation) and FakeSandboxHandle without Docker"
+defined_in = "05-plugins-and-contracts.md#35-transcripts-of-the-runtime-pluginsclaude-codecontracttranscripts"
+from_task = "0-E13-T08"
+
+[[provides]]
+name = "treiber-suites"
+kind = "ts-api"
+title = "Driver suites blob-store, secret-store, cloud-identity as functions under packages/testkit/src/contract/drivers/ with all cases from 04 section 8 (FE-545, 04 FE-438)"
+defined_in = "04-effects-audit-credentials.md#241-loading-and-capabilities"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "an1-suite"
+kind = "ts-api"
+title = "Scaffold of the analyzer contract suite AN1 (comparison with a direct call, failure paths) in packages/testkit/src/contract/an1.ts"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T01"
+
+[[provides]]
+name = "work-item-provider-suite"
+kind = "ts-api"
+title = "Abstract suite suites/work-item-provider.suite.ts with reference fake: read cases from 8-E01-T05, write cases (token per effect, marker, no_transition) from 8-E01-T06, entry in SUITE_VERSIONS (FE-558). The suites KnowledgeStore (plugin-pg-kb) and Notifier (plugin-notifier-slack) are provided by the components that build them"
+defined_in = "05-plugins-and-contracts.md#210-contract-harness"
+from_task = "8-E01-T05"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E03-T01"
+purpose = "Driver suite blob-store against the contract"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "0-E03-T01"
+purpose = "Driver suite secret-store against the contract"
+
+[[uses]]
+interface = "contracts/vertrag-cloud-identity"
+from_task = "0-E03-T01"
+purpose = "Driver suite cloud-identity against the contract"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E13-T07"
+purpose = "ReplayHttp and RecordingHttp implement EgressHttp, test PluginContext"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E13-T07"
+purpose = "SecretRef and SecretValue of the test secrets"
+
+[[uses]]
+interface = "contracts/attestation-und-fixtures-hash"
+from_task = "0-E13-T07"
+purpose = "Write ContractAttestation, re-export fixturesHash and SUITE_VERSIONS (FE-552)"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "0-E13-T07"
+purpose = "FakeClock in CaseHelpers"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E13-T07"
+purpose = "SECRET_PATTERNS and redactValue for the redaction of the cassettes (from 0-E08-T01 derived from REDACTION_RULES)"
+
+[[uses]]
+interface = "sicherheits-scans/make-gitleaks"
+from_task = "0-E13-T07"
+purpose = "make contract-record calls gitleaks over new fixtures"
+
+[[uses]]
+interface = "denylist-scanner/make-denylist"
+from_task = "0-E13-T07"
+purpose = "make contract-record calls the deny list scanner over new fixtures"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "0-E13-T07"
+purpose = "Register the gate contract.attestation-current"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "0-E13-T08"
+purpose = "Suite TriggerSource"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E13-T08"
+purpose = "Suite SCMProvider"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E13-T08"
+purpose = "Suite AgentRuntime with fake-claude"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "0-E13-T08"
+purpose = "Suite ModelProvider"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E13-T08"
+purpose = "Suite ExecutionBackend and FakeSandboxHandle"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "0-E13-T08"
+purpose = "requires per case against the capability enums"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T01"
+purpose = "AN1 suite against the analyzer contract"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "2-E05-T01"
+purpose = "validateSarif and fingerprint in the comparison with the direct call"
+
+[[uses]]
+interface = "contracts/vertrag-work-item-provider"
+from_task = "8-E01-T05"
+purpose = "Suite WorkItemProvider against the binding contract"

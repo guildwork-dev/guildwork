@@ -1,0 +1,369 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-gitlab"
+title = "GitLab: ingress, reading, writing"
+kind = "plugin"
+path = "plugins/gitlab/"
+package = "@guildwork/plugin-gitlab"
+stage = "9"
+purpose = "GitLab as the second code hoster with TriggerSource, SCMProvider and WorkItemProvider (issues) in the control plane, review output via the fallback chain and the weak token tier in the broker. Not: merge or auto-approve (FE-1446), CI dispatch for GitLab (FE-1447)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#211-common-host-framework",
+  "14-stage-9-breadth-and-hardening.md#212-gitlab",
+  "14-stage-9-breadth-and-hardening.md#217-weak-token-tier-in-the-credential-broker",
+  "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts",
+  "14-stage-9-breadth-and-hardening.md#41-host-inbound-with-signature-tier",
+  "14-stage-9-breadth-and-hardening.md#42-review-output-via-the-fallback-chain",
+  "14-stage-9-breadth-and-hardening.md#412-states",
+  "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01",
+]
+built_by = ["9-E01-T02", "9-E01-T03", "9-E01-T04"]
+
+[[provides]]
+name = "spike-bericht-hoster"
+kind = "file"
+title = "Spike report eval/reports/spike-hoster.md: verified hoster facts for GitLab, Azure DevOps, Bitbucket, Gitea and Forgejo, note on M44"
+defined_in = "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts"
+from_task = "9-E01-T02"
+
+[[provides]]
+name = "fixtures"
+kind = "file"
+title = "Recorded GitLab responses and webhooks under plugins/gitlab/contract/fixtures/ with fixturesHash"
+defined_in = "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts"
+from_task = "9-E01-T02"
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource GitLab: verify (standard_webhooks strong, shared_secret weak), parse, dedupeKey, isSelf via service account, reconcile"
+defined_in = "14-stage-9-breadth-and-hardening.md#212-gitlab"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "scm-provider-lesen"
+kind = "contract"
+title = "SCMProvider GitLab reading: getFile, compare, getChange, listChangedFiles, getThreads, getPermission, repoInfo, cloneSpec"
+defined_in = "14-stage-9-breadth-and-hardening.md#212-gitlab"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "work-items-lesen"
+kind = "contract"
+title = "WorkItemProvider GitLab issues reading: getItem, getComments, search, userPermission"
+defined_in = "14-stage-9-breadth-and-hardening.md#212-gitlab"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "konfig-gitlab"
+kind = "config"
+title = "plugins.scm[gitlab]: GitlabInstanceConfig (verify, serviceAccount, tier, tokens, projectAllowlist, statusMapping)"
+defined_in = "14-stage-9-breadth-and-hardening.md#212-gitlab"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "trigger-ip-allowlist"
+kind = "config"
+title = "plugins.scm[<hoster>].ip_allowlist (field ipAllowlist of the instance): CIDR list only for weak, checked in verify via x-guildwork-peer, rejected at load time with strong (FE-1403)"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "scm-provider-schreiben"
+kind = "contract"
+title = "SCMProvider GitLab writing: submitReview with fallback chain draft_notes_bulk, single_inline, summary_only; upsertSummary, reply, resolveThread, startCheck and updateCheck as commit status, push, openChange, updateChange, setLabels, mintToken on the weak tier"
+defined_in = "14-stage-9-breadth-and-hardening.md#212-gitlab"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "work-items-schreiben"
+kind = "contract"
+title = "WorkItemProvider GitLab issues writing: addComment, updateComment, transition via labels according to statusMapping"
+defined_in = "14-stage-9-breadth-and-hardening.md#212-gitlab"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "static-scm-token-store"
+kind = "ts-api"
+title = "StaticScmTokenStore and PROFILE_CLASS in apps/control-plane/src/broker/static-scm-tokens.ts: weak token tier with classes read and write, merge and dispatch refused"
+defined_in = "14-stage-9-breadth-and-hardening.md#217-weak-token-tier-in-the-credential-broker"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "scm-static-tokens"
+kind = "table"
+title = "Table scm_static_tokens (migration 0902): state per stored token, never the value"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "broker-rotate-static-tokens"
+kind = "queue"
+title = "Job broker-rotate-static-tokens (daily): rotation of the weak tokens with audit broker.static_token_rotated"
+defined_in = "14-stage-9-breadth-and-hardening.md#32-envelopes-events-and-file-formats"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "static-token-rotate-days"
+kind = "config"
+title = "scm.static_token.rotate_days: rotation age of the weak token tier"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "e2e-suite"
+kind = "file"
+title = "E2E suite eval/suites/e2e/gitlab/ with recording from the owner run (FE-1448)"
+defined_in = "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"
+from_task = "9-E01-T04"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E01-T03"
+purpose = "Result, PluginError, Refs and SecretRef in all methods"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E01-T03"
+purpose = "Implement PluginBase and PluginContext (ctx.http, ctx.secrets, ctx.audit)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E01-T03"
+purpose = "Manifest with kinds, egress {config.baseUrl} and secrets"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E01-T03"
+purpose = "Report capabilities per instance with native, fallback, none"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "9-E01-T03"
+purpose = "Deliver comment and description texts as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "9-E01-T03"
+purpose = "Implement the hoster's TriggerSource"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "9-E01-T03"
+purpose = "Implement the hoster's SCMProvider"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "9-E01-T03"
+purpose = "parse delivers TriggerEvent with signature.strength"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "9-E01-T03"
+purpose = "Recognize mention and command from comments"
+
+[[uses]]
+interface = "event-schema/dedupe-key"
+from_task = "9-E01-T03"
+purpose = "Same dedupeKey from webhook and reconcile"
+
+[[uses]]
+interface = "scm-common/hoster-typen"
+from_task = "9-E01-T03"
+purpose = "HosterInstanceConfig and StaticTokenConfig as the basis of the instance configuration"
+
+[[uses]]
+interface = "scm-common/diff-positionen"
+from_task = "9-E01-T03"
+purpose = "Diff positions for threads and inline comments"
+
+[[uses]]
+interface = "scm-common/http-fehler"
+from_task = "9-E01-T03"
+purpose = "Map HTTP responses to PluginError"
+
+[[uses]]
+interface = "scm-common/effekt-marker"
+from_task = "9-E01-T03"
+purpose = "Recognize (isOwn) and write the gw-effect marker in own comments"
+
+[[uses]]
+interface = "scm-common/ersatzkette"
+from_task = "9-E01-T04"
+purpose = "submitReview via runFallbackChain with fallbackUsed"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "9-E01-T02"
+purpose = "Recording of the hoster responses as cassettes"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "9-E01-T02"
+purpose = "Recording only against allowed test repos"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "9-E01-T02"
+purpose = "make contract-record for the fixtures"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E01-T03"
+purpose = "Contract suite of the plugin with replay"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E01-T03"
+purpose = "Abstract suites TriggerSource and SCMProvider"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E01-T03"
+purpose = "contract-attestation.json with fixturesHash"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E01-T03"
+purpose = "Register and load as a built-in package"
+
+[[uses]]
+interface = "plugin-rahmen/kein-direktes-netz"
+from_task = "9-E01-T03"
+purpose = "Network only via ctx.http"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "9-E01-T03"
+purpose = "Ingress POST /v1/ingress/{instanceId} calls verify and parse, peer IP in the header x-guildwork-peer"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E01-T03"
+purpose = "Webhook secret and tokens via ctx.secrets"
+
+[[uses]]
+interface = "credential-broker/scm-tokens"
+from_task = "9-E01-T04"
+purpose = "mintScmToken calls mintToken of the weak tier"
+
+[[uses]]
+interface = "effekt-executoren/review"
+from_task = "9-E01-T04"
+purpose = "Executor review calls submitReview and records fallback_used"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "9-E01-T04"
+purpose = "Executor check calls startCheck and updateCheck"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "9-E01-T04"
+purpose = "Executor comment calls upsertSummary or addComment"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "9-E01-T03"
+purpose = "Contract cases without network against recordings"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E01-T04"
+purpose = "E2E review run against the recording"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "9-E01-T04"
+purpose = "Fixture server as the hoster in E2E"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "9-E01-T03"
+purpose = "Issues or work items as WorkItemProvider"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-9/testkonten"
+from_task = "9-E01-T02"
+purpose = "Spike against the documentation cassettes; recordings only from the optional owner run"
+
+[[uses]]
+interface = "scm-common/check-als-status"
+from_task = "9-E01-T04"
+purpose = "startCheck and updateCheck as commit status plus summary"
+
+[[uses]]
+interface = "ui-run-record/run-record-view"
+from_task = "9-E01-T03"
+purpose = "Show the signature tier of the triggering event in the Run Record"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "9-E01-T04"
+purpose = "Audit broker.static_token_rotated and broker.weak_token_refused"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E01-T04"
+purpose = "Migration 0902 scm_static_tokens"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "9-E01-T04"
+purpose = "Policy tenant_isolation for scm_static_tokens"
+
+[[uses]]
+interface = "db/repos"
+from_task = "9-E01-T04"
+purpose = "Access to scm_static_tokens"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "9-E01-T04"
+purpose = "Schedule broker-rotate-static-tokens"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "9-E01-T04"
+purpose = "Register queue broker-rotate-static-tokens"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "9-E01-T04"
+purpose = "SecretStore.put for the rotated token"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "9-E01-T04"
+purpose = "Check capability WRITE of the SecretStore"
+
+[[uses]]
+interface = "credential-broker/secrets"
+from_task = "9-E01-T04"
+purpose = "Read stored tokens via resolveSecret"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "9-E01-T04"
+purpose = "Alert rule static_token_rotation_failed"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "9-E01-T04"
+purpose = "Hint in doctor without WRITE or with a rotation error"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "9-E01-T04"
+purpose = "Key scm.static_token.rotate_days"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "9-E01-T04"
+purpose = "Broker test with a real table"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "9-E01-T03"
+purpose = "Reject ipAllowlist with strong at load time"

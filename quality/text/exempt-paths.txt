@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Paths that tools/hooks/text_rules.py does not check, one glob per line (`**`
+# spans directories, `*` and `?` stay within one path part). This list is the
+# only way to exempt a file from the text rules; every entry says why.
+# Verbatim content only: files taken over word for word or recorded from
+# outside, whose text the project may not change.
+
+# Verbatim license texts (SPDX); CC-BY-SA-4.0 uses en dashes in its headings.
+LICENSES/**

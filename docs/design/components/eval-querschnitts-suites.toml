@@ -1,0 +1,176 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-querschnitts-suites"
+title = "Cross-cutting suites S1 to S8: framework, catalog, probes and cases of all stages"
+kind = "eval"
+path = "eval/suites/"
+package = "@guildwork/eval-suites"
+stage = "0"
+purpose = "Framework of the cross-cutting suites S1 to S8 (defineSuiteCase, catalog with required cases per stage, lint, run with stage filter, suite report, probes on the real artifact) and the cases of all stages that areas contribute to it (FE-720, FE-736). Not for the eval sets of the services (gate A, gate B) and not for unit or contract tests without catalog ID."
+design = [
+  "07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8",
+  "07-eval-and-qualification.md#46-suite-run-of-an-acceptance",
+]
+built_by = [
+  "0-E20-T29",
+  "0-E04-T08",
+  "0-E05-T03",
+  "0-E05-T04",
+  "0-E05-T11",
+  "0-E06-T05",
+  "0-E06-T06",
+  "0-E06-T09",
+  "0-E07-T06",
+  "0-E12-T06",
+  "0-E12-T10",
+  "0-E20-T21",
+  "0-E20-T22",
+  "0-E20-T23",
+  "0-E22-T01",
+  "0-E22-T03",
+  "0-E22-T04",
+  "1-E07-T06",
+  "1-E07-T07",
+  "1-E07-T08",
+  "2-E02-T10",
+  "2-E03-T09",
+  "2-E04-T12",
+  "2-E06-T06",
+  "2-E07-T07",
+  "2-E08-T09",
+  "3-E07-T10",
+  "4-E05-T02",
+  "4-E06-T07",
+  "5-E04-T02",
+  "5-E05-T01",
+  "5-E05-T02",
+  "5-E05-T03",
+  "6-E07-T02",
+  "6-E07-T03",
+  "6-E07-T04",
+  "7a-E03-T03",
+  "7-E06-T07",
+  "8-E01-T08",
+  "8-E01-T10",
+  "8-E02-T07",
+  "8-E03-T03",
+  "8-E04-T05",
+  "8-E04-T07",
+  "8-E04-T08",
+  "8-E04-T09",
+  "8-E05-T04",
+  "8-E06-T03",
+  "9-E02-T03",
+  "9-E03-T04",
+  "9-E04-T03",
+  "9-E06-T01",
+  "9-E06-T03",
+  "10-E03-T03",
+  "10-E05-T03",
+]
+
+[[provides]]
+name = "suite-rahmen"
+kind = "ts-api"
+title = "defineSuiteCase with SuiteCaseMeta, SuiteCtx, SuiteTarget; Vitest project suites via *.suite.test.ts and eval/suites/s<n>/"
+defined_in = "07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"
+from_task = "0-E20-T29"
+
+[[provides]]
+name = "suite-katalog"
+kind = "file"
+title = "eval/suites/catalog/s1.yaml to s8.yaml (SuiteCatalogFile, CatalogCase): required cases with from_stage, task, source, expect, variant_from_stage, not_applicable_if; rows of later stages are entered by the writing task in the same PR (FE-752, FE-753)"
+defined_in = "07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"
+from_task = "0-E20-T29"
+
+[[provides]]
+name = "cli-suites"
+kind = "cli"
+title = "guildwork-eval suites --stage <s> --target <local|url> [--suite]; suites --lint in make check"
+defined_in = "07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"
+from_task = "0-E20-T21"
+
+[[provides]]
+name = "suite-bericht"
+kind = "file"
+title = "suite-report.json (guildwork.suite-report/v1) and .md, upload via POST /eval/suite-runs"
+defined_in = "07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"
+from_task = "0-E20-T21"
+
+[[provides]]
+name = "sonden"
+kind = "ts-api"
+title = "EffectProbe, EgressProbe, SecretScanProbe, LedgerProbe, AuditProbe"
+defined_in = "07-eval-and-qualification.md#213-cross-cutting-suites-s1-to-s8"
+from_task = "0-E20-T22"
+
+[[uses]]
+interface = "eval-runner/eval-client"
+from_task = "0-E20-T21"
+purpose = "Upload the suite report"
+
+[[uses]]
+interface = "eval-dienst/eval-api"
+from_task = "0-E20-T21"
+purpose = "POST /admin/api/v1/eval/suite-runs"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E20-T21"
+purpose = "Vitest project suites in vitest.config.ts"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "0-E20-T21"
+purpose = "suites --lint as part of make check"
+
+[[uses]]
+interface = "testkit/test-idp"
+from_task = "0-E20-T21"
+purpose = "Admin session of the SuiteTarget in the test stack"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "0-E20-T21"
+purpose = "Target --target local as test stack"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "0-E20-T22"
+purpose = "scanForSecrets as the core of the SecretScanProbe"
+
+[[uses]]
+interface = "testkit/effects-probe"
+from_task = "0-E20-T22"
+purpose = "Effects in mode record for the EffectProbe"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E20-T22"
+purpose = "read-only connection of the probes (dbUrl)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "0-E20-T22"
+purpose = "Count effects outside the command"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit"
+from_task = "0-E20-T22"
+purpose = "Read audit entries for the AuditProbe"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.buckets"
+from_task = "0-E20-T22"
+purpose = "LedgerProbe reads used and reserved per key before and after (read-only)"
+
+[[uses]]
+interface = "egress-proxy/metriken"
+from_task = "0-E20-T22"
+purpose = "Connection log per item for DNS and egress counting"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E20-T22"
+purpose = "List and read BlobStore contents for the secret scan"

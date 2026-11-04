@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "ci-workflows"
+title = "CI workflow set with ci-ok as the only required check, Renovate configuration, CI measurement"
+kind = "tool"
+path = ".github/workflows/"
+stage = "R"
+purpose = "The workflow set of the product repo: ci.yml with the job split ts, tools, security and ci-ok as the only required check, CodeQL, Scorecard, daily full scans of main (vulnerabilities and ScanCode), Renovate configuration and the measurement of waiting time and concurrency. Not the release, portability and acceptance workflows of later stages and not the deny jobs (denylist-scanner)."
+design = ["00-codebase-and-conventions.md#211-ci-workflows", "00-codebase-and-conventions.md#42-ci-run-and-ci-ok", "00-codebase-and-conventions.md#210-check-tools"]
+built_by = ["R-E03-T01", "R-E03-T02", "R-E03-T03", "R-E03-T04", "R-E05-T04", "R-E05-T10"]
+
+[[provides]]
+name = "ci-yml"
+kind = "file"
+title = ".github/workflows/ci.yml: triggers, concurrency, jobs ts, tools, security, ci-ok; later tasks add further jobs"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E03-T01"
+
+[[provides]]
+name = "ci-ok"
+kind = "cli"
+title = "Required check ci-ok: tools/ci/ci_ok.py evaluates NEEDS_JSON according to the decision table"
+defined_in = "00-codebase-and-conventions.md#42-ci-run-and-ci-ok"
+from_task = "R-E03-T01"
+
+[[provides]]
+name = "sicherheits-workflows"
+kind = "file"
+title = "codeql.yml and scorecard.yml (public only, visibility guard), advisories.yml (daily, jobs osv-full and scancode)"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E03-T03"
+
+[[provides]]
+name = "renovate-json"
+kind = "file"
+title = "renovate.json with waiting time, grouping, digest pins, regex manager for tools.toml, without lock file maintenance; schema check in make workflows (check-jsonschema --builtin-schema vendor.renovate)"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E03-T04"
+
+[[provides]]
+name = "beleg-erste-laeufe"
+kind = "file"
+title = "Evidence publish/evidence/R-first-push.txt: first runs on main green"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E05-T04"
+
+[[provides]]
+name = "measure-queue"
+kind = "cli"
+title = "tools/ci/measure_queue.py: waiting time and concurrent PR runs (GET only), measured values in push-discipline.md"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E05-T10"
+
+[[provides]]
+name = "junit-artefakte"
+kind = "file"
+title = "JUnit reports of the jobs ts, tools, security as artifacts junit-<job> (also on a red run), Python runner tools/ci/junit_unittest.py in the gate test-tools (FE-062)"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E03-T01"
+
+[[provides]]
+name = "commit-range"
+kind = "cli"
+title = "tools/ci/commit_range.py: COMMIT_RANGE per event (PR base..head, push before..after, first push after, otherwise origin/main..HEAD), only from the environment"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E03-T02"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "R-E03-T01"
+purpose = "Jobs call the group targets check-ts, check-tools, check-security"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-bootstrap"
+from_task = "R-E03-T01"
+purpose = "Every job starts with make bootstrap"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E03-T01"
+purpose = "From here on gates.py also checks ci.yml against gates.toml"
+
+[[uses]]
+interface = "workflow-policy/policy-toml"
+from_task = "R-E03-T01"
+purpose = "Runner labels, time limits and job count from policy.toml"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "R-E03-T01"
+purpose = "ci.yml must pass make workflows"
+
+[[uses]]
+interface = "sicherheits-scans/make-osv"
+from_task = "R-E03-T01"
+purpose = "Job security calls make osv with OSV_BASE"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-commitlint"
+from_task = "R-E03-T01"
+purpose = "Job tools calls make commitlint with COMMIT_RANGE on the PR commits (no local main in the CI)"
+
+[[uses]]
+interface = "lizenz-gate/make-scancode"
+from_task = "R-E03-T03"
+purpose = "advisories.yml, job scancode: make scancode SCANCODE_RUNNER=container daily over main"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/tools-toml"
+from_task = "R-E03-T04"
+purpose = "Regex manager of Renovate for tools/bootstrap/tools.toml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E03-T04"
+purpose = "check-jsonschema from uv.lock for the schema check of renovate.json"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/produkt-repo-oeffentlich"
+from_task = "R-E05-T04"
+purpose = "Prove the first runs on main of the public repo via gh api (GET only)"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/probe-belege-r9"
+from_task = "R-E05-T10"
+purpose = "First measurement over the runs of the probe PRs"
+
+[[uses]]
+interface = "hooks-und-textpruefung/qualitaets-doku"
+from_task = "R-E05-T10"
+purpose = "Enter measured values in docs/quality/push-discipline.md"

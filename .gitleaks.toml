@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# gitleaks configuration (architecture 12 section 5.2, security 05 section 10
+# point 6). Run through `make gitleaks`; tested by tools/ci/tests/test_gitleaks.py.
+#
+# - All default rules of the pinned gitleaks (tools/bootstrap/tools.toml).
+# - Own rules for credential shapes the defaults miss.
+# - One allowlist with the exact synthetic values of quality/secrets/samples.txt,
+#   nothing else: no paths, no stopwords, no commits, no rule-level allowlists.
+#   The [[allowlists]] table stays the last table of this file; the test
+#   removes it by cutting from its header to the next header.
+
+[extend]
+useDefault = true
+
+# Every Anthropic credential: API keys (sk-ant-api03-), Admin API keys
+# (sk-ant-admin01-), Claude Code OAuth tokens (sk-ant-oat01-, sk-ant-ort01-)
+# and any later member of the family. The default rules cover only the API and
+# Admin API keys, and only in their current exact length.
+[[rules]]
+id = "anthropic-credential-any"
+description = "Anthropic credential of any kind (prefix family sk-ant-)"
+regex = '''sk-ant-[A-Za-z0-9_-]{8,}'''
+keywords = ["sk-ant-"]
+
+# Stateless GitHub App installation token ghs_<app id>_<JWT>, rolled out from
+# 2026-04-27. The default rule github-app-token expects 36 alphanumeric
+# characters after ghs_ and the default rule jwt needs a word boundary before
+# "ey", so neither finds it. Shape after the vendor guidance: ghs_, then
+# characters of [A-Za-z0-9._-] with two dots.
+[[rules]]
+id = "github-app-token-stateless"
+description = "GitHub App installation token in the stateless JWT format"
+regex = '''ghs_[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}'''
+keywords = ["ghs_"]
+
+[[allowlists]]
+description = "Synthetic test values of quality/secrets/samples.txt, exact match only. They have the real shape so the rules can be tested, and contain the marker EXAMPLE; none is a real credential."
+regexTarget = "secret"
+regexes = [
+    '''^sk\-ant\-api03\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-OAA$''',
+    '''^sk\-ant\-admin01\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-OAA$''',
+    '''^sk\-ant\-oat01\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-OAA$''',
+    '''^sk\-ant\-ort01\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-ONLY\-NOT\-A\-REAL\-KEY\-EXAMPLE\-OAA$''',
+    '''^ghp_EXAMPLE0123456789ABCDEFGHIJKLMNOPQRS$''',
+    '''^gho_EXAMPLE0123456789ABCDEFGHIJKLMNOPQRS$''',
+    '''^ghu_EXAMPLE0123456789ABCDEFGHIJKLMNOPQRS$''',
+    '''^ghs_EXAMPLE0123456789ABCDEFGHIJKLMNOPQRS$''',
+    '''^ghr_EXAMPLE0123456789ABCDEFGHIJKLMNOPQRS$''',
+    '''^github_pat_EXAMPLE0123456789ABCDE_EXAMPLE0123456789ABCDEFGHIJKLMNOPQRSTUVWXY0123456789EXAMPLE$''',
+    '''^ghs_123456_eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJFWEFNUExFIiwibm90ZSI6InN5bnRoZXRpYyB0ZXN0IHZhbHVlLCBub3QgYSByZWFsIHRva2VuIn0\.EXAMPLE\-SIGNATURE\-NOT\-REAL\-EXAMPLE\-SIGNATURE\-NOT\-REAL\-EXAMPLE\-SIGNATURE\-NOT\-REAL\-EXAMP$''',
+]

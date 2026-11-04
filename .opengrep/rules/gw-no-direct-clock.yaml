@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Time comes only from a Clock (FE-013): Date.now(), new Date() without an
+# argument and performance.now() are reported outside packages/core/src/time.ts
+# and test files. The test file globs equal [test_only].file_globs of
+# quality/layers.toml (checked by tools/ci/tests/test_opengrep_test.py). Tests:
+# .opengrep/tests/gw-no-direct-clock/ (make opengrep).
+rules:
+  - id: gw-no-direct-clock
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Read the time from the Clock passed in (FE-013), not from Date.now(),
+      new Date() or performance.now().
+    paths:
+      exclude:
+        # The system clock behind the Clock interface.
+        - "packages/core/src/time.ts"
+        # Test files, as in quality/layers.toml.
+        - "**/*.test.ts"
+        - "**/test/**"
+        - "eval/suites/**"
+        - "**/vitest.config.ts"
+        - "**/global-setup.ts"
+    pattern-either:
+      - pattern: Date.now()
+      - pattern: new Date()
+      - pattern: performance.now()

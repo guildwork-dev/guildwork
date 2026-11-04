@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-eval-konten-und-lizenzen"
+title = "Owner decisions: eval path via the subscription, license requests for datasets"
+kind = "process"
+path = "-"
+stage = "0"
+purpose = "Work without own code that only the owner can decide or carry out: the subscription token of the project installation for eval and reference qualification (owner decision O28: only Claude via the subscription, no third-party account, no API key), license requests for datasets of later stages; the agent delivers one decision sheet or one guide each and carries out nothing with an external effect. Not for reading baseline values from public pages except as preparation of a decision."
+design = [
+  "07-eval-and-qualification.md#10-open-points",
+  "08-reviewer.md#10-open-items",
+  "10-planner-architect-coder.md#101-open-points-clarified-during-building",
+  "11-qa-prfix-automerge.md#10-open-points",
+  "12-expansion.md#10-open-points",
+]
+built_by = [
+  "0-E20-T26",
+  "1-E09-T09",
+  "2-E08-T01",
+  "2-E08-T02",
+  "3-E07-T07",
+  "4-E06-T06",
+  "7-E06-T06",
+  "10-E01-T06",
+]
+
+[[provides]]
+name = "entscheidung-eval-konto"
+kind = "file"
+title = "Owner decision on the eval path: O28 (2026-11-01), only Claude via the subscription; the earlier decision sheet is dropped with 0-E20-T26"
+defined_in = "07-eval-and-qualification.md#10-open-points"
+from_task = "0-E20-T26"
+
+[[provides]]
+name = "eval-credentials-projekt"
+kind = "config"
+title = "Eval runtime of the project installation: subscription of the owner with acknowledge_terms, subscription token in the host file of the worker host, operator_test with inspection proxy for shell services on public sets (ADR-72), claude-cli for own judges, model bridge for benchmark judges (ADR-73); no API key, no third-party account"
+defined_in = "08-reviewer.md#10-open-items"
+from_task = "1-E09-T09"
+
+[[uses]]
+interface = "claude-code-startwege/abo-hostdatei"
+from_task = "1-E09-T09"
+purpose = "Host file with the owner's subscription token on the worker host of the project installation"
+
+[[uses]]
+interface = "plugin-model-claude-cli/model-provider"
+from_task = "1-E09-T09"
+purpose = "Probe calls of the Claude judges via claude-cli"

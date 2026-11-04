@@ -1,0 +1,258 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "compose-buendel"
+title = "Single-host Compose bundle with profiles and host preparation"
+kind = "delivery"
+path = "deploy/compose/"
+stage = "0"
+purpose = "The Compose bundle that the installer writes into the target folder: services, networks according to ADR-62, volumes, healthchecks, Caddy routes, profiles s3, pitr, observability and kb-vectors, fragment rule and host-prepare.sh; not the installer logic (cli-install), not the programs in the services and not the fragment observability.compose.yaml (telemetry)."
+design = ["06-installation-operations-ui.md#23-compose-bundle-single-host", "06-installation-operations-ui.md#6-security", "00-codebase-and-conventions.md#29-observability-and-required-alerts"]
+built_by = ["0-E18-T03", "0-E18-T04", "0-E18-T18", "0-E19-T03", "7-E01-T07"]
+
+[[provides]]
+name = "compose-yaml"
+kind = "file"
+title = "compose.yaml: services postgres, migrate, control-plane, ops, caddy, worker, socket-proxy, egress-proxy (also in worker-uplink, FE-658); networks edge, core, worker-uplink, worker-egress, egress-out, otel; volumes and mounts (harness-cache as gw-harness-cache under /var/lib/guildwork/harness); includes observability.compose.yaml from telemetry via include"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T03"
+
+[[provides]]
+name = "postgres-init"
+kind = "file"
+title = "deploy/compose/postgres/init/01-roles.sh: roles guildwork_owner, guildwork_app, guildwork_ops from postgres-secrets/ on the first start (FE-647, FE-648)"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T03"
+
+[[provides]]
+name = "caddy-routen"
+kind = "http"
+title = "Prefix routes in Caddy (/v1/ingress/, /work/, /mcp/, /oidc/, /admin/, /api/v1/, /healthz, /readyz) to the role web; TLS acme, internal or files; header X-Guildwork-Peer from the connection address, client value replaced (FE-652)"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T03"
+
+[[provides]]
+name = "env-template"
+kind = "config"
+title = ".env from env.template: GW_IMAGE_<NAME> with digest, COMPOSE_PROFILES, non-secret values"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T03"
+
+[[provides]]
+name = "installation-example"
+kind = "config"
+title = "installation.example.yaml with the keys of this area"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E18-T03"
+
+[[provides]]
+name = "compose-fragmente"
+kind = "config"
+title = "Extension via fragment <name>.compose.yaml with include and its own profile, only existing networks, never secrets/ or docker.sock (FE-641)"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T03"
+
+[[provides]]
+name = "profil-s3"
+kind = "config"
+title = "Profile s3: SeaweedFS with the same digest as SEAWEEDFS_IMAGE from drivers/blob-s3/test/images.ts (04 FE-443) and seaweedfs-init (ops blob-init: bucket, versioning, Object Lock where available)"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T04"
+
+[[provides]]
+name = "profil-pitr"
+kind = "config"
+title = "Profile pitr: pgBackRest with WAL archive (ops pitr)"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T04"
+
+[[provides]]
+name = "profil-observability"
+kind = "config"
+title = "Profile observability: Prometheus and Grafana as upstream images"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T04"
+
+[[provides]]
+name = "host-prepare"
+kind = "cli"
+title = "host-prepare.sh --isolation gvisor|sysbox|both [--kvm] [--dry-run]: the only root step of the operator"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T18"
+
+[[provides]]
+name = "profil-kb-vectors"
+kind = "config"
+title = "Profile kb-vectors with the embedder service in the internal network"
+defined_in = "12-expansion.md#22-embedder-and-vector-search-7-e01"
+from_task = "7-E01-T07"
+
+[[uses]]
+interface = "container-images/image.control-plane"
+from_task = "0-E18-T03"
+purpose = "Services migrate, control-plane, ops by digest"
+
+[[uses]]
+interface = "container-images/image.agent-worker"
+from_task = "0-E18-T03"
+purpose = "Services worker and socket-proxy by digest"
+
+[[uses]]
+interface = "container-images/image.egress-proxy"
+from_task = "0-E18-T03"
+purpose = "Service egress-proxy by digest"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "0-E18-T03"
+purpose = "Digest of sandbox-base in .env for the worker and the socket proxy policy"
+
+[[uses]]
+interface = "control-plane/aufruf"
+from_task = "0-E18-T03"
+purpose = "Arguments all, migrate and ops of the services"
+
+[[uses]]
+interface = "control-plane/health"
+from_task = "0-E18-T03"
+purpose = "Healthcheck of the service control-plane"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "0-E18-T03"
+purpose = "Service migrate with service_completed_successfully before the start"
+
+[[uses]]
+interface = "worker/healthz"
+from_task = "0-E18-T03"
+purpose = "Healthcheck of the service worker"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "0-E18-T03"
+purpose = "Mount worker.yaml into the service worker"
+
+[[uses]]
+interface = "socket-proxy/policy-json"
+from_task = "0-E18-T03"
+purpose = "Mount the policy file read-only into socket-proxy"
+
+[[uses]]
+interface = "socket-proxy/docker-api"
+from_task = "0-E18-T03"
+purpose = "Unix socket in the volume socket-proxy-sock for the worker"
+
+[[uses]]
+interface = "egress-proxy/egress-yaml"
+from_task = "0-E18-T03"
+purpose = "Mount egress.yaml read-only into egress-proxy"
+
+[[uses]]
+interface = "egress-proxy/healthz"
+from_task = "0-E18-T03"
+purpose = "Healthcheck of the service egress-proxy"
+
+[[uses]]
+interface = "telemetry/collector-fragment"
+from_task = "0-E18-T03"
+purpose = "Include observability.compose.yaml via include"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "0-E18-T03"
+purpose = "Caddy route /v1/ingress/"
+
+[[uses]]
+interface = "work-api/http-claim"
+from_task = "0-E18-T03"
+purpose = "Caddy route /work/ for local and remote workers"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "0-E18-T03"
+purpose = "Caddy route /mcp/"
+
+[[uses]]
+interface = "credential-broker/oidc-endpunkte"
+from_task = "0-E18-T03"
+purpose = "Caddy route /oidc/ for discovery and JWKS"
+
+[[uses]]
+interface = "admin-api/auth-oidc"
+from_task = "0-E18-T03"
+purpose = "Caddy route /admin/ with admin.allowed_cidrs"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E18-T03"
+purpose = "installation.example.yaml with the keys from 06 section 7"
+
+[[uses]]
+interface = "driver-blob-fs/konfig"
+from_task = "0-E18-T03"
+purpose = "Volume blobdata for blob.driver fs"
+
+[[uses]]
+interface = "driver-secret-file/konfig"
+from_task = "0-E18-T03"
+purpose = "secrets/ as the store of the SecretStore file"
+
+[[uses]]
+interface = "db/konfig.database"
+from_task = "0-E18-T03"
+purpose = "database.url_ref to the secret in the folder secrets/"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "0-E18-T03"
+purpose = "Register compose_check.py as a gate in make check"
+
+[[uses]]
+interface = "driver-blob-s3/konfig"
+from_task = "0-E18-T04"
+purpose = "Profile s3 sets blob.driver s3 to SeaweedFS"
+
+[[uses]]
+interface = "driver-blob-s3/blob-store"
+from_task = "0-E18-T04"
+purpose = "Contract suite BlobStore s3 against the bundle service"
+
+[[uses]]
+interface = "driver-blob-s3/seaweedfs-faehigkeiten"
+from_task = "0-E18-T04"
+purpose = "Object Lock and presign of the pinned SeaweedFS version; test blob-s3/compose image matches tested image"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "0-E18-T04"
+purpose = "Driver suite blob-store in the test compose.profile-s3-seaweedfs"
+
+[[uses]]
+interface = "backup-restore/ops-blob-init-pitr"
+from_task = "0-E18-T04"
+purpose = "Services seaweedfs-init (ops blob-init) and pgbackrest (ops pitr)"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0-E18-T18"
+purpose = "D11 reports gvisor after host-prepare.sh"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "0-E18-T18"
+purpose = "shellcheck over host-prepare.sh in make check"
+
+[[uses]]
+interface = "config-installation/installation-yaml.observability"
+from_task = "0-E19-T03"
+purpose = "observability.forward as the target of the otlphttp exporter"
+
+[[uses]]
+interface = "embedder/image-embedder"
+from_task = "7-E01-T07"
+purpose = "Service embedder in the profile kb-vectors by digest"
+
+[[uses]]
+interface = "embedder/http-embed"
+from_task = "7-E01-T07"
+purpose = "Healthcheck GET /v1/health of the service embedder"

@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "egress-proxy"
+title = "Egress proxy: CONNECT with allowlist per item, control API, air gap, policy per phase"
+kind = "program"
+path = "apps/egress-proxy/"
+package = "@guildwork/egress-proxy"
+stage = "0"
+area = "03"
+purpose = "Sole way of a sandbox to the outside: CONNECT only to exactly allowed hosts per item, binding to the item via the network interface, DNS only in the proxy, air gap as intersection, connection log per item; controlled by the worker via a control API. No TLS interception except in the inspection proxy, no database connection."
+design = [
+  "03-execution.md#29-egress-proxy",
+  "03-execution.md#291-control-api-for-the-worker",
+  "03-execution.md#292-forwarding-and-binding",
+  "03-execution.md#293-dns-without-a-back-channel-adr-64",
+  "03-execution.md#7-configuration",
+  "10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns",
+]
+built_by = ["0-E12-T04", "2-E01-T07", "8-E04-T11", "10-E04-T02"]
+
+[[provides]]
+name = "cli"
+kind = "cli"
+title = "guildwork-egress-proxy --config <egress.yaml> (command of the image egress-proxy)"
+defined_in = "03-execution.md#29-egress-proxy"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "egress-yaml"
+kind = "file"
+title = "egress.yaml and EgressProxyConfig: control port, ports in the item network, air gap, allow_private, relay limits"
+defined_in = "03-execution.md#29-egress-proxy"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "ctl-api"
+kind = "http"
+title = "Control API /ctl/v1/items (PUT registration, GET usage, POST block, DELETE) and /ctl/v1/health with control secret; ItemRegistration with network, bindVia, allow, phase, relay (upstreamKind from 8-E02-T04), inspection (from 1-E07-T03)"
+defined_in = "03-execution.md#291-control-api-for-the-worker"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "healthz"
+kind = "http"
+title = "GET /healthz without authentication for the Compose health check"
+defined_in = "03-execution.md#291-control-api-for-the-worker"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "connect-proxy"
+kind = "http"
+title = "HTTP proxy with CONNECT on port 3128 in the item network (HTTPS_PROXY of the sandbox by IP)"
+defined_in = "03-execution.md#292-forwarding-and-binding"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "konfig-egress"
+kind = "config"
+title = "Keys egress.air_gap_allow and egress.allow_private in installation.yaml (via egress.yaml in Z1)"
+defined_in = "03-execution.md#7-configuration"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "egress_denied per service, connection log ConnLogEntry per item"
+defined_in = "03-execution.md#5-failure-and-abort-paths"
+from_task = "0-E12-T04"
+
+[[provides]]
+name = "ctl-phase"
+kind = "http"
+title = "Phase change by a repeated PUT /ctl/v1/items/{itemId} with phase and new allowlist (setup, agent, check)"
+defined_in = "03-execution.md#291-control-api-for-the-worker"
+from_task = "2-E01-T07"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E12-T04"
+purpose = "Schemas of egress.yaml and control API"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "0-E12-T04"
+purpose = "UsageReportV1 in the usage query"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E12-T04"
+purpose = "Result for expected errors"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E12-T04"
+purpose = "Connection log with item ID without contents"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "0-E12-T04"
+purpose = "Control secret as SecretValue"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E12-T04"
+purpose = "Clock and cryptoRandom for the control secret"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E12-T04"
+purpose = "Counter egress_denied"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E12-T04"
+purpose = "Metric name egress_denied"
+
+[[uses]]
+interface = "worker-sandbox-phasen/egress-policy"
+from_task = "2-E01-T07"
+purpose = "EgressPolicy with phase as content of the registration"
+
+[[provides]]
+name = "ctl-source-ip"
+kind = "http"
+title = "ItemRegistration with bindVia sourceIp and sourceIp: binding via the pod IP in Helm operation (13 FE-1346)"
+defined_in = "03-execution.md#291-control-api-for-the-worker"
+from_task = "8-E04-T11"
+
+[[provides]]
+name = "header-relay"
+kind = "http"
+title = "ItemRegistration.headerRelay and port 3130 in the item network: the proxy sets the header of a tool from memory, value never in the sandbox (15 K16, FE-1545)"
+defined_in = "03-execution.md#291-control-api-for-the-worker"
+from_task = "10-E04-T02"

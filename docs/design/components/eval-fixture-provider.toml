@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-fixture-provider"
+title = "Fixture provider eval-fixture: SCM and ticket responses of the case runs from the BlobStore"
+kind = "plugin"
+path = "plugins/eval-fixture/"
+package = "@guildwork/plugin-eval-fixture"
+stage = "0"
+purpose = "Built-in plugin that supplies case runs of an eval run with read-only SCM and ticket responses from the prepared fixtures (PR at head, diff, ticket text), so that an eval run never reaches a real SCM or ticket endpoint (FE-748). Not for write paths (effects land in the eval log of the effect gateway) and not for tests of other areas (testkit fixture-server serves that)."
+design = ["07-eval-and-qualification.md#2171-fixture-provider-eval-fixture"]
+built_by = ["0-E20-T28"]
+
+[[provides]]
+name = "fixture-plugin"
+kind = "contract"
+title = "Plugin eval-fixture: SCMProvider read-only and WorkItemReader, instance eval-fixture:<eval_run_id>, write methods unsupported"
+defined_in = "07-eval-and-qualification.md#2171-fixture-provider-eval-fixture"
+from_task = "0-E20-T28"
+
+[[provides]]
+name = "pr-fixture"
+kind = "file"
+title = "PrFixtureV1 (guildwork.eval-pr-fixture/v1) under eval/fixtures/<eval_run_id>/<case_pk>/pr.json with repo bundle and diff"
+defined_in = "07-eval-and-qualification.md#2171-fixture-provider-eval-fixture"
+from_task = "0-E20-T28"
+
+[[provides]]
+name = "ticket-fixture"
+kind = "file"
+title = "TicketFixtureV1 (guildwork.eval-ticket-fixture/v1) with title, text and comments as Untrusted"
+defined_in = "07-eval-and-qualification.md#2171-fixture-provider-eval-fixture"
+from_task = "0-E20-T28"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E20-T28"
+purpose = "SCMProvider read-only from the PR fixture"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "0-E20-T28"
+purpose = "WorkItemReader from the ticket fixture"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E20-T28"
+purpose = "Plugin manifest of the built-in package eval-fixture"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E20-T28"
+purpose = "BuiltinPluginPackage and instance per eval run"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E20-T28"
+purpose = "read-only required cases of the SCMProvider suite against the fixture"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "0-E20-T28"
+purpose = "contract-attestation.json as loading condition"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E20-T28"
+purpose = "Read fixture contents from the BlobStore"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T28"
+purpose = "CaseInput pull_request, task and issue"

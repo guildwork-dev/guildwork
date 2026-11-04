@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Configuration of osv-scanner for `make osv` (tools/ci/osv_diff.py passes it
+# with --config, so it applies to every lockfile). Format:
+# https://google.github.io/osv-scanner/configuration/ (retrieved 2026-11-01).
+# osv_diff.py rejects an [[IgnoredVulns]] entry without `reason` or
+# `ignoreUntil` (exit 2): every exception is justified and expires.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2026-12-01
+reason = "minimatch 10.2.6 is a development dependency of eslint and typescript-eslint only and is not shipped; its glob patterns come from repository configuration, not from untrusted input. The fix is minimatch 11.0.1, but eslint and typescript-eslint require ^10 and no fixed 10.x release exists (checked 2026-11-01). Remove when the lint toolchain accepts a fixed version."

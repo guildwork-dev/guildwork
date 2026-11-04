@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Header of stage R. Epics and tasks are in stage-R.<area>.toml.
+# depends_on_stages must match the edges in docs/architecture/08-roadmap.md section 3 (plan.py checks this).
+stage = "R"
+title = "Repo foundation"
+depends_on_stages = []

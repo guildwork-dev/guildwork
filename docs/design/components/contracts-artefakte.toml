@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "contracts-artefakte"
+title = "Artifact types QAReport, FixResult, MergeGateDecision"
+kind = "package"
+path = "packages/contracts/src/artifacts/"
+package = "@guildwork/contracts"
+stage = "3"
+purpose = "TypeBox schemas and types of the artifacts that QA, PR fixer and merge gate pass between stages and store in artifacts, including schema invariants and generated JSON Schemas; no flow logic and no storage."
+design = ["11-qa-prfix-automerge.md#22-shared-artifact-types", "11-qa-prfix-automerge.md#21-directories"]
+built_by = ["3-E01-T01", "4-E01-T01", "5-E01-T01"]
+
+[[provides]]
+name = "qa-report"
+kind = "ts-api"
+title = "QARequest, QAReport, GeneratedTest, FilterOutcome, ClassifiedFailure, CatchFinding, ChangedLineCoverage with invariants"
+defined_in = "11-qa-prfix-automerge.md#22-shared-artifact-types"
+from_task = "3-E01-T01"
+
+[[provides]]
+name = "fix-result"
+kind = "ts-api"
+title = "FixRequest, FixResult with revision 1 and 2, FixItem, OutOfScopeSuggestion"
+defined_in = "11-qa-prfix-automerge.md#22-shared-artifact-types"
+from_task = "4-E01-T01"
+
+[[provides]]
+name = "merge-gate-decision"
+kind = "ts-api"
+title = "MergeGateConditionId, ConditionResult, MergeGateDecision"
+defined_in = "11-qa-prfix-automerge.md#22-shared-artifact-types"
+from_task = "5-E01-T01"
+
+[[provides]]
+name = "artefakt-schemas"
+kind = "file"
+title = "JSON Schemas under packages/contracts/schemas/artifacts/v1alpha1/ for QAReport, FixResult, MergeGateDecision"
+defined_in = "11-qa-prfix-automerge.md#22-shared-artifact-types"
+from_task = "3-E01-T01"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "3-E01-T01"
+purpose = "Compile TypeBox schemas and export them as JSON Schema under schemas/artifacts/v1alpha1"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "3-E01-T01"
+purpose = "ChangeRef, WorkItemRef, PermissionLevel and ServiceId in the artifact types"
+
+[[uses]]
+interface = "agent-step/untrusted-input-record"
+from_task = "3-E01-T01"
+purpose = "UntrustedInputRecord as the basis of ProvenanceEntry in untrustedInputs"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "5-E01-T01"
+purpose = "CheckEvidence and refs in MergeGateFacts and ConditionResult"

@@ -1,0 +1,1756 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area reviewer of stage 6. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "6"
+
+[[epic]]
+id = "6-E01"
+title = "Walkthrough"
+goal = "Change table, sequence diagrams, effort, related issues and PRs per the visibility rule, labels, reviewer suggestions; every output checked deterministically (every named file in the diff, diagram parsable without invented participants)"
+sources = ["02 section 4", "ADR-63", "10 section 3"]
+depends_on = ["1-E05"]
+
+[[epic]]
+id = "6-E02"
+title = "Pre-merge checks"
+goal = "Built-in and custom pre-merge checks without wrong verdicts, result as a separate check run without a silent green"
+sources = ["02 section 4"]
+depends_on = ["1-E05"]
+
+[[epic]]
+id = "6-E03"
+title = "Chat in the thread and commands"
+goal = "Chat in the review thread, `@agent remember`, `@agent pause`, resume via `@agent review`"
+sources = ["03 section 4", "02 section 4"]
+depends_on = ["1-E05"]
+
+[[epic]]
+id = "6-E04"
+title = "Local review and developer MCP"
+goal = "CLI review with NDJSON, developer MCP (read, mark as fixed), same fingerprints as in the PR"
+sources = ["02 section 4a"]
+depends_on = ["1-E04"]
+
+[[epic]]
+id = "6-E05"
+title = "Review analytics"
+goal = "Analytics with export, reconciled against the ledger"
+sources = ["02 section 4a"]
+depends_on = ["1-E08"]
+
+[[epic]]
+id = "6-E06"
+title = "Automatic approval of human PRs"
+goal = "`services.reviewer.auto_approve` with conditions (a) to (d), `approve` bound to the SHA, `withdrawApprove`, `approvalProtection`"
+sources = ["01 section 5", "ADR-61", "O24"]
+depends_on = ["1-E05"]
+
+[[epic]]
+id = "6-E07"
+title = "Citation check, suites and acceptance of stage 6"
+goal = "Citation check in the Effect Gateway (ADR-63), R6 gates, S1 for CLI, MCP, auto-approve and visibility"
+sources = ["08 stage 6", "ADR-63"]
+depends_on = ["6-E01", "6-E02", "6-E03", "6-E04", "6-E05", "6-E06"]
+
+# ---------------------------------------------------------------- 6-E01 Walkthrough
+
+[[task]]
+id = "6-E01-T01"
+title = "Types, schema and configuration of the companion outputs"
+description = """Create the types from detailed design 09 section 2.3 in services/reviewer/src/companions/schema.ts (ChangeCohort, Walkthrough, DiagramSpec, RelatedCandidate, RelatedItem, LabelSuggestion, ReviewerSuggestion, CompanionDraft, CompanionResult, DropReason) and extend `ReviewArtifact` from 08 with the fields from 02 section 4. JSON Schemas (TypeBox) for the model outputs. Config keys from 09 section 7 for `services.reviewer.summary.*`, `models.companion`, `risk_levels` in packages/config/src/schema/reviewer.ts with default, range and `x-qualification`. Readiness check: read and reconcile the scale of `riskScore` and the fields of `ReviewArtifact` in 08-reviewer.md (09 section 10 item 1)."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators", "09-reviewer-companion-features-and-learnings.md#7-configuration"]
+result = "services/reviewer/src/companions/schema.ts, packages/config/src/schema/reviewer.ts, extension of ReviewArtifact"
+done = [
+  "Schema test 'every services.reviewer key has x-qualification' green for the new keys",
+  "Resolver test 's2/label-allowlist-agent-prefix' green (entry with prefix agent rejected)",
+  "Resolver test 's2/companion-model-unreachable' green (ADR-58)",
+  "make check green",
+]
+sources = ["02 section 4", "04 section 3", "04 section 7", "ADR-58", "ADR-66"]
+depends_on = ["0-E06", "6-E01-T05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Resolve M39 (reviewer summary) and M65 (justify starting values in the schema) for these keys as well"
+
+  [[task.part]]
+  id = "6-E01-T01-S01"
+  title = "Test: schema rejects label allowlist with prefix agent and unreachable models.companion"
+  done = "Tests red because the keys are missing"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T01-S02"
+  title = "Types and JSON Schemas of the companion outputs"
+  done = "Types compile, schema snapshot test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T01-S03"
+  title = "Config keys with default, range, x-qualification and resolver rules"
+  done = "Tests from S01 green, reconciliation with 08 documented in the PR description"
+  status = "open"
+
+[[task]]
+id = "6-E01-T02"
+title = "Companion job reviewer.companions with single calls"
+description = """Start the work item `reviewer.companions` (09 section 3.3) in parallel with the finder items; in the worker, one single call per enabled generator via the ModelProvider with outputSchema (model models.companion, otherwise models.gate); prompts under services/reviewer/src/companions/prompts/ with prompt_v per generator. Input only the context package, PR title and text as untrusted. No write request. Failure yields CompanionResult with dropped generator_failed (09 section 5)."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators", "09-reviewer-companion-features-and-learnings.md#41-companion-outputs-in-a-review-run"]
+result = "services/reviewer/src/companions/job.ts, services/reviewer/src/companions/prompts/"
+done = [
+  "Test 'companions/job.test.ts › companions job has no write wishes' green",
+  "Test 'companions/job.test.ts › schema invalid output yields generator_failed' green",
+  "Test 'companions/job.test.ts › uses models.companion else models.gate' green",
+  "S6 case 's6/companions-job-failed' green (review without companion features, hint visible)",
+]
+sources = ["02 section 4", "ADR-58", "ADR-66"]
+depends_on = ["6-E01-T01", "0-E11", "0-E15", "0-E20-T21"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E01-T02-S01"
+  title = "Test: job without write requests, schema errors and model choice"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T02-S02"
+  title = "Work item envelope and start in parallel with the finders in the controller"
+  done = "Envelope test green, Run Record shows the item"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T02-S03"
+  title = "Single calls per generator with prompts and prompt_v"
+  done = "Tests from S01 green with recorded model responses"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T02-S04"
+  title = "Failure path generator_failed with a hint in the summary"
+  done = "S6 case green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T03"
+title = "Walkthrough and change table with validator"
+description = """validateWalkthrough per 09 section 2.3: remove files outside the diff, append missing diff files to the cohort 'Other changes', put lockfiles and generated files into 'Generated' (detection like the gate from 08), remove sentences in summary with paths outside the diff (FE-904, FE-905)."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators"]
+result = "services/reviewer/src/companions/walkthrough.ts"
+done = [
+  "Tests 'companions/walkthrough.test.ts' green: drops files not in diff, adds missing diff files to other changes, puts lockfiles into generated, removes summary sentence with unknown path, every diff file in exactly one cohort",
+]
+sources = ["02 section 4", "10 section 3"]
+depends_on = ["6-E01-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E01-T03-S01"
+  title = "Test: five cases of the walkthrough validator"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T03-S02"
+  title = "Validator for cohorts and path mentions"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T03-S03"
+  title = "dropped entries in Run Record and artifact"
+  done = "Test 'dropped reasons persisted' green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T04"
+title = "Sequence diagram from DiagramSpec"
+description = """allowedParticipants, validateDiagram and renderDiagram per 09 section 2.3 and FE-903: only files and symbols from the diff and the impact set, at most 8 participants and 20 steps, restricted grammar, text escaped. Readiness check: clarify whether the Mermaid parser runs in Node without a browser (09 section 10 item 5, unverified); otherwise test against an own grammar plus a sample in the CI browser."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators"]
+result = "services/reviewer/src/companions/diagram.ts, test helper for the Mermaid parser"
+done = [
+  "Tests 'companions/diagram.test.ts' green: rejects diagram with participant outside diff and impact set, renders only allowed grammar, escapes message text, rendered output parses with mermaid parser, no diagram without call edge",
+  "Result of the check 'Mermaid parser in Node' with command and output in the PR description",
+]
+sources = ["02 section 4", "10 section 3"]
+depends_on = ["6-E01-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "unverified: Mermaid parser headless; the task clarifies it first"
+
+  [[task.part]]
+  id = "6-E01-T04-S01"
+  title = "Check: Mermaid parser in Node without a browser"
+  done = "Finding with evidence; decision for the parse test recorded"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T04-S02"
+  title = "Test: participant check, limits and grammar"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T04-S03"
+  title = "allowedParticipants and validateDiagram"
+  done = "Participant check tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T04-S04"
+  title = "renderDiagram with escaping and parse test"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T05"
+title = "Visibility function and reference finder"
+description = """isVisibleFor (ADR-63) and findReferences as pure functions in packages/core per 09 section 2.2 and FE-907, FE-933. They are used by the reviewer (related), the KnowledgeStore (Learnings) and the Effect Gateway (citation check)."""
+design = ["09-reviewer-companion-features-and-learnings.md#22-shared-types-and-visibility"]
+result = "packages/core/src/visibility.ts, packages/core/src/references.ts"
+done = [
+  "Tests 'core/visibility.test.ts' green: same repo always visible, public target accepts only public sources, private foreign source needs crossRepo and private target, never across tenants, rank order public internal private",
+  "Tests 'core/references.test.ts' green: finds issue pr blob commit urls of host, finds owner/repo#n, ignores other hosts, marks #n as same repo",
+]
+sources = ["05 section 7", "ADR-63"]
+depends_on = ["0-E01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E01-T05-S01"
+  title = "Test: visibility rules per case"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T05-S02"
+  title = "isVisibleFor"
+  done = "Visibility tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T05-S03"
+  title = "Test and implementation of findReferences"
+  done = "Reference tests green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T06"
+title = "Related issues and PRs"
+description = """relatedCandidates and selectRelated per 09 section 2.3 and FE-906: candidates from references in title, text and commits, from ResolvedEvent.links and from WorkItemProvider.searchRelated or search (at most 10); visibility filter before the model; the model selects indices; quote checked verbatim; max_related. Readiness check: clarify whether the search of the GitHub plugin returns PRs (09 section 10 item 7, unverified)."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators"]
+result = "services/reviewer/src/companions/related.ts"
+done = [
+  "Tests 'companions/related.test.ts' green: model cannot add items outside candidates, drops item when quote not in title or body, filters candidates by visibility before model, search failure falls back to links",
+  "Finding 'search returns PRs yes or no' proven with a fixture",
+]
+sources = ["02 section 4", "ADR-63", "01 section 4"]
+depends_on = ["6-E01-T02", "6-E01-T05", "0-E14"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E01-T06-S01"
+  title = "Test: candidate sources, visibility filter, citation check"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T06-S02"
+  title = "relatedCandidates from references, links and search"
+  done = "Candidate tests green, fixture of the GitHub search recorded"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T06-S03"
+  title = "selectRelated with index selection and citation check"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T07"
+title = "Labels and reviewer suggestions"
+description = """decideLabels (suggest, apply only from label_allowlist, never prefix agent; FE-908) with write request propose_labels via profile labels; suggestReviewers only from CODEOWNERS without the author and bots, at most 3 (FE-909)."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators"]
+result = "services/reviewer/src/companions/labels.ts, services/reviewer/src/companions/reviewers.ts"
+done = [
+  "Tests 'companions/labels.test.ts' green: apply only from allowlist, never applies agent prefixed labels, apply with empty allowlist only suggests",
+  "Tests 'companions/reviewers.test.ts' green: excludes author and bots, at most three from codeowners",
+  "Policy test 'propose_labels only with summary.labels apply' green",
+]
+sources = ["02 section 0", "02 section 4", "05 section 2"]
+depends_on = ["6-E01-T02", "0-E09", "6-E01-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M90 partially: the reviewer never sets control labels. M29 (propose_reviewers) deliberately not: no user need proven"
+
+  [[task.part]]
+  id = "6-E01-T07-S01"
+  title = "Test: label rules and reviewer suggestions"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T07-S02"
+  title = "decideLabels and propose_labels via the Effect Gateway"
+  done = "Label tests and policy test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T07-S03"
+  title = "suggestReviewers from codeowners()"
+  done = "Reviewer tests green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T08"
+title = "Effort, risk level and presentation in the summary"
+description = """riskLevelOf (FE-910, FE-946) and effort 1 to 5; renderSummarySection with change table, diagram, effort, related items, labels, reviewer suggestions; fallback chain without CHECK_RUN; in shadow mode only the eval log. Output via the poster from 08 (propose_review)."""
+design = ["09-reviewer-companion-features-and-learnings.md#23-companion-generators", "09-reviewer-companion-features-and-learnings.md#41-companion-outputs-in-a-review-run"]
+result = "services/reviewer/src/companions/effort.ts, services/reviewer/src/companions/render.ts"
+done = [
+  "Tests 'companions/effort.test.ts' green: riskLevelOf maps thresholds, effort out of range dropped",
+  "Tests 'companions/render.test.ts' green: summary section without CHECK_RUN fallback, shadow mode records summary in eval log",
+  "E2E with recorded GitHub responses: summary contains all companion sections",
+]
+sources = ["02 section 4", "04 section 3"]
+depends_on = ["6-E01-T03", "6-E01-T04", "6-E01-T06", "6-E01-T07"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E01-T08-S01"
+  title = "Test: risk levels and presentation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T08-S02"
+  title = "riskLevelOf and effort"
+  done = "Effort tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E01-T08-S03"
+  title = "renderSummarySection with fallback chain and shadow mode"
+  done = "Render tests and E2E green"
+  status = "open"
+
+[[task]]
+id = "6-E01-T09"
+title = "Executor labels"
+description = """`apps/control-plane/src/effects/executors/labels.ts` per detailed design 04 section 2.1.5: target change via `SCMProvider.setLabels` (0-E14-T08), target work_item via `WorkItemProvider.setLabels` (GitHub from 7-E05-T03); set operations, reconciliation by calling again. Built in stage 6 because the reviewer (6-E01-T07) and triage (stage 7) use it. Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/labels.ts, apps/control-plane/test/effects/executors/labels.test.ts"
+done = [
+  "Test 'effects/executors/labels live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/labels failure path stores audits and logs' green (failure path: unknown label yields failed with invalid; without SET_LABELS unsupported; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/labels reconcile repeats set operation without change' green",
+  "Catalog entry labels with executor file, stage and usedIn; guard test from 0-E09-T10 green without labels in the planned list",
+]
+sources = ["02 section 0", "05 section 2 (profile labels)", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T08"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "6-E01-T09-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "6-E01-T09-S02"
+  title = "Executor labels with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["6-E01-T09-S01"]
+
+  [[task.part]]
+  id = "6-E01-T09-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["6-E01-T09-S02"]
+
+# ---------------------------------------------------------------- 6-E02 Pre-merge checks
+
+[[task]]
+id = "6-E02-T01"
+title = "Configuration and types of the pre-merge checks"
+description = """BuiltinChecksConfig, CustomCheckConfig, Evidence and PreMergeCheckResult per 09 section 2.4; keys services.reviewer.builtin_checks and services.reviewer.checks with the format from FE-912 (id pattern, at most 10, instructions up to 1,000 characters, mode, paths); resolver rules from 09 section 7."""
+design = ["09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks", "09-reviewer-companion-features-and-learnings.md#7-configuration"]
+result = "services/reviewer/src/premerge/config.ts, packages/config/src/schema/reviewer.ts"
+done = [
+  "Resolver test 's2/checks-config-invalid' green (duplicate id, built-in id, instructions too long, more than 10 checks)",
+  "Failure path 'configuration checks invalid' per ADR-65 tested with a hint on the PR",
+]
+sources = ["02 section 4", "04 section 3", "ADR-65"]
+depends_on = ["0-E06"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "6-E02-T01-S01"
+  title = "Test: invalid checks configuration"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T01-S02"
+  title = "Types, schema and resolver rules"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E02-T02"
+title = "Built-in checks title, description, issue linked"
+description = """Deterministic checks title, description and issue_linked per the table in 09 section 2.4 (FE-911); description reads the repo's PR template at the base SHA when require_template_sections applies."""
+design = ["09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"]
+result = "services/reviewer/src/premerge/builtin/title.ts, description.ts, issue-linked.ts"
+done = [
+  "Tests 'premerge/builtin.test.ts' green: title pattern conventional commits, description ignores template comments, issue_linked via closes or reference",
+]
+sources = ["02 section 4", "ADR-17"]
+depends_on = ["6-E02-T01", "6-E01-T05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E02-T02-S01"
+  title = "Test: cases for title, description, issue_linked"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T02-S02"
+  title = "Implementation of the three checks"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E02-T03"
+title = "Built-in check docstring coverage"
+description = """docstring_coverage per 09 section 2.4: share of the public symbols newly created or changed in the diff that have a docstring, via the parser from stage 1 (08); a language without a parser or a parser error yields inconclusive."""
+design = ["09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"]
+result = "services/reviewer/src/premerge/builtin/docstrings.ts"
+done = [
+  "Tests 'premerge/builtin.test.ts' green: docstring coverage counts only touched public symbols, unsupported language is inconclusive",
+]
+sources = ["02 section 4"]
+depends_on = ["6-E02-T01", "1-E02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E02-T03-S01"
+  title = "Test: touched public symbols per supported language"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T03-S02"
+  title = "Symbol detection via the parser from 08"
+  done = "Symbol tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T03-S03"
+  title = "Docstring detection and inconclusive path"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E02-T04"
+title = "Custom checks in natural language with mandatory evidence"
+description = """A single call per custom check in the job reviewer.companions with schema { result, reason, evidence[] }; verifyEvidence checks every quote at the named location; without checked evidence the result becomes inconclusive (FE-911); paths filter. Title, text and diff are untrusted, instructions are configuration from the base SHA."""
+design = ["09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"]
+result = "services/reviewer/src/premerge/custom.ts, services/reviewer/src/premerge/evidence.ts"
+done = [
+  "Tests 'premerge/custom.test.ts' green: passed without evidence becomes inconclusive, evidence quote not at location becomes inconclusive, paths filter skips check, pr text injection cannot flip result",
+]
+sources = ["02 section 4", "05 section 4", "ADR-17"]
+depends_on = ["6-E02-T01", "6-E01-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E02-T04-S01"
+  title = "Test: mandatory evidence and injection in the PR text"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T04-S02"
+  title = "verifyEvidence"
+  done = "Evidence tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T04-S03"
+  title = "Single call per check in the companion job with paths filter"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E02-T05"
+title = "Check run ai-pre-merge-checks and presentation"
+description = """conclusionOf per FE-911: failure on block failed, neutral on block inconclusive or job error, otherwise success with warnings; a separate check run ai-pre-merge-checks via propose_check; fallback chain without CHECK_RUN as a section of the summary."""
+design = ["09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"]
+result = "services/reviewer/src/premerge/check-run.ts"
+done = [
+  "Tests 'premerge/check-run.test.ts' green: block failed gives failure, block inconclusive gives neutral, warn failed gives success with warning, job failure gives neutral never success",
+  "E2E with recorded GitHub responses: two check runs ai-review and ai-pre-merge-checks",
+]
+sources = ["02 section 4", "03 section 5"]
+depends_on = ["6-E02-T02", "6-E02-T03", "6-E02-T04", "6-E01-T08"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E02-T05-S01"
+  title = "Test: four result rules"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T05-S02"
+  title = "conclusionOf and propose_check"
+  done = "Tests and E2E green"
+  status = "open"
+
+[[task]]
+id = "6-E02-T06"
+title = "R6 cases for pre-merge checks"
+description = """Own cases (own_public, only references and own labels) under eval/suites/r6-companions/premerge/: per built-in check at least 10 cases with expected passed, failed or inconclusive, plus 20 cases for custom checks with planted violations and injection in the PR text (starting size, estimate). Runner case 'r6/premerge-verdicts' counts wrong verdicts per 09 section 8.3."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "eval/suites/r6-companions/premerge/"
+done = [
+  "Set with case metadata per 07 section 1 (origin own_public, license per case)",
+  "Runner 'r6/premerge-verdicts' runs against recorded model responses with 0 wrong verdicts",
+]
+sources = ["07 section 3.1", "10 section 3"]
+depends_on = ["6-E02-T05", "0-E20"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E02-T06-S01"
+  title = "Cases for built-in checks"
+  done = "Cases with metadata in the set"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T06-S02"
+  title = "Cases for custom checks with injection"
+  done = "Cases with metadata in the set"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E02-T06-S03"
+  title = "Runner case with counting of wrong verdicts"
+  done = "Runner green on recordings"
+  status = "open"
+
+# ---------------------------------------------------------------- 6-E03 Chat and commands
+
+[[task]]
+id = "6-E03-T01"
+title = "Detection of thread replies and commands"
+description = """isPlatformThreadReply and the assignment in the router per 09 section 2.5: replies in the platform's threads (marker with fingerprint) and mentions go to the reviewer; bots are ignored; the author's role (pr_author, other_writer, reader) read fresh from the provider; commands remember, pause, review via routing and command_permissions; object lock and delivery to active runs (ADR-68)."""
+design = ["09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands", "09-reviewer-companion-features-and-learnings.md#42-reply-in-the-thread"]
+result = "services/reviewer/src/chat/detect.ts, routing rules in apps/control-plane"
+done = [
+  "Tests 'chat/detect.test.ts' green: reply in platform thread detected, bot reply ignored, author role read fresh",
+  "S5 case 'reply while review run active is delivered' green (no second run, ADR-68)",
+  "S2 case 'remember pause review without write skipped' green",
+]
+sources = ["03 section 2.5", "03 section 4", "04 section 3", "ADR-68"]
+depends_on = ["0-E04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E03-T01-S01"
+  title = "Test: detection, bot filter, role, permissions"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T01-S02"
+  title = "isPlatformThreadReply and role determination"
+  done = "Detection tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T01-S03"
+  title = "Routing of the commands and delivery to active runs"
+  done = "S5 and S2 case green"
+  status = "open"
+
+[[task]]
+id = "6-E03-T02"
+title = "Chat reply and finding feedback"
+description = """Work item reviewer.chat with classification (withdraw, confirm, question, learning_candidate, other) per 09 section 2.5; deterministically afterwards finding_feedback with actor_role (FE-914), finding state from 08, learning candidate only with write access; reply via propose_reply with profile review in the same thread (FE-913), at most max_replies_per_thread (FE-948). Column addition finding_feedback from 09 section 3.2 as a migration."""
+design = ["09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands", "09-reviewer-companion-features-and-learnings.md#32-extensions-of-existing-tables-expand-migration-in-block-0600"]
+result = "services/reviewer/src/chat/classify.ts, services/reviewer/src/chat/reply.ts, migration finding_feedback"
+done = [
+  "Tests 'chat/classify.test.ts' green: withdraw by reader has no effect, withdraw by author stored with role pr_author, reply limit per thread",
+  "Test 'chat/reply.test.ts › reply goes to same thread via propose_reply' green",
+  "Policy test 'reviewer propose_reply only in platform threads' green",
+]
+sources = ["02 section 4", "05 section 2", "ADR-61", "ADR-11"]
+depends_on = ["6-E03-T01", "1-E04", "1-E05-T10", "6-E01-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "FE-913: propose_reply for the reviewer has been in 02 section 0 since the consistency run 2026-11-01"
+
+  [[task.part]]
+  id = "6-E03-T02-S01"
+  title = "Test: classification, roles, reply limit"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T02-S02"
+  title = "Migration finding_feedback.actor_role and new kind values"
+  done = "Forward migration test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T02-S03"
+  title = "Work item reviewer.chat with prompt and schema"
+  done = "Classification tests green with recordings"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T02-S04"
+  title = "Feedback, finding state and propose_reply"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E03-T03"
+title = "Pause state manual and automatic"
+description = """Pause state in review_pr_state from 08 (expand migration in block 0600 for paused_since and paused_by, if 1-E01-T03 has not created them; no table of its own, FE-915) and functions isPaused, pause, notePush, noteReviewedHead per 09 sections 2.5 and 4.3 (FE-915); the gate from 08 reads isPaused and skips with Skipped(review_paused); hint in the status comment. Readiness check: reconcile the read location in the gate with 08-reviewer.md (09 section 10 item 1)."""
+design = ["09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands", "09-reviewer-companion-features-and-learnings.md#43-pause-and-resume"]
+result = "services/reviewer/src/pause/state.ts, if needed an expand migration for review_pr_state"
+done = [
+  "Tests 'pause/state.test.ts' green: manual pause skips gate, auto pause after n pushes",
+  "Status table from 09 section 4.3 tested with one case per row",
+]
+sources = ["02 section 4", "03 section 4", "04 section 3"]
+depends_on = ["6-E03-T01", "1-E02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M65 for auto_pause_after: justify the starting value in the schema as an estimate"
+
+  [[task.part]]
+  id = "6-E03-T03-S01"
+  title = "Test: pause state table"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T03-S02"
+  title = "State functions on review_pr_state"
+  done = "State tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T03-S03"
+  title = "Gate integration and hint in the status comment"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E03-T04"
+title = "Resume via @agent review"
+description = """@agent review [full] lifts a pause (lift) and starts a run, incremental by default, full with full; with an active reviewer run a merged follow-up job (ADR-68). The mode of the run (full or incremental) and whether it was paused during the run are stored in the Run Record, because the automatic approval reads them (ADR-61 (c))."""
+design = ["09-reviewer-companion-features-and-learnings.md#43-pause-and-resume"]
+result = "services/reviewer/src/pause/state.ts (lift), controller integration"
+done = [
+  "Tests 'pause/state.test.ts' green: review lifts pause and starts incremental, review full starts full run",
+  "Test 'run record stores review mode and paused flag' green",
+]
+sources = ["03 section 4", "03 section 2.5", "ADR-61", "ADR-68"]
+depends_on = ["6-E03-T03", "0-E05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E03-T04-S01"
+  title = "Test: resume incremental and full, follow-up job"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T04-S02"
+  title = "lift and start of the run, fields in the Run Record"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E03-T05"
+title = "@agent remember with storage as a candidate"
+description = """Tables learnings and learning_events (09 section 3.1, FE-934) as a migration; parseRemember with code anchor from the thread or 'in <path>[:<a>-<b>]' (FE-916), --me only with knowledge.learnings.user_prefs; redaction with the Effect Gateway's function before every storage, rejection above 50 % redaction; quote at the head SHA (path, lines, quote_hash); status candidate; reply in the thread with ID and status. Readiness check: reconcile the tables with 01-data-model.md (09 section 10 item 2)."""
+design = ["09-reviewer-companion-features-and-learnings.md#25-chat-in-the-thread-and-commands", "09-reviewer-companion-features-and-learnings.md#31-new-tables", "09-reviewer-companion-features-and-learnings.md#48-learning-lifecycle"]
+result = "services/reviewer/src/chat/remember.ts, migration learnings and learning_events"
+done = [
+  "Tests 'chat/remember.test.ts' green: no anchor no learning, anchor from thread, anchor from in path lines, secret redacted before insert, over half redacted rejected, requires scm write, me flag gives user_pref only if enabled",
+  "Test 'secret scan over learnings table after remember fixtures finds 0 secrets' green",
+]
+sources = ["02 section 4", "02 section 7", "03 section 4", "05 section 5"]
+depends_on = ["6-E03-T01", "0-E09", "0-E02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E03-T05-S01"
+  title = "Test: remember cases and secret scan"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T05-S02"
+  title = "Migration learnings and learning_events with RLS"
+  done = "Forward migration test green, RLS test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T05-S03"
+  title = "parseRemember and code anchor"
+  done = "Parse tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E03-T05-S04"
+  title = "Redaction, quote, storage and reply"
+  done = "all tests of the task green"
+  status = "open"
+
+# ---------------------------------------------------------------- 6-E04 Local review and developer MCP
+
+[[task]]
+id = "6-E04-T01"
+title = "Reviewer library with local input"
+description = """buildLocalInput and runLocalReview per 09 section 2.6: diff from the merge base with origin/<default> to the work state, optionally uncommitted changes, rules from the state of origin/<default> (FE-919); the same pipeline and the same fingerprint function as the PR review (08). Readiness check: read the fingerprint function in 08-reviewer.md."""
+design = ["09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli"]
+result = "services/reviewer/src/local/input.ts, services/reviewer/src/local/run-local.ts"
+done = [
+  "Tests 'local/input.test.ts' green: merge base against origin default, uncommitted patch included, rules sha recorded",
+  "Test 'local/fingerprint-parity.test.ts › same recorded finder output gives identical fingerprints local and pr' green",
+]
+sources = ["02 section 4a", "10 section 3"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E04-T01-S01"
+  title = "Test: local input and fingerprint equality"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T01-S02"
+  title = "buildLocalInput with git calls"
+  done = "Input tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T01-S03"
+  title = "runLocalReview via the shared pipeline"
+  done = "Parity test green"
+  status = "open"
+
+[[task]]
+id = "6-E04-T02"
+title = "CLI guildwork review --local with NDJSON"
+description = """Command per FE-917 with options from 09 section 2.6; NDJSON v1 (FE-918) with finding, heartbeat every 15 seconds, complete; exit codes 0, 1, 2; local execution with the user's unmodified claude without shell tools (FE-920); text format for humans."""
+design = ["09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli", "09-reviewer-companion-features-and-learnings.md#44-local-review"]
+result = "apps/cli/src/commands/review.ts, NDJSON schema under packages/contracts"
+done = [
+  "Tests 'cli/review.test.ts' green: ndjson lines valid against schema, heartbeat every 15 s, exit code 2 on min severity, missing claude gives complete error",
+  "Docs page for the command in the product repo",
+]
+sources = ["02 section 4a"]
+depends_on = ["6-E04-T01", "0-E18-T05"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E04-T02-S01"
+  title = "Test: NDJSON schema, heartbeat, exit codes, missing claude"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T02-S02"
+  title = "NDJSON schema in packages/contracts"
+  done = "Schema test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T02-S03"
+  title = "Command with local execution"
+  done = "all tests of the task green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T02-S04"
+  title = "Docs of the command"
+  done = "Page in the repo, text rules green"
+  status = "open"
+
+[[task]]
+id = "6-E04-T03"
+title = "Remote execution via the Work API"
+description = """--remote per 09 sections 2.6 and 3.4: upload of bundle and patch via a pre-signed URL, POST /api/v1/reviews/local (minimum permission write), work item reviewer.local with origin cli without allowed write requests (FE-947), data path policy and limits of the user, event stream GET .../events as NDJSON; upload in the BlobStore with an expiry of 24 hours."""
+design = ["09-reviewer-companion-features-and-learnings.md#34-endpoints", "09-reviewer-companion-features-and-learnings.md#44-local-review"]
+result = "apps/control-plane/src/api/reviews-local.ts, work item type reviewer.local, CLI option --remote"
+done = [
+  "Tests 'api/reviews-local.test.ts' green: requires write permission, origin cli run has no allowed effects, data policy applied to provider resolution, upload over limit 413, events stream ends with complete",
+  "S3 case 'remote local review counts against user limit' green",
+]
+sources = ["02 section 4a", "05 section 2", "04 section 6"]
+depends_on = ["6-E04-T02", "6-E04-T04", "0-E11", "0-E03", "0-E20-T28"]   # gap round: blobInputs workspace_bundle and workspace_patch with input grants (03 section 2.12)
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E04-T03-S01"
+  title = "Test: permissions, no effects, data path, upload limit, stream"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T03-S02"
+  title = "Upload and endpoint with policy origin cli"
+  done = "Permission, policy and upload tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T03-S03"
+  title = "Work item reviewer.local and event stream"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E04-T04"
+title = "Developer identity and dev token"
+description = """Device flow per FE-921 (POST /api/v1/dev-auth/device and /token), tables dev_tokens and dev_auth_sessions (09 section 3.1), token hashed, expiry from dev_access.token_ttl_days, revocation, admin list; permissions per call at the provider with a 60-second cache. Readiness check: check the GitHub App's device flow for user tokens (unverified, 09 section 10 item 3); if it does not work, record a ruling with an alternative path."""
+design = ["09-reviewer-companion-features-and-learnings.md#27-developer-mcp", "09-reviewer-companion-features-and-learnings.md#34-endpoints"]
+result = "apps/control-plane/src/devauth/, migration dev_tokens and dev_auth_sessions, CLI guildwork login"
+done = [
+  "Tests 'devauth/device-flow.test.ts' green: issues token after approval, expired device code 410, token stored only as hash, revoked token rejected",
+  "Finding 'device flow of the GitHub App' proven with a recorded response",
+]
+sources = ["05 section 7", "02 section 4a"]
+depends_on = ["0-E14", "0-E10", "0-E02", "0-E18-T05"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "unverified: device flow of the GitHub App for user tokens"
+
+  [[task.part]]
+  id = "6-E04-T04-S01"
+  title = "Check device flow of the GitHub App"
+  done = "Finding with evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T04-S02"
+  title = "Test: issuance, expiry, hash, revocation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T04-S03"
+  title = "Migration and endpoints"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T04-S04"
+  title = "CLI sign-in guildwork login"
+  done = "CLI test with recorded responses green"
+  status = "open"
+
+[[task]]
+id = "6-E04-T05"
+title = "Developer MCP read tools"
+description = """Endpoint POST /mcp/dev (FE-922) with findings.list_open, findings.get, findings.fix_prompt, rules.get, learnings.get (unavailable before 7a) per 09 section 2.7; minimum permission read per call at the provider; foreign content as UntrustedText; audit per call without content."""
+design = ["09-reviewer-companion-features-and-learnings.md#27-developer-mcp"]
+result = "apps/control-plane/src/devmcp/"
+done = [
+  "Tests 'devmcp/tools.test.ts' green: list_open requires read checked per call, permission cache at most 60 s, untrusted text marked, learnings unavailable before 7a, audit entry without content",
+]
+sources = ["02 section 4a", "05 section 7"]
+depends_on = ["6-E04-T04", "1-E04", "6-E04-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E04-T05-S01"
+  title = "Test: permissions per call, marking, audit"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T05-S02"
+  title = "MCP server with dev token sign-in"
+  done = "Sign-in and permission tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T05-S03"
+  title = "Read tools"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E04-T06"
+title = "Mark as fixed and verification"
+description = """findings.mark_fixed (minimum permission write) sets dev_claim_state claimed (FE-923, columns from 09 section 3.2); the next incremental run verifies per the table in 09 section 4.5 and, on refuted, writes a line into the thread; claimed never counts as a withdrawal for ADR-61 (d)."""
+design = ["09-reviewer-companion-features-and-learnings.md#27-developer-mcp", "09-reviewer-companion-features-and-learnings.md#45-mark-as-fixed"]
+result = "apps/control-plane/src/devmcp/mark-fixed.ts, adjustment of the incremental run, migration findings"
+done = [
+  "Tests 'devmcp/mark-fixed.test.ts' green: claimed then verified on incremental, claimed then refuted keeps finding open, claim never counts as withdrawal for auto approve",
+  "Test 'devmcp/tools.test.ts › mark_fixed requires write' green",
+]
+sources = ["02 section 4a", "05 section 7", "ADR-61"]
+depends_on = ["6-E04-T05", "6-E03-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E04-T06-S01"
+  title = "Test: state table dev_claim_state"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T06-S02"
+  title = "Migration findings and tool mark_fixed"
+  done = "Tool tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E04-T06-S03"
+  title = "Verification in the incremental run and thread line"
+  done = "all tests of the task green"
+  status = "open"
+
+# ---------------------------------------------------------------- 6-E05 Review analytics
+
+[[task]]
+id = "6-E05-T01"
+title = "Metrics as SQL views and daily rows"
+description = """Views and table review_metrics_daily (09 section 3.1, FE-924) for runs, silent runs, posted findings per severity, PRs, median time to merge, costs in micro-USD and tokens from the ledger; rollupDay idempotent, daily job with recomputation of the previous day."""
+design = ["09-reviewer-companion-features-and-learnings.md#28-review-analytics"]
+result = "apps/control-plane/src/analytics/metrics.ts, migration review_metrics_daily, views"
+done = [
+  "Tests 'analytics/metrics.test.ts' green: silent run counted, posted by severity, median time to merge, rollup idempotent",
+  "S6 case 'analytics rollup failure keeps old row and alarms' green",
+]
+sources = ["02 section 4a", "07 section 6"]
+depends_on = ["0-E07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E05-T01-S01"
+  title = "Test: metrics on fixture data"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T01-S02"
+  title = "Migration and views"
+  done = "Metric tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T01-S03"
+  title = "rollupDay, job and failure path"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E05-T02"
+title = "Address rate and recall per the Martian definition"
+description = """Read the definition from Martian's MIT pipeline online/etl in a pinned version (unverified, 09 section 10 item 6) and rebuild it as a metric on findings, finding_feedback and commits (FE-925); a fixture from the pipeline as the comparison."""
+design = ["09-reviewer-companion-features-and-learnings.md#28-review-analytics"]
+result = "apps/control-plane/src/analytics/martian.ts, note on the definition with pinned commit"
+done = [
+  "Test 'analytics/martian.test.ts › address rate matches pinned etl on fixture' green",
+  "Definition with pinned commit and license documented in a code comment",
+]
+sources = ["07 section 3.1", "10 section 3"]
+depends_on = ["6-E05-T01", "6-E03-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "unverified: exact definition of the Martian pipeline"
+
+  [[task.part]]
+  id = "6-E05-T02-S01"
+  title = "Read the definition and record it with a pinned commit"
+  done = "Note with evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T02-S02"
+  title = "Test against a fixture of the pipeline"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T02-S03"
+  title = "Implementation of the metrics"
+  done = "Test green"
+  status = "open"
+
+[[task]]
+id = "6-E05-T03"
+title = "Reconciliation against the ledger"
+description = """reconcile per 09 section 2.8: daily rows against direct sums from usage and runs per day and repo, tolerance 0, money in micro-USD; endpoint GET /admin/api/v1/analytics/reconciliation; alarm analytics_ledger_mismatch."""
+design = ["09-reviewer-companion-features-and-learnings.md#28-review-analytics", "09-reviewer-companion-features-and-learnings.md#34-endpoints"]
+result = "apps/control-plane/src/analytics/reconcile.ts"
+done = [
+  "Tests 'analytics/reconcile.test.ts' green: rollup equals ledger sums exactly, mismatch raises alarm",
+]
+sources = ["02 section 4a", "08 stage 6", "04 section 6"]
+depends_on = ["6-E05-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E05-T03-S01"
+  title = "Test: equality and mismatch"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T03-S02"
+  title = "reconcile, endpoint and alarm"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E05-T04"
+title = "Analytics API and CSV export"
+description = """GET /admin/api/v1/analytics/reviews and /reviews.csv per 09 section 3.4 with filters, groupBy, limit of 366 days, role viewer; CSV with columns like ReviewMetricsRow and escaping."""
+design = ["09-reviewer-companion-features-and-learnings.md#34-endpoints"]
+result = "apps/control-plane/src/analytics/api.ts"
+done = [
+  "Test 'analytics/export.test.ts › csv columns and escaping' green",
+  "API test 'range over 366 days gives 400 range_too_large' green",
+  "API test 'viewer role required' green",
+]
+sources = ["02 section 4a", "05 section 7"]
+depends_on = ["6-E05-T01", "6-E05-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E05-T04-S01"
+  title = "Test: export, limit, role"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T04-S02"
+  title = "Endpoints JSON and CSV"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E05-T05"
+title = "Admin UI review analytics"
+description = """Page apps/admin-ui/src/pages/analytics/ with time range, repo filter, metrics per severity, silent runs, time to merge, cost per review, address rate and recall, computed_at state and the result of the ledger reconciliation; export button."""
+design = ["09-reviewer-companion-features-and-learnings.md#28-review-analytics"]
+result = "apps/admin-ui/src/pages/analytics/"
+done = [
+  "UI test 'analytics page renders metrics from api fixture' green",
+  "UI test 'reconciliation mismatch shown red' green",
+]
+sources = ["02 section 4a", "06 section 4"]
+depends_on = ["6-E05-T04", "6-E05-T03", "0-E17"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E05-T05-S01"
+  title = "Test: page with an API fixture"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T05-S02"
+  title = "Page with filters and metrics"
+  done = "Render test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T05-S03"
+  title = "Reconciliation display and export"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E05-T06"
+title = "Scheduled report via the notifier"
+description = """Weekly report per analytics.report (09 section 7) via the effect notify (executor from 1-E05-T11, extended here with Notifier.send for the new kind report, FE-926); idempotency key per period; failure path per 09 section 5."""
+design = ["09-reviewer-companion-features-and-learnings.md#28-review-analytics"]
+result = "apps/control-plane/src/analytics/report.ts, extension of the notifier sketch with kind report"
+done = [
+  "Test 'analytics/report.test.ts › weekly report idempotent per period via notifier' green",
+  "S6 case 'scheduled report failure notifies admin after n attempts' green",
+]
+sources = ["02 section 4a", "01 section 10"]
+depends_on = ["6-E05-T04", "0-E09", "1-E05-T11"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E05-T06-S01"
+  title = "Test: idempotency and failure path"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E05-T06-S02"
+  title = "Report, schedule and notifier kind report"
+  done = "Tests green"
+  status = "open"
+
+# ---------------------------------------------------------------- 6-E06 Automatic approval
+
+[[task]]
+id = "6-E06-T01"
+title = "SCM contract approve, withdrawApprove, approvalProtection in the GitHub plugin"
+description = """Optional methods from 01 section 5 in the GitHub plugin with capability APPROVE_HUMAN: approve with commit_id and return value rejected head_moved or agent_pr, withdrawApprove dismisses only the own review, approvalProtection reads the branch's rulesets and returns unreadable if that is not possible. Contract cases with recorded responses."""
+design = ["09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"]
+result = "plugins/github/src/scm/approve.ts, contract fixtures"
+done = [
+  "Tests 'plugins/github/scm/approve.contract.test.ts' green: approve with commit_id, withdraw dismisses own review, approvalProtection reads rulesets, unreadable rulesets gives unreadable",
+  "Contract suite SCMProvider with APPROVE_HUMAN green",
+]
+sources = ["01 section 5", "ADR-14", "ADR-61"]
+depends_on = ["0-E14", "0-E13"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E06-T01-S01"
+  title = "Test: contract cases from recordings"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T01-S02"
+  title = "approve and withdrawApprove"
+  done = "Approve cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T01-S03"
+  title = "approvalProtection with unreadable"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T02"
+title = "Provide test repo and app installation for approve tests"
+description = """Owner step: provide a private test repo of the project with the GitHub App installed (permissions as in 05 section 2, no administration) and two ruleset variants (dismiss stale approvals and approval after the last push on or off); in addition a second account with write access for the case 'other human'. An agent prepares a decision sheet beforehand (effect, cost 0, risks). Applies to 6-E06-T03 and 6-E07-T07."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "Test repo with app installation and rulesets, credentials in the SecretStore of the test installation"
+done = [
+  "Decision sheet stored in the ops repo",
+  "Test repo reachable for the contract suite (doctor of the test installation green)",
+]
+sources = ["08 stage 6", "ADR-61"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+status = "open"
+note = "Account and external effect; if a test repo from 1-E10 already exists, only add the rulesets"
+
+  [[task.part]]
+  id = "6-E06-T02-S01"
+  title = "Decision sheet by an agent"
+  done = "Sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T02-S02"
+  title = "Repo, app installation, rulesets, second account"
+  done = "Access stored in the test installation"
+  status = "open"
+
+[[task]]
+id = "6-E06-T03"
+title = "Contract test approvalProtection and dismissal against GitHub"
+description = """Clarify against the test repo from 6-E06-T02 and record as contract cases (09 section 10 item 4, all unverified): can the app read the rulesets without administration? Can it dismiss its own approval? Does GitHub reject an approval with an older commit_id? Result as recorded fixtures for 6-E06-T01 and as a ruling if a path does not work (then auto_approve stays without effect with a hint)."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "Contract cases contract/github/approval-protection-live, withdraw-own-approval-live, approve-stale-commit-live"
+done = [
+  "Contract test 'contract/github/approval-protection-live' green or finding 'not readable' proven (then auto_approve without effect, test 's2/auto-approve-unreadable-protection' green)",
+  "Contract tests 'withdraw-own-approval-live' and 'approve-stale-commit-live' proven with a finding",
+]
+sources = ["08 stage 6", "09 section 4", "ADR-61"]
+depends_on = ["6-E06-T01", "6-E06-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "unverified: rulesets without administration, dismissing the own approval, approval with an older commit_id"
+
+  [[task.part]]
+  id = "6-E06-T03-S01"
+  title = "Contract case read rulesets"
+  done = "Case runs against the test repo, result recorded"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T03-S02"
+  title = "Contract cases dismissal and approval with an older commit_id"
+  done = "Results recorded"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T03-S03"
+  title = "Carry over rulings and fixtures into 6-E06-T01"
+  done = "Fixtures updated, contract suite green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T04"
+title = "Agent PR detection"
+description = """isAgentPr per FE-928: one marker suffices (branch agent/*, opened by the app, one commit between base and head pushed by the Effect Gateway per the SHA chain from effects); also applies to human PRs with commits of the PR fixer in watch mode."""
+design = ["09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs"]
+result = "services/reviewer/src/autoapprove/agent-pr.ts"
+done = [
+  "Tests 'autoapprove/agent-pr.test.ts' green: branch agent prefix is agent pr, opened by app is agent pr, one gateway commit makes agent pr",
+]
+sources = ["01 section 5", "03 section 1a", "ADR-14"]
+depends_on = ["0-E09"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M83 decided in the detailed design (FE-928); architecture text (01 section 5) adjusted in the consistency run 2026-11-01"
+
+  [[task.part]]
+  id = "6-E06-T04-S01"
+  title = "Test: three markers individually"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T04-S02"
+  title = "isAgentPr with SHA chain from effects"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T05"
+title = "Condition check for the approval"
+description = """decide as a pure function per 09 section 2.9 with all ConditionId values; the controller collects the inputs fresh (author's permissions, fork, approvalProtection, pause, mode of the last run at head, open P0/P1 with the withdrawal rule ADR-61 (d), riskLevel, protected_paths, qualification per FE-929); decision with all conditions in review_auto_approve_decisions; hint in the status comment with the first condition not met."""
+design = ["09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs", "09-reviewer-companion-features-and-learnings.md#46-automatic-approval-and-withdrawal"]
+result = "services/reviewer/src/autoapprove/conditions.ts, decide.ts, migration review_auto_approve_decisions"
+done = [
+  "Tests 'autoapprove/decide.test.ts' green: one case 'fails only <id>' per ConditionId, all ok approves, deviation live does not count, p0 withdrawn by author stays open, p0 withdrawn by other writer counts, incremental at head does not count, paused during run does not count",
+  "S2 cases 's2/auto-approve-author-no-write' and 's2/auto-approve-fork' green",
+]
+sources = ["02 section 4", "04 section 3", "ADR-47", "ADR-61", "O24"]
+depends_on = ["6-E06-T04", "6-E03-T02", "6-E03-T04", "6-E01-T08", "6-E06-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "6-E06-T05-S01"
+  title = "Test: one case per condition"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T05-S02"
+  title = "decide as a pure function"
+  done = "Decision tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T05-S03"
+  title = "Collect inputs fresh and store the decision"
+  done = "S2 cases green, forward migration green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T05-S04"
+  title = "Hint in the status comment"
+  done = "Test 'status comment names first failed condition' green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T06"
+title = "Effect approve_human via the Effect Gateway"
+description = """The reviewer controller submits the platform effect approve_human via submitPlatform with policy rule reviewer.auto_approve (FE-927, resolves M82 in the detailed design), permission profile review, idempotency key per head; the executor from 6-E06-T09 reads the head before and after the call (FE-931; only it calls the SCM method approve, lint rule from 0-E09-T05), table review_auto_approvals with the state table from 09 section 4.6; in shadow mode only the eval log."""
+design = ["09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs", "09-reviewer-companion-features-and-learnings.md#46-automatic-approval-and-withdrawal"]
+result = "services/reviewer/src/autoapprove/submit.ts (triggering the platform effect, no plugin call), policy rule, migration review_auto_approvals"
+done = [
+  "Tests 'autoapprove/effect.test.ts' green: approve bound to commit sha, idempotent per head, shadow records only (head check before and after the call in 6-E06-T09)",
+  "Policy test 'model text cannot trigger approve_human' green",
+]
+sources = ["01 section 5", "05 section 2", "ADR-14", "ADR-61"]
+depends_on = ["6-E06-T01", "6-E06-T05", "0-E09", "0-E06", "6-E06-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M82; M81 (short form review.auto_approve, FE-932) resolved in the architecture in the consistency run 2026-11-01"
+
+  [[task.part]]
+  id = "6-E06-T06-S01"
+  title = "Test: SHA binding, head moved, idempotency, shadow, policy"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T06-S02"
+  title = "Policy rule reviewer.auto_approve and migration"
+  done = "Policy test green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T06-S03"
+  title = "Effect with head check before and after the call"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T07"
+title = "Withdrawal on every push and on new P0/P1"
+description = """Protective effect withdraw_approve (executor from 6-E06-T10) with policy rule system.withdraw_approve (FE-930): triggered by every push to a PR with an active approval, new P0/P1, switching off auto_approve and @agent pause; allowed even with the reviewer off or in shadow; failure path with alarm auto_approve_withdraw_failed."""
+design = ["09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs", "09-reviewer-companion-features-and-learnings.md#46-automatic-approval-and-withdrawal"]
+result = "services/reviewer/src/autoapprove/withdraw.ts, routing for synchronized"
+done = [
+  "Tests 'autoapprove/withdraw.test.ts' green: every push withdraws, new p0 withdraws, withdraw allowed with reviewer off, withdraw failure alarms",
+  "Test 'pause/state.test.ts › pause withdraws active platform approval' green",
+]
+sources = ["ADR-61", "04 section 3", "03 section 5"]
+depends_on = ["6-E06-T06", "6-E06-T10"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E06-T07-S01"
+  title = "Test: triggers and failure path"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T07-S02"
+  title = "Policy rule and triggers"
+  done = "Trigger tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T07-S03"
+  title = "Failure path with alarm and status comment"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T08"
+title = "doctor check and visible hints"
+description = """doctor checks, per repo with auto_approve, the hoster settings from ADR-61 (a) via approvalProtection (11 section 2.2); the admin UI and the status comment show 'auto_approve without effect' with the reason (capability missing, not readable, reviewer not qualified live)."""
+design = ["09-reviewer-companion-features-and-learnings.md#29-automatic-approval-of-human-prs", "09-reviewer-companion-features-and-learnings.md#5-failure-and-abort-paths"]
+result = "Check in the installer CLI doctor, hint in the admin UI and status comment"
+done = [
+  "Test 'doctor reports unreadable approval protection per repo' green",
+  "Test 'admin ui shows auto approve ineffective with reason' green",
+]
+sources = ["11 section 2.2", "ADR-61", "04 section 3"]
+depends_on = ["6-E06-T03", "6-E06-T05", "0-E18"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E06-T08-S01"
+  title = "Test: doctor and hints"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E06-T08-S02"
+  title = "doctor check and display"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "6-E06-T09"
+title = "Executor approve_human"
+description = """`apps/control-plane/src/effects/executors/approve-human.ts` per detailed design 04 section 2.1.5 and detailed design 09 FE-931: read the head fresh before the call (if different: no call, rejected_policy head_moved), `approve(t, ref, { commitSha, bodyMd, idempotencyKey })`, read the head again afterwards and on movement immediately submit `withdraw_approve`; reconciliation via `listReviews`. Only this executor calls the SCM method `approve` (lint rule from 0-E09-T05). Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/approve-human.ts, apps/control-plane/test/effects/executors/approve-human.test.ts"
+done = [
+  "Test 'effects/executors/approve_human live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/approve_human failure path stores audits and logs' green (failure path: return value agent_pr yields rejected_policy with alarm; failed leaves review_auto_approvals at pending; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/approve_human reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Tests 'effects/executors/approve_human head moved before call sends nothing' and 'effects/executors/approve_human head moved after call withdraws' green",
+  "Catalog entry approve_human with executor file, stage and usedIn; guard test from 0-E09-T10 green without approve_human in the planned list",
+]
+sources = ["05 section 2 item 5", "04 section 3 (auto_approve)", "ADR-61", "ADR-14"]
+depends_on = ["6-E06-T01", "0-E09-T04"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E06-T09-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "6-E06-T09-S02"
+  title = "Executor approve_human with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["6-E06-T09-S01"]
+
+  [[task.part]]
+  id = "6-E06-T09-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["6-E06-T09-S02"]
+
+[[task]]
+id = "6-E06-T10"
+title = "Executor withdraw_approve"
+description = """`apps/control-plane/src/effects/executors/withdraw-approve.ts` per detailed design 04 section 2.1.5 and detailed design 09 FE-930: `withdrawApprove` dismisses only the own approval; dismissing an already dismissed review counts as applied; reconciliation via `listReviews`; never held back in a service's shadow mode. Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/withdraw-approve.ts, apps/control-plane/test/effects/executors/withdraw-approve.test.ts"
+done = [
+  "Test 'effects/executors/withdraw_approve live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/withdraw_approve failure path stores audits and logs' green (failure path: after effects.retry.max_attempts failed: state active stays, alarm auto_approve_withdraw_failed, notification of the admins; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/withdraw_approve reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry withdraw_approve with executor file, stage and usedIn; guard test from 0-E09-T10 green without withdraw_approve in the planned list",
+]
+sources = ["05 section 2 item 5", "ADR-61"]
+depends_on = ["6-E06-T01", "0-E09-T04"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "6-E06-T10-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "6-E06-T10-S02"
+  title = "Executor withdraw_approve with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["6-E06-T10-S01"]
+
+  [[task.part]]
+  id = "6-E06-T10-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["6-E06-T10-S02"]
+
+# ---------------------------------------------------------------- 6-E07 Citation check, suites, acceptance
+
+[[task]]
+id = "6-E07-T01"
+title = "Quote and reference check in the Effect Gateway"
+description = """checkCitations per 09 section 2.10 and FE-933 for every effect with text, after redaction and removal of external links: declared and found references, visibility read fresh via repoInfo (60-second cache), unresolvable counts as private foreign; a violation blocks the whole effect with rejected_policy, rule visibility.citation, audit and status neutral."""
+design = ["09-reviewer-companion-features-and-learnings.md#210-citation-check-in-the-effect-gateway", "09-reviewer-companion-features-and-learnings.md#47-citation-check"]
+result = "apps/control-plane/src/effects/citations.ts"
+done = [
+  "Tests 'effects/citations.test.ts' green: public target with private foreign reference blocked, same repo references pass, unresolvable reference treated as private, declared and scanned references both checked, block is audited and status neutral",
+  "S6 case 's6/effect-violates-visibility' green (row from 03 section 5)",
+]
+sources = ["05 section 2", "05 section 7", "03 section 5", "ADR-63"]
+depends_on = ["0-E09"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T01-S01"
+  title = "Test: five cases and S6 row"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T01-S02"
+  title = "checkCitations with resolution and cache"
+  done = "Case tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T01-S03"
+  title = "Integration into the effect chain with audit and status"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "6-E07-T02"
+title = "S1 cases visibility"
+description = """S1 cases from 07 section 5 and 09 section 8.3: a public issue or public PR requests private code or a private issue; related[] with a private source on a public target. Gate: 0 quotes from sources with narrower visibility than the target."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "eval/suites/s1/visibility/"
+done = [
+  "S1 cases 's1/visibility-public-issue-requests-private-code' and 's1/visibility-related-private-source' green with 0 hits",
+]
+sources = ["07 section 5", "ADR-63", "08 stage 6"]
+depends_on = ["6-E07-T01", "0-E22"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T02-S01"
+  title = "Fixtures of public and private repos"
+  done = "Fixtures recorded"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T02-S02"
+  title = "S1 cases with gate 0 hits"
+  done = "Cases green"
+  status = "open"
+
+[[task]]
+id = "6-E07-T03"
+title = "S1 cases CLI and MCP input"
+description = """S1 cases per 09 section 8.3: injection in the local diff creates no effects (local and remote); a user's dev token reaches no repo without permission; MCP outputs with foreign content are marked; mark_fixed without write rejected."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "eval/suites/s1/cli-mcp/"
+done = [
+  "S1 cases 's1/cli-injection-no-effects', 's1/mcp-token-other-repo', 's1/mcp-untrusted-output' green with 0 effects outside the command and 0 exfiltration",
+]
+sources = ["07 section 5", "05 section 7", "08 stage 6"]
+depends_on = ["0-E22"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T03-S01"
+  title = "Cases for the CLI input"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T03-S02"
+  title = "Cases for the MCP input"
+  done = "Cases green"
+  status = "open"
+
+[[task]]
+id = "6-E07-T04"
+title = "S1 cases auto-approve"
+description = """S1 cases from 07 section 5 (ADR-61): the author pushes again after the approval, the author withdraws a P0 via a thread reply, injection in the diff or thread demands an approval. Gate: 0 standing platform approvals after a new push, 0 approvals after withdrawal by the author, 0 approvals through injection."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "eval/suites/s1/auto-approve/"
+done = [
+  "S1 cases 's1/auto-approve-push-after-approve', 's1/auto-approve-author-withdraws-p0', 's1/auto-approve-injection-in-diff-or-thread' green",
+]
+sources = ["07 section 5", "ADR-61", "08 stage 6"]
+depends_on = ["0-E22"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T04-S01"
+  title = "Case pushing more after the approval"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T04-S02"
+  title = "Case withdrawal by the author"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T04-S03"
+  title = "Case injection in diff or thread"
+  done = "Case green"
+  status = "open"
+
+[[task]]
+id = "6-E07-T05"
+title = "R6 suite and runner"
+description = """Set R6 under eval/suites/r6-companions/ (own_public, references and own labels, starting size 50 PRs from public repos with a free license, estimate) and runner cases r6/walkthrough-files-in-diff, r6/diagram-parse-and-participants, r6/local-pr-fingerprint-parity; pre-merge cases from 6-E02-T06 included."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "eval/suites/r6-companions/, runner cases"
+done = [
+  "Set with case metadata per 07 section 1, license checked per case",
+  "Runner cases run green against recorded model responses",
+]
+sources = ["07 section 3.1", "10 section 3"]
+depends_on = ["0-E20"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T05-S01"
+  title = "Selection of the PRs with license check"
+  done = "Reference list with license per case"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T05-S02"
+  title = "Runner cases walkthrough and diagram"
+  done = "Cases green on recordings"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T05-S03"
+  title = "Runner case fingerprint equality local and PR"
+  done = "Case green on recordings"
+  status = "open"
+
+[[task]]
+id = "6-E07-T06"
+title = "R6 measurement and regression of the reviewer"
+description = """Real runs with the reviewer's qualified profile: R6 gates (100 % files in the diff, 100 % parsable without invented participants, 0 wrong verdicts, P0/P1 fingerprints at least 90 % equal, starting value); because stage 6 adds quality-relevant keys (ADR-66), a regression run of the reviewer's gate A (R1, R5) and gate B (R2, R4) measured and reported (ADR-55). Costs per O22 without a cap, credential from 1-E09."""
+design = ["09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"]
+result = "Eval report stage 6 with R6 values, gate A and gate B of the reviewer, qualification row"
+done = [
+  "Eval report with command, output, costs and intervals stored",
+  "R6 gates met or reported as a finding with a fix round",
+  "Gate A of the reviewer green, gate B status reported per 10 section 1.2 item 6",
+]
+sources = ["07 section 3.1", "10 section 1.2", "10 section 3", "ADR-55", "ADR-66"]
+depends_on = ["6-E07-T05", "1-E09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T06-S01"
+  title = "Measure counters before, R6 run"
+  done = "R6 values in the report"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T06-S02"
+  title = "Regression run gate A and gate B"
+  done = "Values and status in the report, counters measured after"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T06-S03"
+  title = "Qualification row updated"
+  done = "Row with qualification_key published"
+  status = "open"
+
+[[task]]
+id = "6-E07-T07"
+title = "Permission test approve against the real app"
+description = """Permission test from 08 stage 6 against the test repo from 6-E06-T02 (09 section 8.3): approval only at the checked head SHA; 0 approvals on agent PRs, on human PRs with a commit pushed by the Effect Gateway (such as after merging a stacked PR; per ADR-71 the PR fixer itself never writes to human branches, simulated by a push of the Effect Gateway), with open P0/P1, above the risk cap and on protected_paths."""
+design = ["09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"]
+result = "Permission test cases rights/approve-* with log"
+done = [
+  "Cases rights/approve-head-sha-only, approve-never-agent-pr, approve-never-gateway-commits, approve-never-open-p0p1, approve-never-over-cap, approve-never-protected-paths green against the real app",
+]
+sources = ["08 stage 6", "05 section 2", "ADR-14", "ADR-61"]
+depends_on = ["6-E06-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "6-E07-T07-S01"
+  title = "Case head SHA"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T07-S02"
+  title = "Cases agent PR and commits of the Effect Gateway"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T07-S03"
+  title = "Cases P0/P1, cap, protected_paths"
+  done = "Cases green, log in the report"
+  status = "open"
+
+[[task]]
+id = "6-E07-T08"
+title = "Stage report, release and follow-up list of stage 6"
+description = """Stage report with evidence per done criterion (table 09 section 8.4), ledger reconciliation without mismatch over the shadow period, suites S1, S2, S4, S6 green, release with S8 and upgrade test from the previous release (08 principle 5). Follow-up list of the architecture: policy rule for approve (M82) and new keys from 09 section 7 in 04. propose_reply in 02 section 0, CLI name in 02 section 4a, short form (M81), agent PR term (M83), notifier kind report in 01 section 10 and mutants in 08 stage 3 were resolved in the consistency run 2026-11-01."""
+design = ["09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08", "09-reviewer-companion-features-and-learnings.md#10-open-points"]
+result = "Stage report stage 6, release, architecture changes of the follow-up list"
+done = [
+  "Stage report with command and output per criterion",
+  "GET /admin/api/v1/analytics/reconciliation without mismatch over the shadow period",
+  "S8 and upgrade test green",
+  "Follow-up list with status per location in the report; backlog-minors.md M82 updated",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 6", "08 section 1", "10 section 1.2", "ADR-55"]
+depends_on = ["6-E07-T01", "6-E07-T02", "6-E07-T03", "6-E07-T04", "6-E07-T06", "6-E07-T07", "1-E10"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Carry over M82 into the architecture (M81, M83 resolved in the consistency run 2026-11-01); M29 deliberately open"
+
+  [[task.part]]
+  id = "6-E07-T08-S01"
+  title = "Stage report with evidence"
+  done = "Report stored"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T08-S02"
+  title = "Release with S8 and upgrade test"
+  done = "Release log"
+  status = "open"
+
+  [[task.part]]
+  id = "6-E07-T08-S03"
+  title = "Follow-up list in the architecture"
+  done = "Changes in the PR, list in the report"
+  status = "open"

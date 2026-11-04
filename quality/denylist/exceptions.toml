@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Exceptions of the deny-list scanner (tools/denylist/scan.py), one per finding
+# id and exact line, never per file (FE-023). A finding prints its id; the
+# report written with --json holds the line_sha256 of the line. The reason
+# names the pull request that accepted the exception. The text rule
+# instance-data (tools/hooks/text_rules.py) applies the same exceptions.
+#
+# [[exception]]
+#   term         finding id: term-<sha256 of the list entry, 12 hex> or generic-<rule>
+#   line_sha256  SHA-256 of the exact line in UTF-8, without the line break
+#   path         path of the file in the repository
+#   reason       why the line may stay
+
+[[exception]]
+term = "generic-private-ipv4"
+line_sha256 = "fb6da83671d9a14f0d60219f50e9d255f334e5aacc5a9d0b6d399dfdfbf12732"
+path = "quality/denylist/generic.toml"
+reason = "The network list of the rule itself, no address of an installation (R-E02-T08)"
+
+[[exception]]
+term = "generic-mail-address"
+line_sha256 = "a72f5ac31dbf19e7ac31c5378a621ba15b7c9ca6cbc03ae7854d98416a459c13"
+path = "tools/hooks/tests/test_commit_msg.py"
+reason = "Public Co-Authored-By trailer of Claude Code as test input of the commit check (R-E02-T08)"
+
+[[exception]]
+term = "generic-mail-address"
+line_sha256 = "ef78fba0a81c3aa2a58c03b958baedbf7a86d36f4f9cb15afc6961da5191e0a1"
+path = "tools/hooks/tests/test_commit_msg.py"
+reason = "Look-alike bot address under an example domain, test input of the commit check (R-E02-T08)"
+
+[[exception]]
+term = "generic-mail-address"
+line_sha256 = "42fcc3ed5b24c4780bbcecb719d07dcef72a5881fdb8cdf8ee334b412f107c5b"
+path = "docs/quality/push-discipline.md"
+reason = "Public committer identity of GitHub for merges in the web interface, a line of ALLOW_AUTHORS (R-E03-T02)"
+
+[[exception]]
+term = "generic-mail-address"
+line_sha256 = "8f637da011b327d370fe9ab1271f15e450fb8f6f038443a611e5670b747be346"
+path = "docs/design/00-codebase-and-conventions.md"
+reason = "Public committer identity of GitHub web merges, named in detailed design 00 for quality/commits/bots.txt (R-E04-T05)"

@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "scm-common"
+title = "Shared hoster helpers without network (diff positions, markers, fallback chain, HTTP errors, check as status)"
+kind = "package"
+path = "packages/scm-common/"
+package = "@guildwork/scm-common"
+stage = "9"
+purpose = "Pure helpers that all SCM plugins share, because plugins must not import each other (FE-1402); plus the report of the contract revision after the second hoster. No network, no DB, no contract: the contracts stay in contracts."
+design = [
+  "14-stage-9-breadth-and-hardening.md#20-directories-and-packages",
+  "14-stage-9-breadth-and-hardening.md#211-common-host-framework",
+  "14-stage-9-breadth-and-hardening.md#213-contract-revision-after-the-second-host",
+  "14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud",
+  "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01",
+]
+built_by = ["9-E01-T03", "9-E01-T04", "9-E01-T05"]
+
+[[provides]]
+name = "hoster-typen"
+kind = "ts-api"
+title = "HosterId, HosterInstanceConfig, StaticTokenConfig, DiffPosition (basis of the instance configuration per hoster)"
+defined_in = "14-stage-9-breadth-and-hardening.md#211-common-host-framework"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "diff-positionen"
+kind = "ts-api"
+title = "parseUnifiedDiff, hunksToPositions: position mapping for inline comments"
+defined_in = "14-stage-9-breadth-and-hardening.md#211-common-host-framework"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "http-fehler"
+kind = "ts-api"
+title = "mapHttpError: HTTP response to PluginError according to 05 section 2.7, extensible per plugin"
+defined_in = "14-stage-9-breadth-and-hardening.md#211-common-host-framework"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "effekt-marker"
+kind = "ts-api"
+title = "renderEffectMarker: marker <!-- gw-effect:<effectId> run:<runId> --> in comments"
+defined_in = "14-stage-9-breadth-and-hardening.md#211-common-host-framework"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "ersatzkette"
+kind = "ts-api"
+title = "runFallbackChain and FallbackStep: stages one after another, result with fallbackUsed"
+defined_in = "14-stage-9-breadth-and-hardening.md#211-common-host-framework"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "check-als-status"
+kind = "ts-api"
+title = "CheckAsStatus: startCheck and updateCheck as commit or PR status plus summary (FE-1405)"
+defined_in = "14-stage-9-breadth-and-hardening.md#211-common-host-framework"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "label-marker"
+kind = "file"
+title = "Label marker <!-- guildwork:labels v1 a,b --> for hosters without labels (FE-1408)"
+defined_in = "14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud"
+from_task = "9-E01-T04"
+
+[[provides]]
+name = "scm-revisionsbericht"
+kind = "file"
+title = "ScmRevisionReport with ContractDeviation and DeprecationPlan (tools/contracts/scm-revision.ts), report in the PR and the product repo"
+defined_in = "14-stage-9-breadth-and-hardening.md#213-contract-revision-after-the-second-host"
+from_task = "9-E01-T05"

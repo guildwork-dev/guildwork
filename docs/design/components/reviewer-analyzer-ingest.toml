@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-analyzer-ingest"
+title = "Analyzer in mode ingest: SARIF from CI artifacts and code scanning"
+kind = "service"
+path = "services/reviewer/src/controller/analyzers/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Fetches SARIF bytes from CI artifacts (optionally code scanning) with size limits into the BlobStore and feeds the normalized analyzer findings as a candidate signal into the finder context and the verifier (ADR-40); from stage 2 on also findings from analyzer run. Never parses in the controller (FE-821) and never produces unverified findings (FE-822)."
+design = [
+  "08-reviewer.md#414-analyzers-in-mode-ingest",
+  "08-reviewer.md#83-cross-cutting-suites",
+  "10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate",
+]
+built_by = ["1-E06-T02", "1-E06-T03", "1-E06-T04", "1-E06-T05", "2-E05-T08"]
+
+[[provides]]
+name = "quelle-ci-artifact"
+kind = "ts-api"
+title = "fetch.ts: workflow run at the head, artifact as bytes in runs/<runId>/reviewer/sarif/, waiting until analyzers.ingest_wait_min"
+defined_in = "08-reviewer.md#414-analyzers-in-mode-ingest"
+from_task = "1-E06-T02"
+
+[[provides]]
+name = "metrik-ingest"
+kind = "metric"
+title = "reviewer_analyzer_ingest_total{status}"
+defined_in = "08-reviewer.md#5-failure-and-abort-paths"
+from_task = "1-E06-T02"
+
+[[provides]]
+name = "quelle-code-scanning"
+kind = "ts-api"
+title = "Source scm_code_scanning, off by default until the permission check"
+defined_in = "08-reviewer.md#414-analyzers-in-mode-ingest"
+from_task = "1-E06-T03"
+
+[[provides]]
+name = "analyzer-kandidaten"
+kind = "ts-api"
+title = "Analyzer candidates source analyzer:<id> in context part 9 and verifier, llmUse forbidden only counted, allowlist check"
+defined_in = "08-reviewer.md#414-analyzers-in-mode-ingest"
+from_task = "1-E06-T04"
+
+[[provides]]
+name = "sarif-fixtures"
+kind = "file"
+title = "SARIF fixtures of real outputs of Opengrep, gitleaks and osv-scanner in a pinned version"
+defined_in = "08-reviewer.md#83-cross-cutting-suites"
+from_task = "1-E06-T05"
+
+[[provides]]
+name = "quelle-run"
+kind = "ts-api"
+title = "Findings from analyzer run in addition to ingest as verifier candidates, dedupe via fingerprint, IoU and CWE"
+defined_in = "10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate"
+from_task = "2-E05-T08"
+
+[[uses]]
+interface = "plugin-github-scm/ci-artifact"
+from_task = "1-E06-T02"
+purpose = "Artifact at the head SHA as bytes"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "1-E06-T02"
+purpose = "optional method ciArtifact in the contract"
+
+[[uses]]
+interface = "plugin-github/mint-token"
+from_task = "1-E06-T02"
+purpose = "actions:read in the profile read"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E06-T02"
+purpose = "SARIF bytes via ControllerHost.blobs"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E06-T02"
+purpose = "analyzers.ingest and analyzers.ingest_wait_min"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "1-E06-T02"
+purpose = "Counter reviewer_analyzer_ingest_total{status}"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "1-E06-T02"
+purpose = "Contract test github.ci_artifact_download against a recording"
+
+[[uses]]
+interface = "plugin-github-scm/code-scanning-sarif"
+from_task = "1-E06-T03"
+purpose = "Code scanning alerts, if the permission is covered"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-sarif"
+from_task = "1-E06-T04"
+purpose = "normalized AnalyzerFinding from the sandbox"
+
+[[uses]]
+interface = "reviewer-gate/reviewer.prepare"
+from_task = "1-E06-T04"
+purpose = "SARIF normalization in the prepare job"
+
+[[uses]]
+interface = "reviewer-verifier/reviewer.verify"
+from_task = "1-E06-T04"
+purpose = "Analyzer candidates in the verifier"
+
+[[uses]]
+interface = "reviewer-befunde/filterkette"
+from_task = "1-E06-T04"
+purpose = "shared dedupe with LLM findings"
+
+[[uses]]
+interface = "reviewer-router-und-budget/kontextpaket"
+from_task = "1-E06-T04"
+purpose = "Context part 9"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "1-E06-T04"
+purpose = "analyzers_allowlist of the installation"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "1-E06-T04"
+purpose = "Rejection on load for an id outside the allowlist"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "1-E06-T05"
+purpose = "S1 case injection_sarif_message"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "1-E06-T05"
+purpose = "EffectProbe: 0 effects outside the command"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/tools-toml"
+from_task = "1-E06-T05"
+purpose = "pinned versions of Opengrep, gitleaks, osv-scanner for the fixtures"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "2-E05-T08"
+purpose = "Findings from analyzer run"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T08"
+purpose = "AnalyzerReport and AnalyzerFinding binding"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "2-E05-T08"
+purpose = "fingerprint and compareBaseline for run findings"

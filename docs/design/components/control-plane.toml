@@ -1,0 +1,188 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "control-plane"
+title = "Control plane program: role selection, roles web and orchestrator, health"
+kind = "program"
+path = "apps/control-plane/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "One program for all roles of the control plane: selects the roles from the argument, starts HTTP (web) and pg-boss workers (orchestrator), mounts the areas via WebMount and reports readiness. Contains no domain logic itself; ingress, router, orchestrator, policy and ledger are separate components, the role ops belongs to detailed design 06."
+design = [
+  "02-control-plane.md#24-roles-and-processes",
+  "02-control-plane.md#41-ingress",
+  "02-control-plane.md#7-configuration",
+]
+built_by = [
+  "0-E05-T10",
+  "0-E02-T02",
+  "0-E18-T12",
+  "8-E06-T01",
+]
+
+[[provides]]
+name = "aufruf"
+kind = "cli"
+title = "control-plane <roles> [<subcommand>]: all, web, orchestrator, comma-separated list, migrate and ops alone (FE-200); standalone commands from COMMANDS, such as audit-verify on auditVerifyMain"
+defined_in = "02-control-plane.md#24-roles-and-processes"
+from_task = "0-E05-T10"
+
+[[provides]]
+name = "health"
+kind = "http"
+title = "GET /healthz (process alive), GET /readyz (role ready, 503 with reason)"
+defined_in = "02-control-plane.md#41-ingress"
+from_task = "0-E05-T10"
+
+[[provides]]
+name = "web-mount"
+kind = "ts-api"
+title = "WebMount, WebMountContext, startWebRole: mounting of Work API, platform MCP, admin API and admin UI into the role web (FE-213)"
+defined_in = "02-control-plane.md#24-roles-and-processes"
+from_task = "0-E05-T10"
+
+[[provides]]
+name = "konfig-rollen"
+kind = "config"
+title = "orchestrator.shutdown_grace_s: time for running jobs on shutdown"
+defined_in = "02-control-plane.md#7-configuration"
+from_task = "0-E05-T10"
+
+[[provides]]
+name = "start-metrik"
+kind = "metric"
+title = "guildwork.orchestrator.started"
+defined_in = "02-control-plane.md#51-metrics-of-this-area"
+from_task = "0-E05-T10"
+
+[[uses]]
+interface = "db-migrator/migrator"
+from_task = "0-E02-T02"
+purpose = "Role migrate calls createMigrator(...).apply() and sets the exit codes 0, 1, 2"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E02-T02"
+purpose = "Connection per role (migrate with migrate_url_ref, web and orchestrator with url_ref)"
+
+[[uses]]
+interface = "config-installation/startup"
+from_task = "0-E02-T02"
+purpose = "startupConfig in main.ts: load installation.yaml, on error exit 1 with config.invalid"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E05-T10"
+purpose = "LoadedInstallation for WebMountContext and reload via SIGHUP without abort on an invalid version"
+
+[[uses]]
+interface = "config-installation/plattform-env"
+from_task = "0-E05-T10"
+purpose = "GUILDWORK_CONFIG and GUILDWORK_LOG_LEVEL as the only environment variables"
+
+[[uses]]
+interface = "db-migrator/startcheck"
+from_task = "0-E05-T10"
+purpose = "startCheck before the start of each role; app_too_old and schema errors as reason in /readyz"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E05-T10"
+purpose = "Start pg-boss of the role orchestrator and halt it on shutdown with stop(orchestrator.shutdown_grace_s)"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E05-T10"
+purpose = "Create QUEUES and registerHandlers; start aborts if a queue lacks its handler"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "0-E05-T10"
+purpose = "WebMount ingress under /v1/ingress in the role web"
+
+[[uses]]
+interface = "control-plane-ingress/plugin-lookup"
+from_task = "0-E05-T10"
+purpose = "PluginLookup over the loaded PluginRegistry for WebMountContext.plugins"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E05-T10"
+purpose = "Load the plugin registry at start (built-in packages and instances from installation.yaml)"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E05-T10"
+purpose = "Load BlobStore and SecretStore; BlobStore reachable is a condition for /readyz of the role web; role migrate resolves database.migrate_url_ref and database.url_ref via SecretStore.get"
+
+[[uses]]
+interface = "telemetry/start"
+from_task = "0-E05-T10"
+purpose = "Start the OTel SDK per role and flush it on shutdown with shutdown (00 FE-008)"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E05-T10"
+purpose = "Logger per role with role name and release"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E05-T10"
+purpose = "Clock for all areas, controllable in tests"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E05-T10"
+purpose = "Counter guildwork.orchestrator.started"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E05-T10"
+purpose = "Role tests against real Postgres with pg-boss"
+
+[[uses]]
+interface = "cli/upgrade-sperren"
+from_task = "0-E18-T12"
+purpose = "Role migrate checks the locks no_recent_backup, halt_point_skipped and ALTER EXTENSION vector UPDATE before apply()"
+
+[[provides]]
+name = "plugin-kontext"
+kind = "contract"
+title = "LoaderDeps of the control plane in plugins/context.ts: makeContext with blob only for SCMProvider, scmTokens.read only for WorkItemProvider with key scm, InstanceDecl with audit_anchor_branch (FE-216)"
+defined_in = "02-control-plane.md#24-roles-and-processes"
+from_task = "0-E05-T10"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "0-E05-T10"
+purpose = "main.ts selects the role migrate and builds MigrateRoleInput from the secret references (01 section 2.5)"
+
+[[uses]]
+interface = "treiber-lader/queue-drivers-health"
+from_task = "0-E05-T10"
+purpose = "Role orchestrator registers the handler drivers-health with pollDriverHealth (04 FE-439)"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "0-E05-T10"
+purpose = "PluginContext.secrets in makeContext"
+
+[[uses]]
+interface = "credential-broker/scm-tokens"
+from_task = "0-E05-T10"
+purpose = "PluginContext.scmTokens.read via mintScmToken with profile read (05 FE-551)"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E05-T10"
+purpose = "PluginContext.audit in makeContext"
+
+[[uses]]
+interface = "control-plane-ingress/blob-store-port"
+from_task = "0-E05-T10"
+purpose = "PluginContext.blob read-only for SCMProvider instances"
+
+[[uses]]
+interface = "pricing/price-lookup"
+from_task = "8-E06-T01"
+purpose = "loadPriceLookup at start of the roles web and orchestrator, passed to createLedger"

@@ -1,0 +1,261 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "merge-ausfuehrung-und-nachlauf"
+title = "Merge with fencing, states merge_gate and merging, post-merge watch, revert and fallback to human with UI page repo_overrides"
+kind = "role"
+path = "apps/control-plane/src/orchestrator/merge-gate/execute.ts"
+package = "@guildwork/control-plane"
+stage = "5"
+purpose = "Executes a decision merge: fresh reading of hold, stop and request changes, agent-approval-check and effect merge with fencing via decisionId, states merge_gate and merging in the run state machine, post-merge watch at the merge SHA with a deterministic revert step and fallback to human via repo_overrides including the admin UI; does not evaluate conditions and does not build the executor merge."
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode", "11-qa-prfix-automerge.md#212-admin-api-endpoints", "11-qa-prfix-automerge.md#31-tables", "11-qa-prfix-automerge.md#32-artifacts-events-markers", "11-qa-prfix-automerge.md#33-effects-of-the-orchestrator", "11-qa-prfix-automerge.md#47-merge-gate-waiting-window-and-merge", "11-qa-prfix-automerge.md#48-post-merge-follow-up-and-revert", "11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21", "11-qa-prfix-automerge.md#5-failure-and-abort-paths"]
+built_by = ["5-E02-T02", "5-E02-T03", "5-E02-T04", "5-E02-T05"]
+
+[[provides]]
+name = "merge-ausfuehrung"
+kind = "ts-api"
+title = "MergeExecutor.execute: read fresh, agent-approval-check, effect merge with decisionId"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E02-T02"
+
+
+[[provides]]
+name = "zustaende-merge"
+kind = "contract"
+title = "Transitions of the states merge_gate and merging in the state machine table (transitions.ts)"
+defined_in = "11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21"
+from_task = "5-E02-T03"
+
+[[provides]]
+name = "nachlauf"
+kind = "ts-api"
+title = "PostMergeWatcher start, onChecks, onTimeout"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E02-T04"
+
+[[provides]]
+name = "tabelle-post-merge-watches"
+kind = "table"
+title = "post_merge_watches"
+defined_in = "11-qa-prfix-automerge.md#31-tables"
+from_task = "5-E02-T04"
+
+
+[[provides]]
+name = "policy-orchestrator-revert"
+kind = "contract"
+title = "Policy rule orchestrator.revert_after_red_target for change, ready_for_review, request_reviewers"
+defined_in = "11-qa-prfix-automerge.md#33-effects-of-the-orchestrator"
+from_task = "5-E02-T04"
+
+[[provides]]
+name = "event-post-merge-red"
+kind = "event"
+title = "post_merge.red with repo, mergeSha, failedChecks"
+defined_in = "11-qa-prfix-automerge.md#32-artifacts-events-markers"
+from_task = "5-E02-T04"
+
+[[provides]]
+name = "admin-api-post-merge-watches"
+kind = "http"
+title = "GET /admin/api/v1/post-merge-watches"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E02-T04"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "merge_result_total{code}, merge_fencing_rejected_total, post_merge_timeout_total, alarms post_merge_red and revert_conflict"
+defined_in = "11-qa-prfix-automerge.md#5-failure-and-abort-paths"
+from_task = "5-E02-T04"
+
+[[provides]]
+name = "rueckfall-human"
+kind = "ts-api"
+title = "MergeModeFallback fallBackToHuman and lift via repo_overrides"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E02-T05"
+
+[[provides]]
+name = "admin-api-repo-overrides"
+kind = "http"
+title = "GET /admin/api/v1/repo-overrides and POST /admin/api/v1/repo-overrides/{id}/lift"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E02-T05"
+
+[[provides]]
+name = "ui-repo-overrides"
+kind = "ui"
+title = "Admin UI page repo-overrides"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E02-T05"
+
+[[uses]]
+interface = "merge-gate/entscheidungen-repo"
+from_task = "5-E02-T02"
+purpose = "most recent decision of the run for the fencing"
+
+[[uses]]
+interface = "merge-gate/auswertung"
+from_task = "5-E02-T02"
+purpose = "MergeConfig and decision merge"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "5-E02-T02"
+purpose = "read hold, stop and request changes fresh"
+
+[[uses]]
+interface = "plugin-github-scm/list-reviews"
+from_task = "5-E02-T02"
+purpose = "human request changes at the SHA"
+
+[[uses]]
+interface = "orchestrator-effekte/orchestrator-effects-api"
+from_task = "5-E02-T02"
+purpose = "Platform effects check and merge of the orchestrator"
+
+[[uses]]
+interface = "orchestrator-effekte/check-agent-approval"
+from_task = "5-E02-T02"
+purpose = "agent-approval-check success at the checked SHA"
+
+[[uses]]
+interface = "effect-gateway/pruefer-merge-gate"
+from_task = "5-E02-T02"
+purpose = "Checker orchestrator.merge_gate_passed"
+
+[[uses]]
+interface = "effect-gateway/effekt-katalog"
+from_task = "5-E02-T02"
+purpose = "Effect merge in the catalog"
+
+[[uses]]
+interface = "credential-broker/profil-merge"
+from_task = "5-E02-T02"
+purpose = "Token profile merge only at execution for one repo"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "5-E02-T02"
+purpose = "Rule IDs of the orchestrator rules"
+
+[[uses]]
+interface = "effekt-executoren/merge"
+from_task = "5-E02-T03"
+purpose = "Result of the merge effect 200, 405, 409"
+
+[[uses]]
+interface = "effect-gateway/effect-events"
+from_task = "5-E02-T03"
+purpose = "effect.applied and effect.failed as an event of the state machine"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "5-E02-T03"
+purpose = "Rows merge_gate and merging in run-automaton.v1.json"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "5-E02-T03"
+purpose = "RunState and RunEventType"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "5-E02-T03"
+purpose = "S6 completeness of the cells merge_gate and merging"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "5-E02-T04"
+purpose = "Migration post_merge_watches"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "5-E02-T04"
+purpose = "Register the step revert"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "5-E02-T04"
+purpose = "Revert job as an item of kind check"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "5-E02-T04"
+purpose = "Push and draft PR on agent/revert/*"
+
+[[uses]]
+interface = "effekt-executoren/ready-for-review"
+from_task = "5-E02-T04"
+purpose = "Revert PR ready for review"
+
+[[uses]]
+interface = "effekt-executoren/request-reviewers"
+from_task = "5-E02-T04"
+purpose = "Request the responsible people from codeowners"
+
+[[uses]]
+interface = "effekt-executoren/notify"
+from_task = "5-E02-T04"
+purpose = "Notification via comment-on-source"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "5-E02-T04"
+purpose = "Alarms post_merge_red and revert_conflict"
+
+[[uses]]
+interface = "config-resolver/overrides"
+from_task = "5-E02-T05"
+purpose = "Set and lift repo_overrides merge.mode human"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "5-E02-T05"
+purpose = "Routes of the fallbacks"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "5-E02-T05"
+purpose = "Page repo-overrides"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "5-E02-T03"
+purpose = "Audit on merge result, fencing, revert and on lifting"
+
+[[uses]]
+interface = "orchestrator-effekte/policy-regeln-orchestrator"
+from_task = "5-E02-T02"
+purpose = "Rule orchestrator.agent_approval_check (POL-105) for the check with auto"
+
+[[uses]]
+interface = "worker/step-revert"
+from_task = "5-E02-T04"
+purpose = "deterministic revert step without an LLM"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "5-E02-T04"
+purpose = "checkEvidence at the merge SHA by query in the job merge-post-watch-poll; no event, because the vocabulary knows no check-completed (FE-1137)"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "5-E02-T04"
+purpose = "Register the jobs merge-post-watch-poll and merge-post-watch-timeout (section 3.4)"
+
+[[uses]]
+interface = "db-queue/send-in-tx"
+from_task = "5-E02-T04"
+purpose = "Timeout job in the same transaction as post_merge_watches"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "5-E02-T03"
+purpose = "Metrics merge_result_total and the following ones"
+
+[[uses]]
+interface = "merge-gate/event-merge-gate-decided"
+from_task = "5-E02-T03"
+purpose = "Decision human, wait_veto or merge as an event of the run state machine in merge_gate (11 section 4.9)"

@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-analyzer-infracost"
+title = "Analyzer Infracost"
+kind = "plugin"
+path = "plugins/analyzer-infracost/"
+package = "@guildwork/plugin-analyzer-infracost"
+stage = "10"
+purpose = "Produces a cost diff for IaC (HCL) between base and head as a properties bag that the Reviewer shows deterministically in its summary. No findings, no prompt context; whether price data needs an account is unverified (backlog M35, until then byo_license)."
+design = [
+  "15-stage-10-edge-layers.md#262-analyzer-infracost",
+  "15-stage-10-edge-layers.md#263-shared-rules-of-the-three-new-analyzers",
+  "15-stage-10-edge-layers.md#264-an1",
+  "15-stage-10-edge-layers.md#84-analyzers-10-e04",
+]
+built_by = ["10-E04-T02", "10-E04-T03"]
+
+[[provides]]
+name = "analyzer"
+kind = "contract"
+title = "Analyzer contract v1alpha1: manifestExt, describe (network allowlist), run with InfracostConfig, AnalyzerReport without findings"
+defined_in = "15-stage-10-edge-layers.md#262-analyzer-infracost"
+from_task = "10-E04-T02"
+
+[[provides]]
+name = "beutel-cost-diff"
+kind = "ts-api"
+title = "properties bag guildwork/cost-diff@1 (CostDiffBag) in packages/sarif/src/bags/cost-diff.ts"
+defined_in = "15-stage-10-edge-layers.md#262-analyzer-infracost"
+from_task = "10-E04-T02"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "InfracostConfig { api_key_ref, pricing_endpoint, currency } and analyzer instance analyzers[infracost]"
+defined_in = "15-stage-10-edge-layers.md#262-analyzer-infracost"
+from_task = "10-E04-T02"
+
+[[provides]]
+name = "zusammenfassung-kosten-diff"
+kind = "contract"
+title = "Section cost diff in the tool context of the Reviewer summary, deterministically from guildwork/cost-diff@1 (K12, FE-1528)"
+defined_in = "15-stage-10-edge-layers.md#262-analyzer-infracost"
+from_task = "10-E04-T02"
+
+[[provides]]
+name = "an1-fixtures"
+kind = "file"
+title = "20 fixture repos with recorded price responses under packages/testkit/src/contract/fixtures/analyzer-an1/infracost/"
+defined_in = "15-stage-10-edge-layers.md#264-an1"
+from_task = "10-E04-T03"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "10-E04-T02"
+purpose = "Analyzer contract v1alpha1 with AnalyzerSandboxSpec.network allowlist (K9)"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "10-E04-T02"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "10-E04-T02"
+purpose = "PluginManifest with cost byo_license and egress hosts"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "10-E04-T02"
+purpose = "SARIF without findings with run.properties"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E04-T02"
+purpose = "canonicalJson for the AN1 comparison of the bag"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "10-E04-T02"
+purpose = "Load the plugin as a BuiltinPluginPackage"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "10-E04-T02"
+purpose = "Execution in the tool sandbox, neutral with no_pricing_access"
+
+[[uses]]
+interface = "analyzer-runner/netz-allowlist"
+from_task = "10-E04-T02"
+purpose = "describe().network allowlist: only the price endpoint via the egress proxy (K9)"
+
+[[uses]]
+interface = "egress-proxy/header-relay"
+from_task = "10-E04-T02"
+purpose = "Only the proxy sets the header with the key from api_key_ref (K16, FE-1545)"
+
+[[uses]]
+interface = "credential-broker/secrets"
+from_task = "10-E04-T02"
+purpose = "api_key_ref from the SecretStore for the header"
+
+[[uses]]
+interface = "reviewer-analyzer-ingest/quelle-run"
+from_task = "10-E04-T02"
+purpose = "The Reviewer runs the analyzer in mode run when filePatterns match"
+
+[[uses]]
+interface = "reviewer-ausgabe/werkzeug-kontext"
+from_task = "10-E04-T02"
+purpose = "Renderer for guildwork/cost-diff@1 in the section tool context (K12)"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "10-E04-T02"
+purpose = "prompt_v and profile of the Reviewer stay unchanged (FE-1528)"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "10-E04-T02"
+purpose = "Image deploy/images/analyzer-infracost by digest"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "10-E04-T02"
+purpose = "License gate of the image"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "10-E04-T02"
+purpose = "License note Infracost and account question M35 with source location"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "10-E04-T02"
+purpose = "Contract suite analyzer-infracost"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "10-E04-T02"
+purpose = "recorded price responses"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "10-E04-T03"
+purpose = "AN1 with 20 fixtures and bag comparison"

@@ -1,0 +1,917 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area prfix of stage 4. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "4"
+
+[[epic]]
+id = "4-E01"
+title = "PR fixer foundation"
+goal = "Review threads of human PRs too, at most 3 attempts, no-op correct; bot loop protection, prohibitions with a suggestion instead of a commit, delivery as a commit or stacked PR"
+sources = ["02 section 6"]
+depends_on = ["2-E07"]
+
+[[task]]
+id = "4-E01-T01"
+title = "Contracts FixRequest and FixResult, manifest, schema"
+description = """TypeBox schemas FixRequest, FixResult (v1 and v2), FixItem, OutOfScopeSuggestion in packages/contracts/src/artifacts/fix-result.ts per detailed design 11 section 2.2; service manifest prfixer with the write requests from 02 section 0; configuration key services.prfixer from section 7 in the schema with the marker x-qualification and inheritance (max_rounds, sources only lower; allow_on_human_branches fixed never)."""
+design = ["11-qa-prfix-automerge.md#22-shared-artifact-types", "11-qa-prfix-automerge.md#7-configuration"]
+result = "packages/contracts/src/artifacts/fix-result.ts, services/prfixer/manifest.ts, packages/config/schema/services/prfixer.ts, tests"
+done = ["Test 'FixResult fixed without commit is rejected' green", "Schema test 'every key under services.prfixer is marked' green", "Test 'repo file cannot raise max_rounds' green", "Test 'source dependency_update before stage 10 is rejected with unsupported' green"]
+sources = ["02 section 0", "02 section 6", "04 sections 1, 3, 7"]
+depends_on = ["0-E13", "0-E06"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M39 (prfixer watch in the schema) is resolved here for the area prfixer."
+
+  [[task.part]]
+  id = "4-E01-T01-S01"
+  title = "Test: schemas and inheritance"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T01-S02"
+  title = "Artifact schemas and manifest"
+  done = "Schema and manifest tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T01-S03"
+  title = "Configuration schema services.prfixer"
+  done = "Schema tests green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T02"
+title = "Service scaffold prfixer, command fix, check ai-fix"
+description = """services/prfixer with controller (accept, plan, onStepResult, finalize) per detailed design 11 section 2.4; command `@agent fix [thread|review|pr|ci]` in the PR and in the thread via routing; object lock and delivery to a running pipeline (ADR-68); single-service run with a shortened pipeline; check ai-fix only success or neutral (FE-1107); status comment line."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer"]
+result = "services/prfixer/src/controller.ts, services/prfixer/src/index.ts, services/prfixer/src/output/check.ts, tests"
+done = ["Test '@agent fix on a pipeline PR is delivered to the pipeline, no second run' green", "Test 'ai-fix is never failure' green", "S4 case 'PR fixer alone on' green", "Test 'prfixer off answers visibly' green"]
+sources = ["02 section 6", "03 sections 2.1, 2.5, 4", "ADR-68"]
+depends_on = ["4-E01-T01", "0-E05", "0-E16", "0-E20-T21"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "4-E01-T02-S01"
+  title = "Test: delivery, single run, check"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T02-S02"
+  title = "Controller and single-service run"
+  done = "Controller tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T02-S03"
+  title = "Command fix with arguments and permission check"
+  done = "Command tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T02-S04"
+  title = "Check ai-fix and status line, S4 case"
+  done = "S4 case green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T03"
+title = "Trigger filter, bot loop protection and provenance"
+description = """controller.accept: triggers only from humans with write access (fresh from the provider) and bots from prfixer.bot_allowlist (default self); events of the own app never create a fix, only an incremental review; route pipeline.ci_failed filters by the property agent PR (opened by the app, commit chain from effects, no fork), not by the branch name. Untrusted inputs from people that were seen go into FixResult.untrustedInputs and into foreign_input_seen (2-E01)."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#6-security"]
+result = "services/prfixer/src/accept.ts, services/prfixer/src/provenance.ts, change to the route pipeline.ci_failed, tests"
+done = ["Test 'comment by a bot outside the allowlist triggers nothing' green", "Test 'push by the own app triggers no fix' green", "Test 'ci_failed on branch agent/x of a fork triggers nothing' green", "Test 'thread reply without write access sets foreign_input_seen' green"]
+sources = ["02 section 6 protection against bot-to-bot loops", "04 section 3 routing", "ADR-60"]
+depends_on = ["4-E01-T02", "2-E01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M91 (route ci_failed filters only by branch name) is resolved here."
+
+  [[task.part]]
+  id = "4-E01-T03-S01"
+  title = "Test: triggers and bots"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T03-S02"
+  title = "accept with permission and allowlist check"
+  done = "Trigger tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T03-S03"
+  title = "Route ci_failed by agent PR property"
+  done = "Fork case green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T03-S04"
+  title = "Provenance of the inputs"
+  done = "foreign_input_seen test green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T04"
+title = "Round counter and recovery"
+description = """services/prfixer/src/rounds.ts with table prfix_rounds per FE-1120: automatic triggers share round_scope auto with max_rounds, rounds between reviewer and fixer count together; an explicit @agent fix by a human gets human:<run_id>; atomic increment via UPDATE ... RETURNING; consecutive_own_red ends after recovery_max_consecutive own failed fixes. A push rejected because of expectedOldSha does not count."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#31-tables"]
+result = "migration prfix_rounds, services/prfixer/src/rounds.ts, services/prfixer/test/rounds.test.ts"
+done = ["Test 'fourth automatic round is rejected' green", "Test 'reviewer and fixer rounds count together' green", "Test 'human @agent fix gets its own counter' green", "Test 'three own commits red in a row end the run' green", "Test 'concurrent increments do not exceed max_rounds' green (real Postgres)"]
+sources = ["02 section 6 steps 7 and 8", "03 section 5", "07 section 3.6"]
+depends_on = ["4-E01-T02", "0-E02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "4-E01-T04-S01"
+  title = "Test: counters, scopes, concurrency"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T04-S02"
+  title = "Migration prfix_rounds and atomic increment"
+  done = "Concurrency test green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T04-S03"
+  title = "Recovery rule and status comment"
+  done = "all counter tests green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T05"
+title = "Source review_threads: collect, fix, reply"
+description = """collect/threads.ts: open threads at head with agent_prompt (own reviewer) and human threads without, author checked as in 4-E01-T03; fix agent (nativeTools edit+shell) with items, guidelines from the base SHA and .agents/rules/fix.md; reply per thread via propose_reply; threads stay open until the reviewer confirms Addressed in the increment; scope thread, review, pr."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer"]
+result = "services/prfixer/src/collect/threads.ts, services/prfixer/src/steps/fix-agent.ts, services/prfixer/prompts/fix-threads.md, tests"
+done = ["Test 'human thread without agent_prompt is handled' green", "Test 'reply per thread, thread stays open' green", "Test 'scope thread handles only this thread' green", "Test 'thread text is marked untrusted in the prompt' green"]
+sources = ["02 section 6 input and steps 1, 9", "10 section 8", "ADR-24"]
+depends_on = ["4-E01-T03", "1-E04", "1-E05-T10"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "4-E01-T05-S01"
+  title = "Test: collecting and scopes"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T05-S02"
+  title = "Collecting at head with author check"
+  done = "Collect tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T05-S03"
+  title = "Fix agent and prompt"
+  done = "Case with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T05-S04"
+  title = "Replies per thread"
+  done = "Reply tests green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T06"
+title = "Prohibitions, diff policy and suggestions instead of a commit"
+description = """policy/forbidden-changes.ts per FE-1125 in the worker (clean up the bundle, OutOfScopeSuggestion with a redacted patch) and as policy rule prfixer.forbidden_changes in the Effect Gateway (rejected_policy): workflows, lockfiles, manifests, CI configuration, deleted or skipped tests, lowered thresholds, new suppression markers. Suggestions appear in the status comment, the run goes to awaiting_human_review or done."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#9-rulings"]
+result = "services/prfixer/src/policy/forbidden-changes.ts, apps/control-plane/src/effects/policy/prfixer-forbidden.ts, tests"
+done = ["one test per category green (8 categories)", "Test 'suggestion contains the patch, commit does not contain it' green", "Test 'gateway rejects forbidden file even without worker check' green", "Test 'patch text is redacted' green"]
+sources = ["02 section 6 step 6", "07 section 3.6", "03 section 5"]
+depends_on = ["4-E01-T02", "0-E09", "2-E04"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "4-E01-T06-S01"
+  title = "Test: eight categories"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T06-S02"
+  title = "Detectors in the worker and suggestions"
+  done = "Detector tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T06-S03"
+  title = "Policy rule in the Effect Gateway"
+  done = "Gateway test green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T06-S04"
+  title = "Status comment with patch suggestion"
+  done = "Failure path test green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T07"
+title = "Delivery: commit on the agent branch or stacked PR"
+description = """delivery.ts per FE-1127 and the table in section 2.4: an agent PR gets a commit on the agent branch with expectedOldSha; a human PR gets a stacked PR agent/fix/<pr>-<n> against its head branch (with agent_fork in the agent fork); an open own stacked PR gets the repetition as a commit; never a push to a human branch."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer"]
+result = "services/prfixer/src/delivery.ts, services/prfixer/test/delivery.test.ts"
+done = ["Test 'agent PR gets a commit' green", "Test 'human PR gets a stacked PR' green", "Test 'repetition commits into the own stacked PR' green", "Test 'wrong expectedOldSha yields no push and no round' green"]
+sources = ["02 section 6 output", "O9", "ADR-59", "05 section 2"]
+depends_on = ["4-E01-T04", "2-E06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "4-E01-T07-S01"
+  title = "Test: delivery paths"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T07-S02"
+  title = "Commit and stacked PR via the Effect Gateway"
+  done = "Delivery path tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T07-S03"
+  title = "Repetition and failure path expectedOldSha"
+  done = "all delivery tests green"
+  status = "open"
+
+[[task]]
+id = "4-E01-T08"
+title = "No-op and self-check before the push"
+description = """no_fix_needed (nothing open, CI green, thread already resolved) and cannot_fix (agent finds no fix, self-check red, not reproducible) correct; self-check bundle as with the coder before every push (02 section 0); FixResult v2 after the CI result at the new SHA (FE-1121) with ci_wait_timeout_min."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#9-rulings"]
+result = "services/prfixer/src/steps/self-check.ts, services/prfixer/src/finalize.ts, services/prfixer/test/noop.test.ts"
+done = ["Test 'green CI yields no_fix_needed' green", "Test 'not reproducible yields cannot_fix with reason' green", "Test 'self-check red yields no push' green", "Test 'missing CI result yields cannot_fix with ci_not_observed' green"]
+sources = ["02 section 6 DoD no-op", "02 section 6 step 8", "08 stage 4"]
+depends_on = ["4-E01-T07"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "4-E01-T08-S01"
+  title = "Test: no-op cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E01-T08-S02"
+  title = "Self-check and finalize with v2"
+  done = "all no-op tests green"
+  status = "open"
+
+[[epic]]
+id = "4-E02"
+title = "CI failures and conflicts"
+goal = "Fixes for CI failures only after classification and reproduction with the exact CI command, at most one rerun per commit, `fixed` only with green real CI; merge conflicts all or nothing as a merge commit"
+sources = ["02 section 6"]
+depends_on = ["4-E01"]
+
+[[task]]
+id = "4-E02-T01"
+title = "Collect CI failures and exact command"
+description = """collect/ci.ts: checkEvidence and ciFailureLogs at head (only this SHA, max_log_bytes), dedupe of identical signatures across jobs, logs as untrusted; ci/workflow-command.ts reads the workflow file at the base SHA, resolves matrix values and returns run steps up to the red step without secrets; uses steps are not reproducible."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer"]
+result = "services/prfixer/src/collect/ci.ts, services/prfixer/src/ci/workflow-command.ts, tests with workflow fixtures"
+done = ["Test 'command from the base SHA, head change to the workflow has no effect' green", "Test 'step with uses yields not_reproducible' green", "Test 'same signature in two jobs is handled once' green", "Test 'runs of outdated SHAs are ignored' green"]
+sources = ["02 section 6 steps 1 and 3", "ADR-17", "01 section 5 ciFailureLogs"]
+depends_on = ["4-E01-T02", "0-E14"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "4-E02-T01-S01"
+  title = "Test: collecting and dedupe"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T01-S02"
+  title = "Logs at head, signatures"
+  done = "Collect tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T01-S03"
+  title = "Workflow parser for GitHub Actions"
+  done = "Parser tests green"
+  status = "open"
+
+[[task]]
+id = "4-E02-T02"
+title = "CI classification"
+description = """classify/ci-classifier.ts per FE-1122 and the table in section 2.4: target_branch, infra, flaky, caused_by_pr, unknown; only caused_by_pr leads to a fix; target_branch yields not_caused_by_pr with a justification and 0 code changes; unknown at most one rerun, then cannot_fix."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer"]
+result = "services/prfixer/src/classify/ci-classifier.ts, services/prfixer/test/ci-classifier.test.ts"
+done = ["one test per class green", "Test 'target_branch yields 0 code changes' green", "Test 'unknown after rerun yields cannot_fix' green"]
+sources = ["02 section 6 step 2", "07 section 3.6 F6", "research ebene-pr-fix-und-ci section 2.4"]
+depends_on = ["4-E02-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "4-E02-T02-S01"
+  title = "Test: per class"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T02-S02"
+  title = "Rules without reproduction (1 to 3)"
+  done = "Rule tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T02-S03"
+  title = "Rules with reproduction (4 to 7)"
+  done = "all class tests green"
+  status = "open"
+
+[[task]]
+id = "4-E02-T03"
+title = "Reproduction, fix and waiting for real CI"
+description = """steps/reproduce.ts runs the exact command at head and at the merge base in check sandboxes; fix only after reproduction (FE-1121); then repro green, prohibitions, self-check, push; fixed only when the red job is green at the new SHA (FixResult v2), otherwise next round or ci_not_observed after ci_wait_timeout_min. Verification task: do workflows run after a push with an app token in the agent fork without approval; result into the detailed design."""
+design = ["11-qa-prfix-automerge.md#45-pr-fixer-on-red-ci", "11-qa-prfix-automerge.md#10-open-points"]
+result = "services/prfixer/src/steps/reproduce.ts, services/prfixer/prompts/fix-ci.md, tests, entry in the detailed design"
+done = ["Test 'non-reproducible failure yields no fix' green", "Test 'fixed only after a green job at the new SHA' green", "Test 'own fix turns a green job red counts as an attempt' green", "Result of the verification task in detailed design section 10"]
+sources = ["02 section 6 steps 3, 4, 8", "ADR-59"]
+depends_on = ["4-E02-T02", "4-E01-T08"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "4-E02-T03-S01"
+  title = "Test: reproduction and real CI"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T03-S02"
+  title = "Reproduction at head and merge base"
+  done = "Repro tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T03-S03"
+  title = "Fix agent for CI and push"
+  done = "Case with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T03-S04"
+  title = "Waiting for real CI and FixResult v2"
+  done = "CI wait tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T03-S05"
+  title = "Verification task workflow approval in the agent fork"
+  done = "Result in the detailed design"
+  status = "open"
+
+[[task]]
+id = "4-E02-T04"
+title = "Rerun at most once per commit, contract test permissions"
+description = """propose_rerun per FE-1123 with table prfix_reruns (unique per repo and SHA); GitHub plugin rerunFailedJobs with profile rerun; fallback level hint to humans with a link to the job if the app lacks the permission (fallbackUsed in the audit). Contract test against recorded responses and a check against the docs of which permissions rerunning workflow jobs needs (M66); result in 05 as a proposal and in the detailed design. The executor is built by 4-E02-T06."""
+design = ["11-qa-prfix-automerge.md#9-rulings", "11-qa-prfix-automerge.md#31-tables"]
+result = "migration prfix_reruns, plugins/github/src/scm/rerun.ts, services/prfixer/src/rerun.ts, contract test"
+done = ["Test 'second rerun for the same commit is rejected' green (real Postgres)", "Test 'without permission fallback level hint with fallbackUsed in the audit' green", "Contract test rerun against recording green", "required permissions noted with source in the detailed design"]
+sources = ["02 section 6 step 2", "05 section 2 profile rerun", "01 section 5 CI_RERUN"]
+depends_on = ["4-E02-T02", "0-E14", "0-E10"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M66 (permissions for rerun on GitHub) is clarified here via a contract test."
+
+  [[task.part]]
+  id = "4-E02-T04-S01"
+  title = "Test: uniqueness and fallback level"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T04-S02"
+  title = "Migration prfix_reruns and propose_rerun"
+  done = "Uniqueness test green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T04-S03"
+  title = "GitHub rerunFailedJobs and contract test"
+  done = "Contract test green, permissions noted"
+  status = "open"
+
+[[task]]
+id = "4-E02-T05"
+title = "Merge conflicts"
+description = """steps/conflict-merge.ts per FE-1124: merge simulation in the sandbox against the current base head, deterministic rejection for protected_paths, forbidden_paths, workflows, lockfiles, manifests; the agent resolves per file with the intent of both sides and reports resolved or rejected; a rejected file aborts without a commit (aborted_conflict); check for markers, empty merge index, build and lint; result a merge commit with two parents, never a rebase."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#46-conflict"]
+result = "services/prfixer/src/steps/conflict-merge.ts, services/prfixer/prompts/conflict.md, services/prfixer/test/conflict.test.ts"
+done = ["Test 'conflict in protected_path aborts without commit' green", "Test 'result has two parents' green", "Test 'marker in the result aborts' green", "Test 'no rebase, also on agent branches' green"]
+sources = ["02 section 6 step 5", "07 section 3.6 F3", "01 section 5 push"]
+depends_on = ["4-E01-T07"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+note = "M88 (rebase contradicts push without force) is resolved by FE-1124; 02 section 6 step 5 adjusted in the consistency run 2026-11-01."
+
+  [[task.part]]
+  id = "4-E02-T05-S01"
+  title = "Test: rejection, parents, markers"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T05-S02"
+  title = "Merge simulation and deterministic rejection"
+  done = "Rejection tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T05-S03"
+  title = "Agent per file and all or nothing"
+  done = "Case with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E02-T05-S04"
+  title = "Checks markers, index, build, lint"
+  done = "all conflict tests green"
+  status = "open"
+
+[[task]]
+id = "4-E02-T06"
+title = "Executor rerun"
+description = """`apps/control-plane/src/effects/executors/rerun.ts` per detailed design 04 section 2.1.5: `rerunFailedJobs` (plugin method from 4-E02-T04) after the entry in `prfix_reruns` in the same transaction as the transition `pending`; reconciliation via `checkEvidence` (jobs restarted after `dispatch_started_at`). Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/rerun.ts, apps/control-plane/test/effects/executors/rerun.test.ts"
+done = [
+  "Test 'effects/executors/rerun live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/rerun failure path stores audits and logs' green (failure path: second rerun for the same commit yields rejected_policy rerun_once_per_commit; without permission or without CI_RERUN, fallback level hint to humans with fallback_used human_hint and prfix_reruns.via_fallback; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/rerun reconcile reads check evidence' green",
+  "Catalog entry rerun with executor file, stage and usedIn; guard test from 0-E09-T10 green without rerun in the planned list",
+]
+sources = ["02 section 0 (prfixer)", "05 section 2 (profile rerun)", "ADR-06"]
+depends_on = ["4-E02-T04", "0-E09-T04"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "4-E02-T06-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "4-E02-T06-S02"
+  title = "Executor rerun with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["4-E02-T06-S01"]
+
+  [[task.part]]
+  id = "4-E02-T06-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["4-E02-T06-S02"]
+
+[[epic]]
+id = "4-E03"
+title = "Security findings with mandatory rescan"
+goal = "Analyzer and security findings (SARIF, code scanning via ingest, never SonarQube) count as fixed only if the rescan with the same version no longer shows the finding, no new ones at or above the threshold arise, and the tests are green"
+sources = ["02 section 6"]
+depends_on = ["4-E01"]
+
+[[task]]
+id = "4-E03-T01"
+title = "Source static_analysis"
+description = """collect/static-analysis.ts: AnalyzerReport at head (own run from 2-E05 or ingest), code scanning alerts via ingest (CODE_SCANNING_READ); only findings with llmUse allowed, SonarQube never (O19, ADR-50); SARIF messages and fix suggestions as untrusted."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer"]
+result = "services/prfixer/src/collect/static-analysis.ts, tests"
+done = ["Test 'llmUse forbidden never becomes input' green", "Test 'SARIF message is marked untrusted' green", "S1 case 'injection in SARIF message creates no effect outside the command' green"]
+sources = ["02 section 6 input", "01 section 12", "ADR-40", "ADR-50"]
+depends_on = ["4-E01-T02", "2-E05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "4-E03-T01-S01"
+  title = "Test: filter llmUse and untrusted"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E03-T01-S02"
+  title = "Collecting from run and ingest"
+  done = "Tests and S1 case green"
+  status = "open"
+
+[[task]]
+id = "4-E03-T02"
+title = "Mandatory rescan"
+description = """steps/rescan.ts per FE-1126: after the fix, rescan in the check sandbox with the same toolVersion and the same rulesHash; fixed only without the triggering fingerprint, without new findings at or above static_analysis.new_finding_min_level and with green tests; otherwise no push, cannot_fix with fingerprints; scan reports before and after in the BlobStore."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#9-rulings"]
+result = "services/prfixer/src/steps/rescan.ts, services/prfixer/prompts/fix-finding.md, services/prfixer/test/rescan.test.ts"
+done = ["Test 'different toolVersion yields cannot_fix' green", "Test 'new finding at warning or above prevents push' green", "Test 'finding gone and tests green yields fixed' green", "Test 'tests red after fix yields no push' green"]
+sources = ["02 section 6 step 4", "07 section 3.6 F5", "10 section 13"]
+depends_on = ["4-E03-T01", "4-E01-T08"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "4-E03-T02-S01"
+  title = "Test: rescan rules"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E03-T02-S02"
+  title = "Fix agent for findings"
+  done = "Case with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E03-T02-S03"
+  title = "Rescan with version equality and threshold"
+  done = "all rescan tests green"
+  status = "open"
+
+[[task]]
+id = "4-E03-T03"
+title = "Set F5 as a hard fix rule"
+description = """eval/sets/f5: own cases with security and analyzer findings (injected bugs in copies of public repos in the project's own public repo, referenced via git pin, per 11 FE-1153); check per the scheme finding gone, no new findings, no syntax error, tests still green. F5 is a hard fix rule for gate A, gate B open."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/sets/f5/, report"
+done = ["F5: 0 fixes that violate one of the four rules (report with command)", "Gate B status F5 open in the report"]
+sources = ["07 section 3.6 F5", "10 section 8 B5"]
+depends_on = ["4-E03-T02", "0-E20"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "4-E03-T03-S01"
+  title = "Cases and labels"
+  done = "Set f5 present"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E03-T03-S02"
+  title = "Run and report"
+  done = "Report with status"
+  status = "open"
+
+[[epic]]
+id = "4-E04"
+title = "Check buttons and watch mode for agent PRs"
+goal = "Triggering via check button (at most 3 actions per check, permission check of the person clicking), watch mode on agent PRs as a subscription ending on green, round limit or stop"
+sources = ["02 section 6"]
+depends_on = ["4-E01"]
+
+[[task]]
+id = "4-E04-T01"
+title = "Check actions on ai-fix and ai-review"
+description = """buttons.ts and plugins/github/src/scm/check-actions.ts per FE-1129: actions fix_review, fix_ci, fix_conflict on ai-fix (only visible if the source is open) and fix_review on ai-review; the event button is handled in the router like the command fix with an argument, permission check of the person clicking; contract test against recorded check_run.requested_action, including the length limits for identifier and label (unverified, prove in the test)."""
+design = ["11-qa-prfix-automerge.md#24-pr-fixer", "11-qa-prfix-automerge.md#10-open-points"]
+result = "services/prfixer/src/buttons.ts, plugins/github/src/scm/check-actions.ts, contract test"
+done = ["Test 'click without write access is rejected' green", "Test 'at most three actions' green", "Contract test requested_action green", "Length limits noted with source in the detailed design"]
+sources = ["03 section 4 (check button)", "01 section 5 CHECK_ACTIONS", "02 section 6 input"]
+depends_on = ["4-E01-T02", "0-E14"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "4-E04-T01-S01"
+  title = "Test: permissions and count"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E04-T01-S02"
+  title = "Set actions and map the event"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E04-T01-S03"
+  title = "Contract test and length limits"
+  done = "Contract test green"
+  status = "open"
+
+[[task]]
+id = "4-E04-T02"
+title = "Watch mode for agent PRs"
+description = """watch.ts with table watch_subscriptions per section 4.10: subscription when a pipeline opens an agent PR with watch.on_agent_prs; triggers ci_failed at head, P0/P1 of the own reviewer, human request changes, conflict; rounds in scope auto; ends on closed, merged, round limit, stop, ignore, switch-off; events are delivered to the pipeline (ADR-68)."""
+design = ["11-qa-prfix-automerge.md#410-watch-subscription", "11-qa-prfix-automerge.md#31-tables"]
+result = "migration watch_subscriptions, services/prfixer/src/watch.ts, services/prfixer/test/watch.test.ts"
+done = ["one test per row of table 4.10 (agent PR) green", "Test 'ci_failed during verifying creates no second run' green (S5)", "Test 'round limit ends the subscription with status comment' green"]
+sources = ["02 section 6 input", "03 section 2.5", "04 section 3 auto_on"]
+depends_on = ["4-E04-T01", "4-E01-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "4-E04-T02-S01"
+  title = "Test: watch state table"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E04-T02-S02"
+  title = "Migration and subscription"
+  done = "Subscription tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E04-T02-S03"
+  title = "Triggers and end, delivery"
+  done = "all watch tests green, S5 case green"
+  status = "open"
+
+[[epic]]
+id = "4-E05"
+title = "ticket-to-pr with fix loop"
+goal = "PR fixer replaces `on_disabled: human` in the pipeline: verifying after fixing and back until green or the round limit, then `awaiting_human_review`"
+sources = ["03 section 1"]
+depends_on = ["4-E02", "4-E04"]
+
+[[task]]
+id = "4-E05-T01"
+title = "Pipeline stage prfixer in the orchestrator"
+description = """Pipeline stage prfixer with until (checks.green and findings.p0p1 == 0) and max_rounds: verifying -> fixing on P0/P1, red CI or conflict; fix pushed -> verifying; round limit, rejected conflict or change outside the assignment -> awaiting_human_review; @agent say goes into the next fix round (03 section 2.4); on_disabled human stays if prfixer is off."""
+design = ["11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21"]
+result = "apps/control-plane/src/pipeline/stages/prfixer.ts (StageHandler, 10 FE-1069), tests"
+done = ["S5 case 'ticket to draft PR, review with P1, fix, increment green' green", "Test 'round limit leads to awaiting_human_review' green", "Test 'say in verifying goes into the next fix round' green", "Test 'prfixer off leads to on_disabled human with a note' green"]
+sources = ["03 sections 1, 1a, 2.1, 2.4", "04 section 3 pipelines"]
+depends_on = ["4-E02-T03", "4-E04-T02", "2-E07", "4-E02-T06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "4-E05-T01-S01"
+  title = "Test: transitions of the fix loop"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E05-T01-S02"
+  title = "Pipeline stage with until and max_rounds"
+  done = "Transition tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E05-T01-S03"
+  title = "Control instruction and S5 case"
+  done = "S5 case green"
+  status = "open"
+
+[[task]]
+id = "4-E05-T02"
+title = "S6 cases of the PR fixer failure paths"
+description = """For each row of the PR fixer failure paths from 03 section 5 and detailed design 11 section 5, one S6 case that checks stored, audited, logged and visible (unsuccessful after 3 attempts, not caused, conflict rejected, change outside the assignment, round limit, CI result missing); completeness of the cells fixing times mandatory event."""
+design = ["11-qa-prfix-automerge.md#5-failure-and-abort-paths"]
+result = "eval/suites/s6/prfixer/*.test.ts"
+done = ["all PR fixer rows from 03 section 5 with S6 case green", "cells fixing times stop, budget_exhausted, error_after_retries, deadline each with a case green"]
+sources = ["03 section 5", "07 section 5 S6", "ADR-67"]
+depends_on = ["4-E05-T01", "4-E02-T05", "4-E01-T06", "0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "4-E05-T02-S01"
+  title = "S6 cases failure paths"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E05-T02-S02"
+  title = "S6 cases mandatory events in fixing"
+  done = "Cases green"
+  status = "open"
+
+[[epic]]
+id = "4-E06"
+title = "Eval and acceptance of stage 4"
+goal = "Gate A F1, F1x, F2, F3, F4, F6; prohibitions 0 violations; at most 3 attempts and no-op tested; gate B open reported with owner license request; release"
+sources = ["07 section 3.6", "10 section 8"]
+depends_on = ["4-E03", "4-E05"]
+
+[[task]]
+id = "4-E06-T01"
+title = "Sets F1 and F1x"
+description = """F1: review findings of public repos implemented by humans (human_labeled, never outputs of CodeRabbit, O18), input state at the time of the comment, truth the human commit, LLM judge (judge-alt, a different Claude model than the one under test, O28) plus a sample; F1x: per human review comment one test, red before, green after the human fix (c-CRAB principle, own generation). Only references and own labels in the eval package."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/sets/f1/, eval/sets/f1x/, case schema with origin human_labeled"
+done = ["Eval runner rejects vendor_output cases (test)", "F1 and F1x present with starting size per 07 section 1.1", "Judge agreement with the sample reported"]
+sources = ["07 section 3.6 F1 and F1x", "07 section 1", "O18"]
+depends_on = ["4-E01-T05", "0-E20"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T01-S01"
+  title = "Test: origin block and case schema"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T01-S02"
+  title = "Collect and label F1"
+  done = "Set f1"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T01-S03"
+  title = "Generate F1x tests per comment"
+  done = "Set f1x, per case checked red before and green after"
+  status = "open"
+
+[[task]]
+id = "4-E06-T02"
+title = "Sets F2 and F6"
+description = """F2: real red CI runs of public repos (faulty commit plus log) and private parts per installation; success CI green without a forbidden change. F6: target branch or flake red; result not_caused_by_pr or at most one rerun per commit, 0 code changes."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/sets/f2/, eval/sets/f6/"
+done = ["F2 and F6 present, trial run green", "F6 checks 0 code changes deterministically (test)"]
+sources = ["07 section 3.6 F2 and F6", "10 section 8"]
+depends_on = ["4-E02-T03", "4-E02-T04", "0-E20"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T02-S01"
+  title = "F2 cases"
+  done = "Set f2"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T02-S02"
+  title = "F6 cases and check"
+  done = "Set f6 with check test"
+  status = "open"
+
+[[task]]
+id = "4-E06-T03"
+title = "Set F3 conflicts"
+description = """F3: own conflict cases (starting size 100, estimate) from public repos; success build and tests green without markers, or abort without a commit; cases with a conflict in security logic or protected_paths expect aborted_conflict."""
+design = ["11-qa-prfix-automerge.md#46-conflict"]
+result = "eval/sets/f3/"
+done = ["F3 present with expected results", "Trial run green"]
+sources = ["07 section 3.6 F3", "10 section 8 B4"]
+depends_on = ["4-E02-T05", "0-E20"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T03-S01"
+  title = "Generate cases"
+  done = "Set f3"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T03-S02"
+  title = "Expected results and trial run"
+  done = "Trial run green"
+  status = "open"
+
+[[task]]
+id = "4-E06-T04"
+title = "Set F4 without profile dependency_update"
+description = """F4 per FE-1130: update PRs from bots with red CI (own cases from public repos; BUMP subset only after checking the data license at the source); the fixer changes only code, delivery as a stacked PR; cases that need a new lockfile generation expect cannot_fix."""
+design = ["11-qa-prfix-automerge.md#9-rulings"]
+result = "eval/sets/f4/, license note BUMP"
+done = ["F4 present, trial run green", "Test 'F4 reports a change to a lockfile as a violation' green", "Data license BUMP noted with source"]
+sources = ["07 section 3.6 F4", "10 section 8 B2", "08 stage 4"]
+depends_on = ["4-E02-T03", "4-E01-T06", "0-E20"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T04-S01"
+  title = "License check BUMP and cases"
+  done = "Set f4 with license note"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T04-S02"
+  title = "Violation check and trial run"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "4-E06-T05"
+title = "Gate A paired, prohibitions, rounds, no-op, gate B status"
+description = """Gate A for F1, F1x, F2, F3, F4, F6 paired against the bare harness with the same model (07 section 1.1, margin 10 section 1.4); suites prohibitions (0 violations), bot loops (rounds per PR at most max_rounds), no-op (no fix needed and no fix possible correct); gate B reported as open per 10 section 1.2 item 6, report parts F2p, F1x per c-CRAB, F3 on Merge-Bench only internal."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval report gate A stage 4, eval/sets/prfix-rules/"
+done = ["Gate A F1, F1x, F2, F3, F4, F6 green (report with command)", "Prohibitions 0 violations", "at most 3 attempts tested (suite)", "No-op correct (suite)", "Gate B status open with reason in the report"]
+sources = ["10 section 8", "07 section 4", "08 stage 4"]
+depends_on = ["4-E06-T01", "4-E06-T02", "4-E06-T03", "4-E06-T04", "4-E03-T03", "4-E01-T04", "4-E01-T08"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T05-S01"
+  title = "Paired runs per set"
+  done = "Results per set"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T05-S02"
+  title = "Suites prohibitions, rounds, no-op"
+  done = "Suites green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T05-S03"
+  title = "Report with gate A and gate B status"
+  done = "Report"
+  status = "open"
+
+[[task]]
+id = "4-E06-T06"
+title = "Owner: license request for public PR fix sets"
+description = """Request to the authors of CI-Repair-Bench, JetBrains LCA CI Builds Repair, BUMP (data), Merge-Bench and c-CRAB about the data license; has an external effect, therefore owner. The agent prepares the decision sheet (wording, purpose, consequence for gate B; LCA additionally needs its own eval account, O22)."""
+design = ["11-qa-prfix-automerge.md#10-open-points"]
+result = "Requests made, status in the stage report"
+done = ["Decision sheet available", "Requests made or deliberately dropped, status with date in the stage report"]
+sources = ["08 stage 4", "10 section 8", "10 section 18"]
+depends_on = ["4-E01-T01"]
+owner = "owner"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T06-S01"
+  title = "Prepare decision sheet (agent)"
+  done = "Sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T06-S02"
+  title = "Make requests (owner)"
+  done = "Status in the report"
+  status = "open"
+
+[[task]]
+id = "4-E06-T07"
+title = "Suites for the PR fixer, stage report and release"
+description = """S1 (injection via CI log, thread reply, SARIF message; exfiltration via patch suggestion), S2 (trigger without permission, fork, bot), S4 (PR fixer alone on), S6 (from 4-E05-T02) green; qualification row prfixer with gate B open per source; stage report with evidence and license status; release with S8 and upgrade test."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "S1, S2, S4 cases of the PR fixer, stage report in the ops repo, release"
+done = ["S1, S2, S4, S6 for prfixer green (command and output)", "Qualification row with gate B status open published", "S8 and upgrade test green", "Stage report names the license status of the owner request", "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)"]
+sources = ["07 section 5", "08 principles 1, 2, 5", "ADR-52"]
+depends_on = ["4-E06-T05", "4-E06-T06", "4-E05-T02", "4-E03-T01", "0-E21-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "4-E06-T07-S01"
+  title = "S1 and S2 cases"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T07-S02"
+  title = "Qualification row and stage report"
+  done = "Report"
+  status = "open"
+
+  [[task.part]]
+  id = "4-E06-T07-S03"
+  title = "Release with S8"
+  done = "Release run green"
+  status = "open"

@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "container-images"
+title = "Container images control-plane, sandbox-base, agent-worker, egress-proxy and tool images"
+kind = "delivery"
+path = "deploy/images/"
+stage = "0"
+purpose = "Builds all OCI images of the platform for amd64 and arm64 by digest, without root, with healthcheck, labels and license gate, including the workflow images.yml; provides the four core images and the shared tool images, not the images that their introducing component provides itself (registry-cache, mermaid-check, embedder, engines; table in 06 section 2.2); not the programs in the images and not the release (release-werkzeuge)."
+design = ["06-installation-operations-ui.md#22-container-images", "06-installation-operations-ui.md#212-supply-chain-and-release"]
+built_by = ["0-E18-T01", "0-E18-T02", "1-E02-T03", "2-E01-T07", "2-E01-T11", "2-E03-T04", "2-E05-T04", "2-E05-T05", "2-E05-T06", "3-E03-T01", "7-E01-T04"]
+
+[[provides]]
+name = "image.control-plane"
+kind = "file"
+title = "Image control-plane with roles web, orchestrator, migrate, ops, all by argument, pg_dump, pg_restore, psql 18, restic and git (SCMProvider.push via Git bundle, 05 FE-516)"
+defined_in = "06-installation-operations-ui.md#22-container-images"
+from_task = "0-E18-T01"
+
+[[provides]]
+name = "image.sandbox-base"
+kind = "file"
+title = "Image sandbox-base: bash, git, curl, tini, Node 22, python3, user agent (uid 10001) without sudo; platform tools under /opt/guildwork/bin/ (gw-review-context from 1-E02-T03, gw-kb-indexer from 7-E01-T04, FE-651)"
+defined_in = "06-installation-operations-ui.md#22-container-images"
+from_task = "0-E18-T01"
+
+[[provides]]
+name = "images-workflow"
+kind = "file"
+title = "Workflow images.yml: matrix per image under deploy/images/<image>/, native on ubuntu-24.04 and ubuntu-24.04-arm, push by digest, manifest list, weekly rebuild, workflow_call from release.yml"
+defined_in = "06-installation-operations-ui.md#22-container-images"
+from_task = "0-E18-T01"
+
+[[provides]]
+name = "image.agent-worker"
+kind = "file"
+title = "Image agent-worker with roles worker and socket-proxy (FE-611), git, without harness binaries"
+defined_in = "06-installation-operations-ui.md#22-container-images"
+from_task = "0-E18-T02"
+
+[[provides]]
+name = "image.egress-proxy"
+kind = "file"
+title = "Image egress-proxy with allowlist and credential relay (role proxy); from 2-E01-T07 with policy per service and phase"
+defined_in = "06-installation-operations-ui.md#22-container-images"
+from_task = "0-E18-T02"
+
+[[provides]]
+name = "image.analyzer-opengrep"
+kind = "file"
+title = "Analyzer image analyzer-opengrep with its own rule set guildwork-default"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T04"
+
+[[provides]]
+name = "image.analyzer-gitleaks-osv"
+kind = "file"
+title = "Analyzer images analyzer-gitleaks and analyzer-osv-scanner (offline database as a volume)"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T05"
+
+[[provides]]
+name = "image.analyzer-trivy"
+kind = "file"
+title = "Analyzer image analyzer-trivy (dependencies and IaC, offline)"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T06"
+
+[[provides]]
+name = "image.sandbox-e2e"
+kind = "file"
+title = "Sandbox image sandbox-e2e with Chromium, Playwright and gw-browser"
+defined_in = "11-qa-prfix-automerge.md#23-qa"
+from_task = "3-E03-T01"
+
+[[uses]]
+interface = "control-plane/aufruf"
+from_task = "0-E18-T01"
+purpose = "Entry point of the image control-plane with the roles as an argument"
+
+[[uses]]
+interface = "control-plane/health"
+from_task = "0-E18-T01"
+purpose = "HEALTHCHECK of the image control-plane via GET /readyz"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "0-E18-T01"
+purpose = "Argument migrate of the image control-plane"
+
+[[uses]]
+interface = "admin-ui/spa-auslieferung"
+from_task = "0-E18-T01"
+purpose = "Place the built admin UI as a static bundle into the image control-plane"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E18-T01"
+purpose = "Build the pnpm workspace in the image build"
+
+[[uses]]
+interface = "workflow-policy/policy-toml"
+from_task = "0-E18-T01"
+purpose = "images.yml meets the runner, timeout and permissions policy"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "0-E18-T01"
+purpose = "Check images.yml with check_workflows, actionlint and zizmor"
+
+[[uses]]
+interface = "ci-workflows/ci-ok"
+from_task = "0-E18-T01"
+purpose = "Job images as part of the required check ci-ok"
+
+[[uses]]
+interface = "worker/cli"
+from_task = "0-E18-T02"
+purpose = "Entry point guildwork-worker run in the image agent-worker"
+
+[[uses]]
+interface = "worker/healthz"
+from_task = "0-E18-T02"
+purpose = "HEALTHCHECK of the image agent-worker"
+
+[[uses]]
+interface = "socket-proxy/cli"
+from_task = "0-E18-T02"
+purpose = "Role socket-proxy in the image agent-worker (FE-611)"
+
+[[uses]]
+interface = "egress-proxy/cli"
+from_task = "0-E18-T02"
+purpose = "Entry point guildwork-egress-proxy in the image egress-proxy"
+
+[[uses]]
+interface = "egress-proxy/healthz"
+from_task = "0-E18-T02"
+purpose = "HEALTHCHECK of the image egress-proxy"
+
+[[uses]]
+interface = "worker-sandbox-phasen/egress-policy"
+from_task = "2-E01-T07"
+purpose = "Rebuild the image egress-proxy with policy per service and phase"
+
+[[uses]]
+interface = "registry-cache/registry-server"
+from_task = "2-E01-T11"
+purpose = "Program of the image registry-cache"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "2-E01-T11"
+purpose = "Every tool image green in the license gate"
+
+[[uses]]
+interface = "plugin-analyzer-opengrep/regelsatz-guildwork-default"
+from_task = "2-E05-T04"
+purpose = "Place the rule set guildwork-default into the image analyzer-opengrep"
+
+[[uses]]
+interface = "plugin-analyzer-gitleaks/secret-regeln"
+from_task = "2-E05-T05"
+purpose = "Place the gitleaks rules into the image analyzer-gitleaks"
+
+[[uses]]
+interface = "analyzer-runner/offline-db"
+from_task = "2-E05-T05"
+purpose = "Mount the offline database as a volume for osv-scanner and trivy"
+
+[[uses]]
+interface = "gw-browser/cli"
+from_task = "3-E03-T01"
+purpose = "Place gw-browser into the image sandbox-e2e"

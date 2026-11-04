@@ -1,0 +1,257 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-gitea"
+title = "Gitea and Forgejo"
+kind = "plugin"
+path = "plugins/gitea/"
+package = "@guildwork/plugin-gitea"
+stage = "9"
+purpose = "One plugin for Gitea and Forgejo with flavor (FE-1401): HMAC webhook, batch review, commit status plus summary, issues; tests against both as containers in CI. Not: separate packages per fork, merge."
+design = [
+  "14-stage-9-breadth-and-hardening.md#211-common-host-framework",
+  "14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo",
+  "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts",
+  "14-stage-9-breadth-and-hardening.md#41-host-inbound-with-signature-tier",
+  "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01",
+]
+built_by = ["9-E01-T02", "9-E01-T08"]
+
+[[provides]]
+name = "fixtures"
+kind = "file"
+title = "Recorded Gitea and Forgejo responses under plugins/gitea/contract/fixtures/ per flavor"
+defined_in = "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts"
+from_task = "9-E01-T02"
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource Gitea and Forgejo: webhook with HMAC-SHA256 (strong), headers per flavor"
+defined_in = "14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo"
+from_task = "9-E01-T08"
+
+[[provides]]
+name = "scm-provider"
+kind = "contract"
+title = "SCMProvider Gitea and Forgejo: batch review native, commit status plus summary as a check, THREAD_RESOLVE none until recording"
+defined_in = "14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo"
+from_task = "9-E01-T08"
+
+[[provides]]
+name = "work-item-provider"
+kind = "contract"
+title = "WorkItemProvider for Gitea and Forgejo issues"
+defined_in = "14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo"
+from_task = "9-E01-T08"
+
+[[provides]]
+name = "konfig-gitea"
+kind = "config"
+title = "plugins.scm[gitea]: GiteaInstanceConfig (flavor, verify, minVersion)"
+defined_in = "14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo"
+from_task = "9-E01-T08"
+
+[[provides]]
+name = "ci-container"
+kind = "file"
+title = "Gitea and Forgejo containers by digest as CI test services for contract suite and E2E (not shipped)"
+defined_in = "14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo"
+from_task = "9-E01-T08"
+
+[[provides]]
+name = "e2e-suite"
+kind = "file"
+title = "E2E suite eval/suites/e2e/gitea/"
+defined_in = "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"
+from_task = "9-E01-T08"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E01-T08"
+purpose = "Result, PluginError, Refs and SecretRef in all methods"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E01-T08"
+purpose = "Implement PluginBase and PluginContext (ctx.http, ctx.secrets, ctx.audit)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E01-T08"
+purpose = "Manifest with kinds, egress {config.baseUrl} and secrets"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E01-T08"
+purpose = "Report capabilities per instance with native, fallback, none"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "9-E01-T08"
+purpose = "Deliver comment and description texts as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "9-E01-T08"
+purpose = "Implement the hoster's TriggerSource"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "9-E01-T08"
+purpose = "Implement the hoster's SCMProvider"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "9-E01-T08"
+purpose = "parse delivers TriggerEvent with signature.strength"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "9-E01-T08"
+purpose = "Recognize mention and command from comments"
+
+[[uses]]
+interface = "event-schema/dedupe-key"
+from_task = "9-E01-T08"
+purpose = "Same dedupeKey from webhook and reconcile"
+
+[[uses]]
+interface = "scm-common/hoster-typen"
+from_task = "9-E01-T08"
+purpose = "HosterInstanceConfig and StaticTokenConfig as the basis of the instance configuration"
+
+[[uses]]
+interface = "scm-common/diff-positionen"
+from_task = "9-E01-T08"
+purpose = "Diff positions for threads and inline comments"
+
+[[uses]]
+interface = "scm-common/http-fehler"
+from_task = "9-E01-T08"
+purpose = "Map HTTP responses to PluginError"
+
+[[uses]]
+interface = "scm-common/effekt-marker"
+from_task = "9-E01-T08"
+purpose = "Recognize (isOwn) and write the gw-effect marker in own comments"
+
+[[uses]]
+interface = "scm-common/ersatzkette"
+from_task = "9-E01-T08"
+purpose = "submitReview via runFallbackChain with fallbackUsed"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "9-E01-T02"
+purpose = "Recording of the hoster responses as cassettes"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "9-E01-T02"
+purpose = "Recording only against allowed test repos"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "9-E01-T02"
+purpose = "make contract-record for the fixtures"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E01-T08"
+purpose = "Contract suite of the plugin with replay"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E01-T08"
+purpose = "Abstract suites TriggerSource and SCMProvider"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E01-T08"
+purpose = "contract-attestation.json with fixturesHash"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E01-T08"
+purpose = "Register and load as a built-in package"
+
+[[uses]]
+interface = "plugin-rahmen/kein-direktes-netz"
+from_task = "9-E01-T08"
+purpose = "Network only via ctx.http"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "9-E01-T08"
+purpose = "Ingress POST /v1/ingress/{instanceId} calls verify and parse, peer IP in the header x-guildwork-peer"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E01-T08"
+purpose = "Webhook secret and tokens via ctx.secrets"
+
+[[uses]]
+interface = "credential-broker/scm-tokens"
+from_task = "9-E01-T08"
+purpose = "mintScmToken calls mintToken of the weak tier"
+
+[[uses]]
+interface = "effekt-executoren/review"
+from_task = "9-E01-T08"
+purpose = "Executor review calls submitReview and records fallback_used"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "9-E01-T08"
+purpose = "Executor check calls startCheck and updateCheck"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "9-E01-T08"
+purpose = "Executor comment calls upsertSummary or addComment"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "9-E01-T08"
+purpose = "Contract cases without network against recordings"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E01-T08"
+purpose = "E2E review run against the recording"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "9-E01-T08"
+purpose = "Fixture server as the hoster in E2E"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "9-E01-T08"
+purpose = "Issues or work items as WorkItemProvider"
+
+[[uses]]
+interface = "scm-common/check-als-status"
+from_task = "9-E01-T08"
+purpose = "Commit status plus summary as a check"
+
+[[uses]]
+interface = "plugin-gitlab/static-scm-token-store"
+from_task = "9-E01-T08"
+purpose = "App token as the weak token tier in the broker"
+
+[[uses]]
+interface = "scm-common/scm-revisionsbericht"
+from_task = "9-E01-T08"
+purpose = "Build on the contract version after the revision"
+
+[[uses]]
+interface = "effekt-executoren/thread-resolve"
+from_task = "9-E01-T08"
+purpose = "thread_resolve ends with reply_only on THREAD_RESOLVE none"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "9-E01-T08"
+purpose = "CI job with Gitea and Forgejo containers for contract suite and E2E"

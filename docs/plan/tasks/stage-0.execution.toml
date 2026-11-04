@@ -1,0 +1,1679 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area execution of stage 0. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/03-execution.md (0-E11, 0-E12) and docs/design/04-effects-audit-credentials.md (0-E03, 0-E08, 0-E09, 0-E10).
+stage = "0"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E03"
+title = "Core drivers"
+goal = "`BlobStore` `fs` and `s3`, `SecretStore` `file` and `env`, `CloudIdentity` `self-issuer` (with the issuer's key ring), each with a contract suite as load condition"
+sources = ["01 section 13", "11 section 4", "ADR-41"]
+depends_on = ["0-E01", "0-E13"]   # 0-E13 added: driver contracts and contract harness live there
+
+[[task]]
+id = "0-E03-T01"
+title = "Load drivers, capabilities via probe, health and contract suite skeleton"
+description = """`apps/control-plane/src/drivers/load.ts` per detailed design 04 section 2.4.1: exactly one `BlobStore` and one `SecretStore`, list of `CloudIdentity` from `installation.yaml`; a driver without a passed contract suite in a matching version is not loaded; capabilities via probe at `init` (FE-417); `health()` every 60 s as metric `driver_health` and notifier type `driver_unhealthy` (FE-422). In addition the reusable contract suites as functions in `packages/testkit/src/contract/drivers/` (blob-store, secret-store, cloud-identity) with all cases from section 8, still without drivers."""
+design = ["04-effects-audit-credentials.md#241-loading-and-capabilities", "04-effects-audit-credentials.md#8-tests"]
+result = "apps/control-plane/src/drivers/load.ts, packages/testkit/src/contract/drivers/{blob-store,secret-store,cloud-identity}.ts"
+done = [
+  "Test 'drivers/load rejects driver without passed contract suite' green",
+  "Test 'drivers/load exactly one blob and secret store' green (two BlobStores in the configuration yield an error)",
+  "Test 'drivers/health reports unreachable blob' green (failure path: metric red, no crash)",
+  "pnpm vitest run apps/control-plane/test/drivers green",
+]
+sources = ["01 sections 1.1 and 13", "04 section 7", "ADR-41"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M37 (driver_unhealthy): metric and notifier type here, delivery in 0-E19."
+
+  [[task.part]]
+  id = "0-E03-T01-S01"
+  title = "Test: loader rejects drivers without contract suite and duplicate classes"
+  done = "Tests red because load.ts is missing"
+
+  [[task.part]]
+  id = "0-E03-T01-S02"
+  title = "Loader with probe of capabilities and health schedule"
+  done = "Tests from S01 green, metric driver_health read in the test"
+
+  [[task.part]]
+  id = "0-E03-T01-S03"
+  title = "Contract suites as functions in the testkit (without drivers, checked against themselves with a fake)"
+  done = "Fake drivers in the testkit pass all three suites; a deliberately wrong fake driver fails"
+
+[[task]]
+id = "0-E03-T02"
+title = "BlobStore fs"
+description = """Driver `drivers/blob-fs` per detailed design 04 section 2.4.2: key check, atomic write via `rename`, `etag` as SHA-256, metadata side file, `list` with cursor, `delete` idempotent; capabilities `PRESIGN`, `VERSIONING`, `OBJECT_LOCK`, `SSE_KMS` all `none`; `retainUntil` yields `unsupported` (FE-416). Manifest with license and contract suite hash."""
+design = ["04-effects-audit-credentials.md#242-blobstore-fs"]
+result = "drivers/blob-fs/src/index.ts, drivers/blob-fs/src/manifest.json, drivers/blob-fs/test/contract.test.ts"
+done = [
+  "Contract suite blob-store against fs green: pnpm vitest run drivers/blob-fs",
+  "Test 'blob-store/rejects invalid keys' green (failure path '..', leading slash)",
+  "Test 'blob-store/retainUntil without object lock is unsupported' green",
+]
+sources = ["01 section 13", "05 section 8", "ADR-41"]
+depends_on = ["0-E03-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E03-T02-S01"
+  title = "Wire contract suite against fs"
+  done = "Suite red because the driver is missing"
+
+  [[task.part]]
+  id = "0-E03-T02-S02"
+  title = "Driver with atomic write, cursor and key check"
+  done = "Suite green"
+
+  [[task.part]]
+  id = "0-E03-T02-S03"
+  title = "Manifest with license and contract suite hash"
+  done = "Loader from 0-E03-T01 loads fs in the test"
+
+[[task]]
+id = "0-E03-T03"
+title = "BlobStore s3 against SeaweedFS and Garage"
+description = """Driver `drivers/blob-s3` per detailed design 04 section 2.4.3 on `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`: probe of versioning, Object Lock and presign at `init`; `retainUntil` via `COMPLIANCE`; error mapping (`NoSuchKey`, `SlowDown`, `AccessDenied`, signature errors). Contract suite against SeaweedFS and Garage as containers (Testcontainers). No MinIO (ADR-43)."""
+design = ["04-effects-audit-credentials.md#243-blobstore-s3"]
+result = "drivers/blob-s3/src/index.ts, drivers/blob-s3/src/manifest.json, drivers/blob-s3/test/contract.test.ts"
+done = [
+  "Contract suite blob-store against SeaweedFS and against Garage green: pnpm vitest run drivers/blob-s3",
+  "Test 'blob-store/expired presign url is rejected' green (failure path)",
+  "Test 'blob-store/delete under object lock is permission' green on a service with Object Lock, or skipped with a justification if neither of the two containers supports it (result from 0-E03-T07)",
+  "Test 'blob-store/capabilities match probe' green: Garage reports OBJECT_LOCK none",
+]
+sources = ["01 section 13", "06 section 3 row object storage", "11 section 3", "ADR-41", "ADR-43"]
+depends_on = ["0-E03-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E03-T03-S01"
+  title = "Container fixtures for SeaweedFS and Garage in the testkit"
+  done = "Fixtures start and stop in the test, suite red"
+
+  [[task.part]]
+  id = "0-E03-T03-S02"
+  title = "Driver: put, get, list, delete with error mapping"
+  done = "Basic cases of the suite green on both services"
+
+  [[task.part]]
+  id = "0-E03-T03-S03"
+  title = "Probe of capabilities, presign and retainUntil"
+  done = "Cases presign, expired URL, capabilities green"
+
+  [[task.part]]
+  id = "0-E03-T03-S04"
+  title = "Manifest and licenses of the SDK packages noted in the result"
+  done = "Loader loads s3; license of the SDK packages is in the PR description for R-E02"
+
+[[task]]
+id = "0-E03-T04"
+title = "SecretStore file (encrypted, with versions)"
+description = """Driver `drivers/secret-file` per detailed design 04 section 2.4.4: one file per secret with versions, AES-256-GCM with a master key from a separate file (FE-414), directory 0700, files 0600, atomic write; `get` without version returns the newest, unknown version `not_found`; capability `WRITE`."""
+design = ["04-effects-audit-credentials.md#244-secretstore-file"]
+result = "drivers/secret-file/src/index.ts, drivers/secret-file/src/manifest.json, drivers/secret-file/test/contract.test.ts"
+done = [
+  "Contract suite secret-store against file green: pnpm vitest run drivers/secret-file",
+  "Test 'secret-store/file is encrypted at rest and mode 0600' green (raw file does not contain the plaintext)",
+  "Test 'secret-store/unknown version is not_found' green (failure path)",
+  "Test 'secret-store/values never logged' green (logger spy finds no value)",
+]
+sources = ["01 section 13", "05 section 5", "ADR-22", "ADR-41"]
+depends_on = ["0-E03-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E03-T04-S01"
+  title = "Wire suite against file, test encryption and file permissions"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E03-T04-S02"
+  title = "Encrypted storage with versions and atomic write"
+  done = "Suite green"
+
+  [[task.part]]
+  id = "0-E03-T04-S03"
+  title = "Concurrent writers and missing master key"
+  done = "Tests 'concurrent put is atomic' and 'missing master key fails init' green"
+
+[[task]]
+id = "0-E03-T05"
+title = "SecretStore env (read only)"
+description = """Driver `drivers/secret-env` per detailed design 04 section 2.4.5: mapping of `secret://a-b/c` to `GW_SECRET_A_B__C` (FE-415), `put` yields `unsupported`, version `env`, missing variable `not_found`."""
+design = ["04-effects-audit-credentials.md#245-secretstore-env"]
+result = "drivers/secret-env/src/index.ts, drivers/secret-env/src/manifest.json, drivers/secret-env/test/contract.test.ts"
+done = [
+  "Contract suite secret-store against env green (write cases expected as 'unsupported'): pnpm vitest run drivers/secret-env",
+  "Test 'secret-store/env is read only' green",
+]
+sources = ["01 section 13", "04 section 7", "ADR-41"]
+depends_on = ["0-E03-T01"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "0-E03-T05-S01"
+  title = "Test: mapping of names, read only"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E03-T05-S02"
+  title = "Driver and manifest"
+  done = "Suite green"
+
+[[task]]
+id = "0-E03-T06"
+title = "CloudIdentity self-issuer with key ring"
+description = """Driver `drivers/identity-self-issuer` per detailed design 04 sections 2.3.3 and 2.4.6: key ring ES256 with states `next`, `active`, `retired` (FE-410, FE-427), metadata and secret parts in the SecretStore (FE-411), signing via `SecretStore.sign` if available; `ambientToken(audience)`; `exchange` always `unsupported` in stage 0 (FE-424); `jwks()` for the broker's endpoints; `rotate(now)`."""
+design = ["04-effects-audit-credentials.md#233-own-oidc-issuer-and-key-ring", "04-effects-audit-credentials.md#246-cloudidentity-self-issuer"]
+result = "drivers/identity-self-issuer/src/{index,keyring}.ts, drivers/identity-self-issuer/test/contract.test.ts"
+done = [
+  "Contract suite cloud-identity against self-issuer green: pnpm vitest run drivers/identity-self-issuer",
+  "Test 'cloud-identity/token signed before rotation still verifies' green",
+  "Test 'cloud-identity/exchange unsupported in stage 0' green (failure path 'rejected exchange')",
+  "Test 'broker/keyring rotates next active retired' green (lives in the driver, name per detailed design)",
+]
+sources = ["01 section 13", "05 section 5", "ADR-22", "ADR-41"]
+depends_on = ["0-E03-T01", "0-E03-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E03-T06-S01"
+  title = "Test: ring with three states and JWKS"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E03-T06-S02"
+  title = "Key ring with storage in the SecretStore (file) and signing with jose"
+  done = "Ring tests green"
+
+  [[task.part]]
+  id = "0-E03-T06-S03"
+  title = "ambientToken and exchange unsupported"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "0-E03-T06-S04"
+  title = "Rotation without WRITE (env) reports a warning instead of rotating"
+  done = "Test 'broker/keyring warns when store is read only' green"
+
+[[task]]
+id = "0-E03-T07"
+title = "Check: Object Lock and presigned URLs in SeaweedFS"
+description = """Verify an unverified assumption from M123 and 09 section 4: does the SeaweedFS version planned in the Compose bundle support Object Lock (COMPLIANCE, deletion before expiry rejected) and presigned PUT and GET URLs? Probe with the driver from 0-E03-T03 against the container, result with version and command output in detailed design 04 section 10 and as a comment on the test case. If yes: recommendation `audit_anchor.sink: blob` as the default on single-host to 0-E18 (note); if no: the default stays `scm`."""
+design = ["04-effects-audit-credentials.md#10-open-items"]
+result = "Result in docs/design/04-effects-audit-credentials.md section 10, test case drivers/blob-s3/test/seaweedfs-capabilities.test.ts"
+done = [
+  "Test 'blob-s3/seaweedfs capabilities are recorded' green and records the capabilities found",
+  "Section 10 of detailed design 04 names version, result and command",
+]
+sources = ["09 section 4", "11 section 3", "ADR-43"]
+depends_on = ["0-E03-T03"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+note = "M123 (anchor sink on single-host)."
+
+  [[task.part]]
+  id = "0-E03-T07-S01"
+  title = "Probe test against SeaweedFS container"
+  done = "Test runs and writes the capabilities as a snapshot"
+
+  [[task.part]]
+  id = "0-E03-T07-S02"
+  title = "Enter result in detailed design 04"
+  done = "Open point closed or left with a finding"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E08"
+title = "Audit with hash chain"
+goal = "Audit entries as a hash chain in the same transaction as the business change, redaction, check tool and daily anchor into a `BlobStore` with Object Lock; the sink via SCMProvider comes as a platform effect in 0-E09-T06"
+sources = ["05 section 8"]
+depends_on = ["0-E02", "0-E03"]
+
+[[task]]
+id = "0-E08-T01"
+title = "Redaction rules and Markdown sanitization"
+description = """Shared module `packages/core/src/redaction/` per detailed design 04 section 6 and FE-418, FE-420: rules as data (selection of gitleaks-compatible patterns plus own ones for `sk-ant-oat`, `sk-ant-api`, AWS, GitHub tokens (including the stateless `ghs_<App-ID>_<JWT>`, pattern in detailed design 00 section 2.5), PEM header, placeholder `gwph_`, pool key `gwpk_`), `redact(text, extra)` and `scan(text, extra)` with matches without the matched text, exact search for registered values; `markdown.ts` removes external links and images except allowed hosts. The first user is the audit writer; gateway, worker and logger use the same module."""
+design = ["04-effects-audit-credentials.md#6-security", "04-effects-audit-credentials.md#9-rulings"]
+result = "packages/core/src/redaction/{rules,redact,markdown}.ts, packages/core/test/redaction/*.test.ts"
+done = [
+  "Tests per own rule green: pnpm vitest run packages/core/test/redaction",
+  "Test 'redaction/scan returns rule ids without matched text' green",
+  "Test 'redaction/markdown removes external images and links except allowed hosts' green",
+  "False positive set (100 ordinary code lines without secrets) yields 0 matches",
+]
+sources = ["05 section 3 item 4", "05 section 2 item 4", "05 section 5"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E08-T01-S01"
+  title = "Test set with positive and negative cases per rule"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E08-T01-S02"
+  title = "Rules and scan/redact"
+  done = "Rule tests green"
+
+  [[task.part]]
+  id = "0-E08-T01-S03"
+  title = "Markdown sanitization"
+  done = "Markdown tests green"
+
+[[task]]
+id = "0-E08-T02"
+title = "Audit writer with hash chain"
+description = """`apps/control-plane/src/audit/{writer,canonical}.ts` per detailed design 04 section 2.2.1: `append(tx, entry)` in the caller's transaction, redaction of the details, canonical JSON (FE-408), advisory lock, gapless `seq`, hash with prefix `gw-audit-v1`, details up to 8 KiB inline, otherwise as a blob (FE-409). Migration or alignment with 01-data-model: columns `details`, `details_sha256`, trigger against UPDATE and DELETE, permissions only INSERT and SELECT for the application role."""
+design = ["04-effects-audit-credentials.md#221-writer", "04-effects-audit-credentials.md#3-data"]
+result = "apps/control-plane/src/audit/{writer,canonical}.ts, migration for trigger and permissions (in packages/db), apps/control-plane/test/audit/*.test.ts"
+done = [
+  "Test 'audit/append links hashes and keeps seq gapless under concurrency' green (8 parallel writers, 1,000 entries)",
+  "Test 'audit/append failure rolls back business change' green (failure path)",
+  "Test 'audit/update and delete are rejected' green",
+  "Test 'audit/details are redacted before hashing' green",
+  "Test 'audit/large details go to blob and hash matches' green",
+]
+sources = ["05 section 8", "ADR-29", "06 section 5"]
+depends_on = ["0-E08-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E08-T02-S01"
+  title = "Test: chain, gaplessness and rollback"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E08-T02-S02"
+  title = "Canonical JSON with own test vectors"
+  done = "Test vectors green (key sorting, numbers, Unicode)"
+
+  [[task.part]]
+  id = "0-E08-T02-S03"
+  title = "Writer with advisory lock and blob offloading"
+  done = "Chain tests green"
+
+  [[task.part]]
+  id = "0-E08-T02-S04"
+  title = "Trigger and permissions via migration"
+  done = "Test 'audit/update and delete are rejected' green"
+
+[[task]]
+id = "0-E08-T03"
+title = "Check tool audit-verify"
+description = """`apps/control-plane/src/audit/{verify,cli}.ts` per detailed design 04 section 2.2.2: recomputation of the chain page by page, findings `hash_mismatch`, `prev_mismatch`, `gap`, `details_blob_mismatch`; subcommand `audit-verify` of the `control-plane` image (FE-425) with exit codes 0, 1, 2 and JSON output. Anchor reconciliation is added in 0-E08-T04."""
+design = ["04-effects-audit-credentials.md#222-check-tool"]
+result = "apps/control-plane/src/audit/{verify,cli}.ts, apps/control-plane/test/audit/verify.test.ts"
+done = [
+  "Test 'audit/verify passes on intact chain' green",
+  "Test 'audit/verify detects modified row' green (change via superuser in the test)",
+  "Test 'audit/verify detects deleted row' green",
+  "Test 'audit/cli exit codes 0 1 2' green",
+]
+sources = ["05 section 8", "ADR-29", "06 section 4 (alert audit chain broken)"]
+depends_on = ["0-E08-T02", "0-E05-T10"]   # 0-E05-T10 added: subcommand audit-verify in the control plane invocation (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E08-T03-S01"
+  title = "Test: tampering is found"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E08-T03-S02"
+  title = "Check page by page with finding list"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "0-E08-T03-S03"
+  title = "Subcommand audit-verify with exit codes"
+  done = "CLI test green"
+
+[[task]]
+id = "0-E08-T04"
+title = "Daily anchor with sink blob (Object Lock) and check functions for doctor"
+description = """`apps/control-plane/src/audit/{anchor,checks}.ts` per detailed design 04 section 2.2.3: job `audit-anchor` daily, `AnchorDocV1` with a chain of anchors, sink `blob` only with `OBJECT_LOCK` (otherwise startup error), retry, audit `audit.anchor_written` or `audit.anchor_failed`, metric `audit_anchor_age_seconds`; `AnchorSink` interface for the sink `scm` (implementation 0-E09-T06); anchor reconciliation in `verifyChain`; `checkAnchorSink` for doctor ('audit chain not anchored', 'anchor not tamper-proof (not checkable)')."""
+design = ["04-effects-audit-credentials.md#223-daily-anchor", "04-effects-audit-credentials.md#43-audit-entry-and-daily-anchor"]
+result = "apps/control-plane/src/audit/{anchor,checks}.ts, extension of verify.ts, apps/control-plane/test/audit/anchor.test.ts"
+done = [
+  "Test 'audit/anchor writes daily doc to object lock blob' green (done criterion stage 0 'audit chain with daily anchor', sink blob)",
+  "Test 'audit/anchor blob sink requires object lock' green (failure path startup error)",
+  "Test 'audit/anchor retries and alarms when sink fails' green (failure path: audit audit.anchor_failed, metric rises)",
+  "Test 'audit/verify detects anchor mismatch' green",
+  "Test 'audit/checks doctor reports missing anchor sink' green",
+  "Test 'audit/anchor refuses to anchor broken chain' green (failure path: no anchor, audit audit.verify_failed, metric guildwork.audit.chain_ok 0; detailed design 04 FE-440)",
+]
+sources = ["05 section 8", "01 section 13 rule 2", "04 section 7 audit_anchor", "11 section 2.2", "ADR-29"]
+depends_on = ["0-E08-T03", "0-E03-T03", "0-E05-T05"]   # 0-E05-T05 added: handler and schedule audit-anchor (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M123: mark the check function for the branch protection of the SCM sink as 'not checkable' until the provider delivers a readable protection rule."
+
+  [[task.part]]
+  id = "0-E08-T04-S01"
+  title = "Test: anchor document, sink blob, failure paths"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E08-T04-S02"
+  title = "Job and sink blob with retainUntil"
+  done = "Anchor tests green against a BlobStore with Object Lock (container per 0-E03-T07 or fake with capability OBJECT_LOCK)"
+
+  [[task.part]]
+  id = "0-E08-T04-S03"
+  title = "Anchor reconciliation in the check tool"
+  done = "Test 'audit/verify detects anchor mismatch' green"
+
+  [[task.part]]
+  id = "0-E08-T04-S04"
+  title = "checkAnchorSink for doctor"
+  done = "Test 'audit/checks doctor reports missing anchor sink' green"
+
+[[task]]
+id = "0-E08-T05"
+title = "Secret scan helper over DB, envelopes, snapshots, logs and BlobStore"
+description = """`packages/testkit/src/secret-scan.ts` per detailed design 03 section 8: searches for one or more known secret values (exact, also Base64 and URL encoded) and the patterns from 0-E08-T01 in all tables (text and JSON columns), in `work_items.envelope`, `config_snapshots`, artifacts in the BlobStore and in collected log files; report with location without value. Used by 0-E10-T03, 0-E12-T08 and by the contract test 'start with subscription' in 0-E15 (cases in S1 and S2)."""
+design = ["03-execution.md#8-tests", "03-execution.md#211-harness-environment-and-start-path-subscription-worker-side"]
+result = "packages/testkit/src/secret-scan.ts, packages/testkit/test/secret-scan.test.ts"
+done = [
+  "Test 'testkit/secret-scan finds planted value in table, envelope, blob and log' green",
+  "Test 'testkit/secret-scan finds base64 and url encoded value' green",
+  "Test 'testkit/secret-scan reports location without value' green",
+]
+sources = ["05 section 6 condition 4", "01 section 6 (contract test subscription)", "07 S1 and S2", "ADR-57"]
+depends_on = ["0-E08-T01"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E08-T05-S01"
+  title = "Tests with planted values"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E08-T05-S02"
+  title = "Scanner over DB, BlobStore and logs"
+  done = "Tests green"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E09"
+title = "Effect Gateway"
+goal = "The only write path: effect catalog with platform effects, outbox in `effects`, idempotency, modes `record` and `shadow`, policy and content check per effect, executors of stage 0 (comment, status_comment, check, audit_anchor, ack, push, change), daily anchor via SCMProvider, guard test over the catalog"
+sources = ["03 section 2.2", "05 section 2"]
+depends_on = ["0-E08-T01", "0-E08-T02", "0-E08-T05", "0-E13"]   # 0-E13 added: plugin contracts of the executors; 0-E08 narrowed to T01, T02, T05 (audit-verify and daily anchor depend on the control plane, which needs the gateway; 0-E09-T06 itself depends on 0-E08-T04); 0-E06 only on 0-E09-T02, because the policy (0-E06-T08) needs the effect catalog from 0-E09-T01 (catalog reconciliation 2026-11-01)
+
+[[task]]
+id = "0-E09-T01"
+title = "Effect catalog and write request schema"
+description = """`packages/contracts/src/work/proposals.ts` (`EffectType`, `EffectTarget`, `ProposalV1` as TypeBox schemas) and `apps/control-plane/src/effects/catalog.ts` (type, origin, permission profile, executor, stage) per detailed design 04 section 2.1.1; platform effects only with `origin = platform` (FE-406), never as a write request."""
+design = ["04-effects-audit-credentials.md#211-effect-catalog"]
+result = "packages/contracts/src/work/proposals.ts, apps/control-plane/src/effects/catalog.ts, tests"
+done = [
+  "Test 'effects/catalog every type has exactly one profile and stage' green",
+  "Test 'effects/catalog platform types are not accepted as proposals' green",
+  "Schema test: every example from detailed design 04 section 2.1.1 validates, invalid examples fail",
+  "`catalog.ts` lists for each type from detailed design 04 section 2.1.1 origin, profile, executor file, `stage`, `usedIn` and `task`; `PlatformEffectInput` per platform effect",
+]
+sources = ["02 section 0", "05 section 2 (permission profiles)", "ADR-06"]
+depends_on = []
+owner = "agent"
+estimate_h = 5
+status = "open"
+note = "M113: platform effects (draft to ready, request reviewers, transition, merge, approve) are in the catalog with profile and stage; revert is not a type of its own (FE-429). Each executor has its own task in the stage from the catalog column (detailed design 04 section 2.1.1)."
+
+  [[task.part]]
+  id = "0-E09-T01-S01"
+  title = "Schema tests with valid and invalid examples"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T01-S02"
+  title = "Schemas and catalog"
+  done = "Tests green"
+
+[[task]]
+id = "0-E09-T02"
+title = "Acceptance of write requests: policy, content check, idempotency, audit"
+description = """`apps/control-plane/src/effects/{gateway,idempotency,content-checks}.ts` per detailed design 04 section 2.1.3: schema, context (for MCP from the item token), target in the run, `Policy.evaluateEffect` (0-E06, types in detailed design 02 section 2.2), redaction (0-E08-T01) with placeholders of active items, Markdown sanitization (FE-420), sizes, visibility hook with stage 0 rule (FE-421), mode, idempotency key (FE-402), `INSERT ON CONFLICT`, audit in the same transaction, dispatch job after commit; G4 hold as `hold`."""
+design = ["04-effects-audit-credentials.md#213-flow-of-submit", "04-effects-audit-credentials.md#214-idempotency-and-outbox"]
+result = "apps/control-plane/src/effects/{gateway,idempotency,content-checks}.ts, apps/control-plane/test/effects/submit.test.ts"
+done = [
+  "Test 'effects/idempotency same key yields one effect' green (done criterion stage 0 'effect idempotency': 20 concurrent submits, one effect)",
+  "Test 'effects/idempotency changed payload yields new effect' green",
+  "Test 'effects/submit rejects invalid proposal' green",
+  "Test 'effects/submit rejects target outside run' green",
+  "Test 'effects/submit stores policy rule id on deny' green",
+  "Test 'effects/submit holds effect when policy requires approval' green",
+  "Test 'effects/submit blocks secret and stores no plaintext' green (per own rule)",
+  "Test 'effects/submit rejects cross repo reference in stage 0' green",
+  "Test 'effects/submit writes audit in same transaction' green",
+]
+sources = ["03 section 2.2", "03 section 5 (policy rejects, visibility)", "05 section 2 items 3 and 4", "05 section 7", "ADR-06", "ADR-63"]
+depends_on = ["0-E09-T01", "0-E08-T01", "0-E08-T02", "0-E10-T05", "0-E06"]   # 0-E10-T05 added: activePlaceholders for the redaction (catalog reconciliation); 0-E06 moved here from the epic (catalog reconciliation)
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T02-S01"
+  title = "Tests for schema, target, policy and idempotency"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T02-S02"
+  title = "Idempotency key and INSERT ON CONFLICT"
+  done = "Idempotency tests green"
+
+  [[task.part]]
+  id = "0-E09-T02-S03"
+  title = "Policy call and G4 hold (policy fake per the interface from 04 section 2.1.2)"
+  done = "Policy tests green"
+
+  [[task.part]]
+  id = "0-E09-T02-S04"
+  title = "Content check: redaction, Markdown, size, visibility hook"
+  done = "Content tests green"
+
+  [[task.part]]
+  id = "0-E09-T02-S05"
+  title = "Audit in the same transaction and dispatch job after commit"
+  done = "Test 'effects/submit writes audit in same transaction' green"
+
+[[task]]
+id = "0-E09-T03"
+title = "Modes record and shadow with storage and test helper"
+description = """`apps/control-plane/src/effects/record.ts` and `packages/testkit/src/effects.ts` per detailed design 04 section 2.1.6: `effects.mode: record` (FE-403) and service `shadow` yield `shadowed` with a reason, payload as JSON in the BlobStore, artifact `effect_record` or `eval_log`; `expectRecordedEffects(runId)` for the dummy service in 0-E16."""
+design = ["04-effects-audit-credentials.md#216-modes-record-and-shadow"]
+result = "apps/control-plane/src/effects/record.ts, packages/testkit/src/effects.ts, tests"
+done = [
+  "Test 'effects/mode record never calls provider and stores payload' green (done criterion stage 0 'effect in record mode'; plugin fake counts 0 calls)",
+  "Test 'effects/mode shadow stores eval log' green",
+  "expectRecordedEffects used in an example test",
+]
+sources = ["02 section 0 (shadow)", "06 section 2 (offline eval)", "08 stage 0"]
+depends_on = ["0-E09-T02"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T03-S01"
+  title = "Tests record and shadow"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T03-S02"
+  title = "Storage and artifact rows"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "0-E09-T03-S03"
+  title = "Test helper expectRecordedEffects"
+  done = "Example test green"
+
+[[task]]
+id = "0-E09-T04"
+title = "Outbox dispatcher with retry, ordering and reconciliation after crash"
+description = """`apps/control-plane/src/effects/{dispatcher,events}.ts` per detailed design 04 section 2.1.4: pg-boss job `effects-dispatch`, `SKIP LOCKED`, serialization per `ordering_key` (FE-405), `dispatch_started_at` before the call, token per effect from the broker (0-E10-T03), reconciliation via marker after a crash (FE-404), error handling per `PluginError.code`, pause per FE-423, events `orchestrator-event`, audit at the final state. Resumption after a restart of the control plane."""
+design = ["04-effects-audit-credentials.md#214-idempotency-and-outbox", "04-effects-audit-credentials.md#42-states-of-the-effect"]
+result = "apps/control-plane/src/effects/{dispatcher,events}.ts, apps/control-plane/test/effects/dispatch.test.ts"
+done = [
+  "Test 'effects/dispatch retries transient with backoff' green",
+  "Test 'effects/dispatch honors retryAfterMs' green",
+  "Test 'effects/dispatch does not retry permission error' green (failure path: failed, event, audit)",
+  "Test 'effects/dispatch reconciles by marker after crash' green",
+  "Test 'effects/dispatch serializes effects per ordering key' green",
+  "Test 'effects/dispatch fails unsupported type in live mode' green",
+  "Test 'effects/dispatch emits orchestrator events' green",
+  "Test 'effects/dispatch resumes after restart' green (S6 row 'control plane restarted')",
+]
+sources = ["03 section 2.2", "03 section 5 (effect fails, control plane restarted)", "01 section 1.1 rule 3"]
+depends_on = ["0-E09-T02", "0-E10-T03", "0-E05-T02", "0-E05-T05"]   # 0-E05 added: queue orchestrator-event and handler registration (catalog reconciliation)
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T04-S01"
+  title = "Tests with plugin fake (transient, permission, crash between call and commit)"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T04-S02"
+  title = "Dispatcher with lock per ordering_key and pause"
+  done = "Retry and ordering tests green"
+
+  [[task.part]]
+  id = "0-E09-T04-S03"
+  title = "Reconciliation after crash and resumption after restart"
+  done = "Reconciliation and restart tests green"
+
+  [[task.part]]
+  id = "0-E09-T04-S04"
+  title = "Events to the orchestrator and audit at the final state"
+  done = "Event test green"
+
+[[task]]
+id = "0-E09-T05"
+title = "Executors comment, status_comment, check and lint rule only write path"
+description = """`apps/control-plane/src/effects/executors/{comment,status-comment,check}.ts` per detailed design 04 section 2.1.5: marker `gw-effect:<id>` and `reconcile`, status comment with one row per active run (03 section 2.3) via the serialization, check with `startCheck`/`updateCheck`, fallback levels in `fallback_used` with audit. In addition the Opengrep rule `gw-plugin-write-only-in-executors` with rule tests and the equality test against `WRITE_METHODS` (detailed design 04 section 6, FE-445; 00 FE-054): write methods of the plugins only under `effects/executors/`. The test mode of Opengrep ignores `paths:` (R-E02-T04): allowed calls under `executors/` are a path case under `.opengrep/tests/gw-plugin-write-only-in-executors/paths/apps/control-plane/src/effects/executors/`, not `good_*.ts` (detailed design 00 section 2.10)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#6-security"]
+result = "apps/control-plane/src/effects/executors/*.ts, .opengrep/rules/gw-plugin-write-only-in-executors.yaml with rule tests, apps/control-plane/test/effects/executors.test.ts"
+done = [
+  "Test 'effects/status comment keeps rows of parallel runs' green (two runs, 50 alternating updates)",
+  "Test 'effects/executor records fallback' green",
+  "Test 'effects/lint write methods only in executors' green (a deliberate call outside yields an error in make check)",
+  "Executors against the GitHub fake of the contract harness (0-E13) green; against recorded GitHub responses as soon as 0-E14 delivers them (checked in 0-E16)",
+  "Tests 'effects/executors/comment live against recorded github responses' and 'effects/executors/status_comment live against recorded github responses' green (PR via upsertSummary with effect marker per FE-433, ticket via addComment from 0-E14-T14)",
+  "Tests 'effects/executors/<type> failure path stores audits and logs' for comment, status_comment and check green (failure path: not_found without retry; state, error, audit, metric)",
+]
+sources = ["01 section 5 (fallback chains)", "03 section 2.3", "05 section 2 item 4", "ADR-06", "ADR-10"]
+depends_on = ["0-E09-T04", "0-E14-T08", "0-E14-T14", "0-E05-T07"]   # 0-E05-T07 added: marker guildwork:status (catalog reconciliation)
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T05-S01"
+  title = "Tests per executor with plugin fake"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T05-S02"
+  title = "comment with marker and reconcile"
+  done = "comment tests green"
+
+  [[task.part]]
+  id = "0-E09-T05-S03"
+  title = "status_comment with rows per run"
+  done = "Test parallel runs green"
+
+  [[task.part]]
+  id = "0-E09-T05-S04"
+  title = "check with fallback level"
+  done = "check tests green"
+
+  [[task.part]]
+  id = "0-E09-T05-S05"
+  title = "Lint rule only write path"
+  done = "Lint test green and included in make check"
+
+[[task]]
+id = "0-E09-T06"
+title = "Platform effect audit_anchor: daily anchor via SCMProvider"
+description = """`apps/control-plane/src/effects/executors/audit-anchor.ts` and the `AnchorSink` implementation `scm` per detailed design 04 section 2.2.4 and FE-407: fixed branch, tree with `latest.json` and `anchors.jsonl`, bundle without clone (isomorphic-git, otherwise an own minimal packfile writer), `push` with `expectedOldSha`, profile `audit_anchor` (TokenProfile in detailed design 05 section 2.11.3; architecture 01 section 5 and 05 section 2 adjusted in the consistency run 2026-11-01), `branch_moved` without retry with alert."""
+design = ["04-effects-audit-credentials.md#224-anchor-via-scmprovider-platform-effect-audit_anchor-m123", "04-effects-audit-credentials.md#10-open-items"]
+result = "apps/control-plane/src/effects/executors/audit-anchor.ts, apps/control-plane/src/audit/sinks/scm.ts, tests"
+done = [
+  "Test 'effects/anchor scm builds bundle accepted by git bundle verify' green",
+  "Test 'audit/anchor scm reports branch moved' green (failure path)",
+  "Test 'audit/anchor writes daily doc via scm sink' green against the SCM fake (done criterion stage 0 'audit chain with daily anchor', sink scm)",
+]
+sources = ["05 section 8", "01 section 13 rule 2", "01 section 5 (push)", "ADR-29", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E08-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M123 (anchor sink contradicts the Effect Gateway rule); the architecture part (S04) was done in the consistency run 2026-11-01. Check whether isomorphic-git offers packObjects: unverified, result in detailed design 04 section 10."
+
+  [[task.part]]
+  id = "0-E09-T06-S01"
+  title = "Test: bundle with git bundle verify, branch moved"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T06-S02"
+  title = "Bundle creation without clone"
+  done = "Bundle test green"
+
+  [[task.part]]
+  id = "0-E09-T06-S03"
+  title = "Executor and sink scm with profile"
+  done = "Anchor tests with SCM fake green"
+
+  [[task.part]]
+  id = "0-E09-T06-S04"
+  title = "Architecture change 01 and 05 with follow-up list"
+  done = "Change in the PR, grep for 'agent/\\*' in 05 shows the exception"
+  status = "dropped"
+
+[[task]]
+id = "0-E09-T07"
+title = "Executor ack"
+description = """`apps/control-plane/src/effects/executors/ack.ts` per detailed design 04 section 2.1.5: loads the stored event and calls `TriggerSource.ack(ev, t)` with a token per effect (detailed design 05 FE-510); idempotency key `ack:<deliveryId>` without run per FE-435 (resolves backlog M144 for `ack` and `audit_anchor`). Shared part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/ack.ts, apps/control-plane/test/effects/executors/ack.test.ts"
+done = [
+  "Test 'effects/executors/ack live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/ack failure path stores audits and logs' green (failure path: plugin reports permission; failed without status comment, run continues; state and error on the effect, audit entry and metric are checked)",
+  "Test 'effects/idempotency platform effect without run uses fallback key' green (ack with the same delivery ID yields one effect; daily anchor one per day)",
+  "Catalog entry ack with executor file, stage and usedIn; guard test from 0-E09-T10 green without ack in the planned list",
+]
+sources = ["01 section 3 (ack)", "05 section 2", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T04"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T07-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T07-S02"
+  title = "Executor ack with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["0-E09-T07-S01"]
+
+  [[task.part]]
+  id = "0-E09-T07-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["0-E09-T07-S02"]
+
+[[task]]
+id = "0-E09-T08"
+title = "Executor push with push check"
+description = """`apps/control-plane/src/effects/executors/push.ts` and `effects/bundle-check.ts` per detailed design 04 section 2.1.5: at `submit` the push check from architecture 01 section 5 (`git bundle verify`, head equals `newSha`, prefix `agent/`, no paths under `.github/workflows`, changed paths to `EffectPolicyInput.paths`), at dispatch `SCMProvider.push` with `expectedOldSha`; reconciliation via the idempotency of the plugin (FE-434). Shared part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/push.ts, apps/control-plane/test/effects/executors/push.test.ts"
+done = [
+  "Test 'effects/executors/push live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/push failure path stores audits and logs' green (failure path: branch moved (conflict) yields failed without retry; an invalid bundle yields invalid at submit without an effect row; state and error on the effect, audit entry and metric are checked)",
+  "Test 'effects/executors/push reconcile after crash is idempotent' green (branch already at newSha: applied without a second push)",
+  "Tests 'effects/bundle-check rejects workflow paths', '.rejects non agent branch', '.reports changed paths' green",
+  "Catalog entry push with executor file, stage and usedIn; guard test from 0-E09-T10 green without push in the planned list",
+]
+sources = ["01 section 5 (push check)", "05 section 2 item 4", "ADR-06", "ADR-71"]
+depends_on = ["0-E09-T04", "0-E14-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T08-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T08-S02"
+  title = "Executor push with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["0-E09-T08-S01"]
+
+  [[task.part]]
+  id = "0-E09-T08-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["0-E09-T08-S02"]
+
+[[task]]
+id = "0-E09-T09"
+title = "Executor change with bundle and draft PR"
+description = """`apps/control-plane/src/effects/executors/change.ts` per detailed design 04 section 2.1.5: with `bundle` first a push to `head` (same check as 0-E09-T08), then `openChange` as a draft with effect marker; reconciliation via the idempotency of `openChange` (FE-434). Users: coder, QA, PR fixer, revert step (stages 2 to 5), standards (stage 7), docs (stage 10). Shared part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/change.ts, apps/control-plane/test/effects/executors/change.test.ts"
+done = [
+  "Test 'effects/executors/change live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/change failure path stores audits and logs' green (failure path: push succeeds, openChange fails: failed with result.pushedSha, the retry only opens the PR; an open PR of a human on the same head yields conflict; state and error on the effect, audit entry and metric are checked)",
+  "Test 'effects/executors/change reconcile after crash returns existing pr' green (open PR with marker is returned, no second PR)",
+  "Catalog entry change with executor file, stage and usedIn; guard test from 0-E09-T10 green without change in the planned list",
+]
+sources = ["01 section 5", "05 section 2", "ADR-06", "ADR-59"]
+depends_on = ["0-E09-T08", "0-E14-T08"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E09-T09-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T09-S02"
+  title = "Executor change with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["0-E09-T09-S01"]
+
+  [[task.part]]
+  id = "0-E09-T09-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["0-E09-T09-S02"]
+
+[[task]]
+id = "0-E09-T10"
+title = "Guard test effect catalog: executor per type, stage before every use"
+description = """`apps/control-plane/test/effects/catalog-guard.test.ts` per detailed design 04 section 2.1.1 and FE-428, runs in `make check`: (1) every value of `EffectType` appears exactly once in the catalog; (2) every entry has an existing file under `effects/executors/` (`internal` only for `dependency`, FE-432) or is listed with stage and task in `PLANNED_EXECUTORS`; (3) for every type, `stage` is the same as or lies before every stage from `usedIn` in the stage graph; the graph is supplied by `python3 tools/plan/plan.py stage-graph --json` from the stage headers of the plan files (this task adds the subcommand, detailed design 04 FE-442; the same source as the plan check, detailed design 00 FE-037, architecture 08 section 3); (4) no type in `PLANNED_EXECUTORS` carries a stage from `BUILT_STAGES`, which the completion of each stage extends by that stage; (5) every file under `effects/executors/` except `types.ts` belongs to an entry. As a result no stage can count as built whose used effect types end with `unsupported` in live mode."""
+design = ["04-effects-audit-credentials.md#211-effect-catalog", "04-effects-audit-credentials.md#8-tests"]
+result = "apps/control-plane/test/effects/catalog-guard.test.ts, `PLANNED_EXECUTORS` and `BUILT_STAGES` in apps/control-plane/src/effects/catalog.ts"
+done = [
+  "Test 'effects/catalog every effect type has an executor or a planned stage' green",
+  "Test 'effects/catalog executor stage precedes every using stage' green",
+  "Counter-check documented in the PR: entry reply with stage 4 and usedIn [6] makes the test fail and names type and stages (failure path)",
+  "Counter-check documented in the PR: a type in PLANNED_EXECUTORS with a stage from BUILT_STAGES makes the test fail",
+  "Test included in `make check`; state after stage 0: BUILT_STAGES = [R, 0], all types of later stages in PLANNED_EXECUTORS",
+]
+sources = ["08 section 3", "02 section 0", "ADR-06", "ADR-54"]
+depends_on = ["0-E09-T01"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "Red Team work plan round 1 (2026-11-01): types without an executor went unnoticed because the E2E tests only ran in record mode; this test holds the class in one place."
+
+  [[task.part]]
+  id = "0-E09-T10-S01"
+  title = "Tests with counter-checks (wrong stage, planned type in built stage, orphaned file)"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E09-T10-S02"
+  title = "Read the stage graph from the plan files, PLANNED_EXECUTORS and BUILT_STAGES"
+  done = "Tests green and in make check"
+  depends_on = ["0-E09-T10-S01"]
+
+# =====================================================================================================
+[[epic]]
+id = "0-E10"
+title = "Credential Broker"
+goal = "Secrets via the SecretStore with audit, own OIDC issuer with key rotation, item tokens, SCM tokens per effect and per clone with restricted permissions, LLM grants per item, pool keys"
+sources = ["05 sections 2, 5", "ADR-45"]
+depends_on = ["0-E03", "0-E06"]
+
+[[task]]
+id = "0-E10-T01"
+title = "Broker core: secrets with audit and PluginContext.secrets"
+description = """`apps/control-plane/src/broker/{broker,secrets,plugin-secrets}.ts` per detailed design 04 sections 2.3.1 and 2.3.2: `resolveSecret` via the SecretStore, cache 60 s with audit on a miss (FE-426), registration of resolved values with the logger for redaction, `PluginContext.secrets.resolve` only for references declared in the manifest and named in the instance."""
+design = ["04-effects-audit-credentials.md#231-interface", "04-effects-audit-credentials.md#232-secrets"]
+result = "apps/control-plane/src/broker/{broker,secrets,plugin-secrets}.ts, tests"
+done = [
+  "Test 'broker/secrets unknown ref returns not_found' green (failure path with audit)",
+  "Test 'broker/secrets audits on cache miss only' green",
+  "Test 'broker/plugin secrets denies undeclared ref' green",
+  "Test 'broker/secrets resolved values are redacted in logs' green",
+]
+sources = ["05 section 5", "01 section 1.1 (PluginContext)", "ADR-22"]
+depends_on = ["0-E08-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E10-T01-S01"
+  title = "Tests resolution, cache, audit, plugin boundary"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E10-T01-S02"
+  title = "resolveSecret with cache and audit"
+  done = "Resolution tests green"
+
+  [[task.part]]
+  id = "0-E10-T01-S03"
+  title = "PluginContext.secrets and logger redaction"
+  done = "Plugin and log tests green"
+
+[[task]]
+id = "0-E10-T02"
+title = "OIDC endpoints and rotation job"
+description = """`apps/control-plane/src/broker/{keyring,oidc-routes}.ts` per detailed design 04 section 2.3.3: wiring of the key ring from the driver (FE-427), `GET /oidc/.well-known/openid-configuration` and `GET /oidc/jwks.json` in the role `web` (`WebMount` with prefix `/oidc` per detailed design 02 FE-213, paths per FE-441), job `broker-rotate-keys` daily, startup error without an active key."""
+design = ["04-effects-audit-credentials.md#233-own-oidc-issuer-and-key-ring", "04-effects-audit-credentials.md#44-key-rotation"]
+result = "apps/control-plane/src/broker/{keyring,oidc-routes}.ts, tests"
+done = [
+  "Test 'broker/oidc discovery and jwks served' green",
+  "Test 'broker/keyring refuses start without active key' green (failure path)",
+  "Test 'broker/rotation job publishes next before activation' green (audit broker.key_rotated)",
+]
+sources = ["05 section 5", "06 section 6 (key rotation)", "ADR-22"]
+depends_on = ["0-E10-T01", "0-E05-T10", "0-E05-T05"]   # instead of 0-E04-T02: WebMount of the role web and handler registration (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E10-T02-S01"
+  title = "Tests endpoints and rotation job"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E10-T02-S02"
+  title = "Routes and job"
+  done = "Tests green"
+
+[[task]]
+id = "0-E10-T03"
+title = "SCM tokens per effect and per clone"
+description = """`apps/control-plane/src/broker/scm-tokens.ts` per detailed design 04 section 2.3.5 and FE-413: profile matches the effect type per catalog (0-E09-T01), exactly one repo, repo of the tenant, effect open or lease active; TTL 300 s per effect, clone at most 3600 s or the remaining lifetime; `merge` and `dispatch` rejected in stage 0; call `SCMProvider.mintToken`; audit with fingerprint, never the token."""
+design = ["04-effects-audit-credentials.md#235-scm-tokens-per-effect-and-per-item"]
+result = "apps/control-plane/src/broker/scm-tokens.ts, tests"
+done = [
+  "Test 'broker/scm token one repo and profile per effect' green",
+  "Test 'broker/scm token refuses merge in stage 0' green (failure path with audit broker.scm_token_refused)",
+  "Test 'broker/scm token clone ttl bounded by lease' green",
+  "Test 'broker/scm token never stored or logged' green (secret scan from 0-E08-T05 over DB and logs)",
+]
+sources = ["05 section 2 (permission profiles)", "01 section 5 (mintToken)", "ADR-45"]
+depends_on = ["0-E10-T01", "0-E09-T01", "0-E08-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E10-T03-S01"
+  title = "Tests profile rules, TTL, rejections"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E10-T03-S02"
+  title = "Rule set and mintToken call with SCM fake"
+  done = "Rule tests green"
+
+  [[task.part]]
+  id = "0-E10-T03-S03"
+  title = "Audit with fingerprint and secret scan"
+  done = "Test 'never stored or logged' green"
+
+[[task]]
+id = "0-E10-T04"
+title = "Issue and verify item token"
+description = """`apps/control-plane/src/broker/item-tokens.ts` per detailed design 04 section 2.3.4 and 03 FE-307: JWT with `typ: gw-item+jwt`, `aud: guildwork-platform-mcp`, claims for tenant, run, item, lease, service, repos, tools, effects; `exp` at most `deadline_at`; verification against the whole ring (including retired) with 30 s clock skew."""
+design = ["04-effects-audit-credentials.md#234-item-token"]
+result = "apps/control-plane/src/broker/item-tokens.ts, tests"
+done = [
+  "Test 'broker/item token verifies and binds lease' green",
+  "Test 'broker/item token rejects wrong typ aud iss and expired' green (failure paths)",
+]
+sources = ["05 section 2 item 2", "05 section 7", "ADR-07"]
+depends_on = ["0-E10-T01"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E10-T04-S01"
+  title = "Tests issuance and rejections"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E10-T04-S02"
+  title = "Issuance and verification"
+  done = "Tests green"
+
+[[task]]
+id = "0-E10-T05"
+title = "LLM grants per item and bundle for the claim"
+description = """`apps/control-plane/src/broker/llm-grants.ts` and `grantsForClaim` per detailed design 04 section 2.3.6: `api_key` and `gateway` with a placeholder per item, `wif` as JWT with `exp` half the remaining lifetime (exchange only in 8-E02), `subscription` yields `null`, other kinds `unsupported`; grants only in memory and only in the claim response (03 FE-304); placeholders of active items retrievable for the redaction in the gateway."""
+design = ["04-effects-audit-credentials.md#236-llm-grants-and-pool-keys", "03-execution.md#23-work-item-envelope-result-and-grants"]
+result = "apps/control-plane/src/broker/llm-grants.ts, extension of broker.ts, tests"
+done = [
+  "Test 'broker/llm grant api_key returns placeholder and key only in response' green",
+  "Test 'broker/llm grant subscription returns null' green",
+  "Test 'broker/llm grant wif exp is half remaining lease' green",
+  "Test 'broker/llm grant unsupported kind fails' green (failure path credential_unavailable)",
+]
+sources = ["01 section 6 (start path per credential kind)", "05 sections 3 and 5", "ADR-22", "ADR-57"]
+depends_on = ["0-E10-T03", "0-E10-T04", "0-E11-T01"]   # 0-E11-T01 added: GrantsV1 and LlmGrantV1 (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E10-T05-S01"
+  title = "Tests per credential kind"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E10-T05-S02"
+  title = "Grants and grantsForClaim"
+  done = "Tests green"
+
+[[task]]
+id = "0-E10-T06"
+title = "Create, verify, revoke pool keys"
+description = """`apps/control-plane/src/broker/pool-keys.ts` per detailed design 04 section 2.3.6 and FE-412: format `gwpk_<keyId>.<secret>`, hash with `key_id` in `workers` (detailed design 01 section 3.8), constant-time comparison, `last_seen_at`, revocation revokes active leases (via `WorkItemService.revoke`, reason `kill_switch`, once 0-E11-T02 exists; until then via a callback interface). Admin API for `guildwork worker register` (call from 0-E18)."""
+design = ["04-effects-audit-credentials.md#236-llm-grants-and-pool-keys"]
+result = "apps/control-plane/src/broker/pool-keys.ts, admin route for creation, tests"
+done = [
+  "Test 'broker/pool key verify constant time and hash only stored' green",
+  "Test 'broker/pool key revoke revokes active leases' green (failure path: worker then gets 401)",
+  "Secret scan finds the plaintext of the key in no table",
+]
+sources = ["05 section 1 (Z1 pool key)", "05 section 9 (compromised worker)", "11 section 2.2 (worker register)"]
+depends_on = ["0-E10-T01"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E10-T06-S01"
+  title = "Tests creation, verification, revocation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E10-T06-S02"
+  title = "Keys and admin route"
+  done = "Tests green"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E11"
+title = "Work API and platform MCP"
+goal = "Work items with claim per verified capabilities, lease with expiry and extension, drain, versioned envelope without secrets, grants only in the claim response, artifact upload; platform MCP with item token for read tools and write requests"
+sources = ["02 section 0", "03 section 2.2"]
+depends_on = []   # 0-E05 and 0-E10 are on 0-E11-T02 (T03 to T07 depend on it); 0-E11-T01 are only schemas that 0-E05-T09, 0-E10-T05 and 0-E13-T11 need (catalog reconciliation 2026-11-01, proposal 02 section 10)
+
+[[task]]
+id = "0-E11-T01"
+title = "Envelope, result, errors and grants as schemas"
+description = """`packages/contracts/src/work/{envelope,worker-api,index}.ts` per detailed design 03 sections 2.3 and 2.4.2: `WorkItemEnvelopeV1`, `WorkItemRequirementsV1`, `InlineInputV1`, `GrantsV1`, `LlmGrantV1`, `StepResultV1`, `StepErrorV1`, request and response schemas of the Work API as TypeBox with size limits."""
+design = ["03-execution.md#23-work-item-envelope-result-and-grants", "03-execution.md#242-endpoints"]
+result = "packages/contracts/src/work/{envelope,worker-api,index}.ts, packages/contracts/test/work/*.test.ts"
+done = [
+  "Schema tests green: valid examples validate, envelope over 2 MiB and inline inputs over 1 MiB fail",
+  "Test 'contracts/envelope has no secret fields' green (schema contains no field from GrantsV1)",
+]
+sources = ["01 section 8 (WorkerApi)", "03 section 6 item 3 (versioned envelope)"]
+depends_on = ["0-E13-T03", "0-E01"]   # contracts and core for the schemas, since the epic no longer depends on 0-E05 and 0-E10 (catalog reconciliation)
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T01-S01"
+  title = "Schema tests with examples and limits"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T01-S02"
+  title = "Schemas and types"
+  done = "Tests green"
+
+[[task]]
+id = "0-E11-T02"
+title = "WorkItemService: enqueue, revoke, step events, blocked check"
+description = """`apps/control-plane/src/work/{service,events}.ts` per detailed design 03 section 2.4.1: `enqueue` and `revoke` in the caller's transaction with `NOTIFY work_available_<pool>`, queue `orchestrator-event` with all `StepEvent` kinds, job `work-blocked-scan` sets `blocked_reason` and sends `item.blocked` once per reason; columns per section 3 (alignment with 01-data-model)."""
+design = ["03-execution.md#241-service-in-the-control-plane", "03-execution.md#3-data"]
+result = "apps/control-plane/src/work/{service,events}.ts, apps/control-plane/test/work/service.test.ts"
+done = [
+  "Test 'work-api/blocked scan emits item.blocked once per reason' green",
+  "Test 'work-api/service enqueue and revoke are atomic with caller transaction' green (rollback leaves no item behind)",
+  "Test 'work-api/service revoke of available item emits item.revoked' green",
+]
+sources = ["03 section 2.2", "03 section 5 (no pool with the required isolation)", "ADR-48"]
+depends_on = ["0-E11-T01", "0-E05-T02", "0-E05-T05", "0-E10"]   # 0-E05-T02, 0-E05-T05 and 0-E10 moved here from the epic (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T02-S01"
+  title = "Tests enqueue, revoke, events"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T02-S02"
+  title = "Service and event queue"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "0-E11-T02-S03"
+  title = "Blocked check"
+  done = "Test blocked scan green"
+
+[[task]]
+id = "0-E11-T03"
+title = "Claim with long poll, capability matching, version N-1, drain and grants"
+description = """`apps/control-plane/src/work/{routes,claim,auth,drain}.ts` per detailed design 03 section 2.4.2: verify pool key (0-E10-T06), worker version (FE-315), drain with `503` and `retryAfterMs` (switch `tenants.drain_since` with audit on and off), freshness of `caps.verified`, selection with `FOR UPDATE SKIP LOCKED` against verified isolation, harness, operator; pool limit `max_concurrency`; create lease; grants from `grantsForClaim` (0-E10-T05) only in the response; long poll via `LISTEN` (FE-303); event `item.leased`, audit `work.leased`; reconciliation of the table `pools` with `installation.yaml` (`pools.ts`, section 3), claim rate per pool key (`work.claim_rate_per_min`), error form `problem+json` with `reason` (FE-330)."""
+design = ["03-execution.md#242-endpoints", "03-execution.md#41-claim-run-and-completion"]
+result = "apps/control-plane/src/work/{routes,claim,auth,drain}.ts, apps/control-plane/test/work/claim.test.ts"
+done = [
+  "Test 'work-api/claim returns envelope without secrets and grants only in response' green",
+  "Test 'work-api/claim matches only verified isolation' green",
+  "Test 'work-api/claim never falls back to weaker isolation' green (S6 case ADR-48)",
+  "Test 'work-api/claim rejects worker older than N-1' and 'accepts worker N-1' green",
+  "Test 'work-api/claim returns 503 while draining' green",
+  "Test 'work-api/claim rejects stale caps' green",
+  "Test 'work-api/claim long-poll wakes on enqueue' green",
+  "Test 'work-api/claim respects pool max_concurrency' green",
+  "Test 'work-api/claim concurrent workers get distinct items' green",
+  "Test 'work-api/auth rejects revoked pool key' green",
+]
+sources = ["01 section 8 (claim, WorkerCaps)", "03 sections 5 and 6", "05 section 3 (minimum isolation)", "ADR-05", "ADR-48"]
+depends_on = ["0-E11-T02", "0-E10-T05", "0-E10-T06"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T03-S01"
+  title = "Tests selection, version, drain, grants"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T03-S02"
+  title = "Route with pool key and version check"
+  done = "Auth and version tests green"
+
+  [[task.part]]
+  id = "0-E11-T03-S03"
+  title = "Selection with SKIP LOCKED and capability matching"
+  done = "Selection tests green, including concurrency"
+
+  [[task.part]]
+  id = "0-E11-T03-S04"
+  title = "Long poll and drain switch"
+  done = "Long poll and drain tests green"
+
+  [[task.part]]
+  id = "0-E11-T03-S05"
+  title = "Create lease, grants, event and audit"
+  done = "Test 'returns envelope without secrets and grants only in response' green"
+
+[[task]]
+id = "0-E11-T04"
+title = "Lease: heartbeat, extension, expiry, revocation, usage to the ledger"
+description = """`apps/control-plane/src/work/lease.ts` per detailed design 03 section 4.2 and FE-302: heartbeat extends up to `deadline_at`, usage deltas in `usage`, ledger check (0-E07) with `cancel` when exceeded, `cancel` after `revoke` and at `deadline`; a reaper job sets expired leases to `expired`, item `available` with backoff or `failed` with `item.exhausted`; audit and counter `lease_expired` per pool."""
+design = ["03-execution.md#42-states-of-work-item-and-lease", "03-execution.md#45-stop-during-a-run"]
+result = "apps/control-plane/src/work/lease.ts, apps/control-plane/test/work/lease.test.ts"
+done = [
+  "Test 'work-api/lease expires without heartbeat and item becomes available' green (done criterion stage 0 'lease expiry')",
+  "Test 'work-api/lease exhausted after max attempts emits item.exhausted' green",
+  "Test 'work-api/lease heartbeat extends expiry up to deadline' green",
+  "Test 'work-api/heartbeat cancels when ledger reports exceeded' green (part of the done criterion 'limit abort S3')",
+  "Test 'work-api/heartbeat returns cancel after revoke' green",
+  "Test 'work-api/heartbeat writes usage deltas' green",
+]
+sources = ["03 section 2.2", "03 section 5 (lease expired, budget exhausted during the run, stop)", "04 section 6 item 2"]
+depends_on = ["0-E11-T03", "0-E07-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T04-S01"
+  title = "Tests expiry, extension, revocation, ledger"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T04-S02"
+  title = "Heartbeat with extension and usage deltas"
+  done = "Heartbeat tests green"
+
+  [[task.part]]
+  id = "0-E11-T04-S03"
+  title = "Reaper with attempt counter"
+  done = "Expiry tests green"
+
+  [[task.part]]
+  id = "0-E11-T04-S04"
+  title = "Ledger connection and cancel"
+  done = "Ledger test green against the ledger from 0-E07"
+
+[[task]]
+id = "0-E11-T05"
+title = "complete, fail and artifact upload with rescan"
+description = """`apps/control-plane/src/work/{results,uploads}.ts` per detailed design 03 sections 2.4.2, 4.3 and FE-305: check the result against schema and lease, artifacts present with size and SHA-256, `structured` again against `outputSchema`, `item.completed` or `item.failed` in the same transaction; `upload-url` with `presign` or `via_api` and a PUT endpoint; rescan job with quarantine and audit; fallback level without PRESIGN once per lease in the audit."""
+design = ["03-execution.md#43-artifact-upload", "03-execution.md#5-failure-and-abort-paths"]
+result = "apps/control-plane/src/work/{results,uploads}.ts, apps/control-plane/test/work/results.test.ts"
+done = [
+  "Test 'work-api/results rejects complete from expired lease' green",
+  "Test 'work-api/results rejects complete with wrong sha256' green",
+  "Test 'work-api/results rejects schema-invalid structured output' green",
+  "Test 'work-api/results emits item.completed in same transaction' green",
+  "Test 'work-api/uploads presign when worker endpoint set, via_api otherwise' green",
+  "Test 'work-api/rescan quarantines artifact with secret' green (failure path with audit and alert metric)",
+]
+sources = ["01 section 8 (complete, fail, uploadUrl)", "01 section 13 (presignPut)", "05 section 5 (redaction before storage)", "11 section 4 (fallback level without PRESIGN)"]
+depends_on = ["0-E11-T04", "0-E08-T01", "0-E08-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T05-S01"
+  title = "Tests result and artifact check"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T05-S02"
+  title = "complete and fail with step events"
+  done = "Result tests green"
+
+  [[task.part]]
+  id = "0-E11-T05-S03"
+  title = "upload-url, PUT fallback level and artifact states"
+  done = "Upload tests green against fs and s3"
+
+  [[task.part]]
+  id = "0-E11-T05-S04"
+  title = "Rescan with quarantine"
+  done = "Rescan test green"
+
+[[task]]
+id = "0-E11-T06"
+title = "Platform MCP: server, item token verification, run.context and propose_*"
+description = """`apps/control-plane/src/mcp/{server,auth}.ts`, `tools/{registry,run-context,propose}.ts` per detailed design 03 section 2.5: MCP over Streamable HTTP under `/mcp/v1`, check per call (signature, typ, aud, lease active, tool in token and manifest, repo in token, rate), `run.context` from the inline inputs with untrusted wrapper, `propose_*` calls `EffectGateway.submit` (0-E09-T02) with context from the token; audit on rejections. MCP library with version and license in the PR description for R-E02."""
+design = ["03-execution.md#25-platform-mcp"]
+result = "apps/control-plane/src/mcp/**, apps/control-plane/test/mcp/*.test.ts"
+done = [
+  "Test 'mcp/auth rejects token with wrong typ or aud' green",
+  "Test 'mcp/auth rejects token after lease revoked' green (failure path stop)",
+  "Test 'mcp/auth denies tool outside manifest' green",
+  "Test 'mcp/auth denies repo outside token' green",
+  "Test 'mcp/tools propose_comment reaches effect gateway with item context' green",
+  "Test 'mcp/tools rate limit per item' green",
+  "MCP inspector or an MCP client from the testkit lists exactly the allowed tools",
+]
+sources = ["05 section 2 item 2", "01 section 6 (platformMcp)", "ADR-07"]
+depends_on = ["0-E11-T03", "0-E09-T02", "0-E10-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T06-S01"
+  title = "Tests token verification and tool boundaries"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T06-S02"
+  title = "Server and check per call"
+  done = "Auth tests green"
+
+  [[task.part]]
+  id = "0-E11-T06-S03"
+  title = "run.context and propose_* to the gateway"
+  done = "Tool tests green"
+
+  [[task.part]]
+  id = "0-E11-T06-S04"
+  title = "Rate limiting and audit"
+  done = "Rate test green"
+
+[[task]]
+id = "0-E11-T07"
+title = "MCP read tools for repo, change and ticket"
+description = """`apps/control-plane/src/mcp/tools/{repo,change,item}.ts` per detailed design 03 section 2.5: `repo.read_file` and `repo.list_files` at the base SHA (head only as untrusted), `change.get`, `change.files`, `item.get`, `item.comments` via SCMProvider or WorkItemProvider of the GitHub plugin (0-E14) with token profile `read` from the broker; size limits; visibility only of repos from the token."""
+design = ["03-execution.md#25-platform-mcp"]
+result = "apps/control-plane/src/mcp/tools/{repo,change,item}.ts, tests against recorded GitHub responses"
+done = [
+  "Test 'mcp/tools read_file at base sha wraps head content as untrusted' green",
+  "Tests of the read tools against the recorded responses from 0-E14 green",
+  "Test 'mcp/tools read_file over size limit is truncated with marker' green (failure path)",
+]
+sources = ["01 sections 4 and 5 (read methods)", "04 section 2 (base SHA)", "ADR-17", "ADR-63"]
+depends_on = ["0-E11-T06", "0-E14-T06", "0-E14-T07", "0-E14-T10"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E11-T07-S01"
+  title = "Tests against recorded responses"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E11-T07-S02"
+  title = "Read tools with untrusted wrapper and limits"
+  done = "Tests green"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E12"
+title = "Worker and sandbox"
+goal = "Worker binary with sandbox lifecycle (Sysbox or gVisor, `destroy` also in the failure path), socket proxy with allowlist, separate networks, egress proxy with allowlist and sandbox without DNS, credential relay, harness environment from allowlist and start path `subscription` on the worker side"
+sources = ["01 section 8", "05 section 3", "ADR-48, ADR-62, ADR-64"]
+depends_on = ["0-E11", "0-E13"]   # 0-E13 added: contracts ExecutionBackend and AgentRuntime, contract harness
+
+[[task]]
+id = "0-E12-T01"
+title = "Worker skeleton: configuration, Work API client, claim loop"
+description = """`apps/worker/src/{main,config,client,loop}.ts` per detailed design 03 section 2.6: subcommands `run`, `socket-proxy`, `probe`, `version`; `worker.yaml` with a check of the file permissions of `pool_key_file`; client for claim, heartbeat, complete, fail, upload-url with retry and `leaseLost`; loop with `max_parallel`, `upgradeRequired`, drain (`retryAfterMs`), SIGTERM with a deadline. Tests against a real Work API (0-E11) in a test container or process."""
+design = ["03-execution.md#26-worker-binary"]
+result = "apps/worker/src/{main,config,client,loop}.ts, apps/worker/test/*.test.ts"
+done = [
+  "Test 'worker/config refuses pool key file readable by others' green",
+  "Test 'worker/loop stops claiming on upgrade_required' green",
+  "Test 'worker/loop honors retryAfterMs while draining' green",
+  "Test 'worker/loop sigterm waits for running items then aborts' green",
+]
+sources = ["01 section 8 (WorkerApi)", "03 section 6", "11 section 2.7", "ADR-05"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T01-S01"
+  title = "Tests configuration and loop"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T01-S02"
+  title = "Configuration with file permission check"
+  done = "Configuration tests green"
+
+  [[task.part]]
+  id = "0-E12-T01-S03"
+  title = "Client and loop"
+  done = "Loop tests green"
+
+[[task]]
+id = "0-E12-T02"
+title = "Socket proxy with allowlist and body check"
+description = """`apps/worker/src/socket-proxy/{server,rules}.ts` per detailed design 03 section 2.8, FE-308, FE-317, FE-322: Unix socket for the worker, forwarding to the daemon socket, allowlist per call, body check for `containers/create`, `networks/create`, `connect`, `exec`; all other calls 403 with a log without body; label binding `guildwork.item`."""
+design = ["03-execution.md#28-socket-proxy-single-host-adr-62"]
+result = "apps/worker/src/socket-proxy/{server,rules}.ts, apps/worker/test/socket-proxy/*.test.ts"
+done = [
+  "One rejection test per rule green, at least the twelve named in detailed design 03 section 8",
+  "Test 'socket-proxy/allows sandbox create within policy' green against a real daemon (GW_TEST_DOCKER=1)",
+  "Test 'socket-proxy/logs never contain env values' green",
+]
+sources = ["05 section 1 (single-host)", "11 sections 2.2 and 2.4", "ADR-62"]
+depends_on = ["0-E12-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T02-S01"
+  title = "Rule tests as a table (pure check function test without daemon)"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T02-S02"
+  title = "checkRequest with all rules"
+  done = "Rule tests green"
+
+  [[task.part]]
+  id = "0-E12-T02-S03"
+  title = "Server with forwarding, streaming of exec and archive"
+  done = "Test with real daemon green"
+
+  [[task.part]]
+  id = "0-E12-T02-S04"
+  title = "Logs without bodies"
+  done = "Log test green"
+
+[[task]]
+id = "0-E12-T03"
+title = "ExecutionBackend docker-sysbox and docker-gvisor with contract suite"
+description = """`plugins/exec-docker` per detailed design 03 section 2.7: `create` with item network (internal), attach proxy, volumes, container with runtime, resources, ReadonlyRootfs, CapDrop, no-new-privileges, uid 10001 (FE-321); `exec` with roles, `copyIn`, `copyOut`, `exportBundle`, `destroy` idempotent and complete; cleanup in the failure path of `create`; disk watcher (FE-320); everything via the socket proxy. Contract suite ExecutionBackend per isolation (part of the contract suites of the five plugin kinds). Check whether runsc and Sysbox can be installed on GitHub-hosted standard runners (unverified); note the result for R-E03."""
+design = ["03-execution.md#27-sandbox-executionbackend-docker-sysbox-and-docker-gvisor"]
+result = "plugins/exec-docker/src/{backend,handle,network,resources}.ts, plugins/exec-docker/manifest.json, plugins/exec-docker/test/contract/*.test.ts"
+done = [
+  "Contract suite ExecutionBackend green with GW_TEST_RUNTIME=runsc: pnpm test:isolation --filter exec-docker",
+  "Contract suite ExecutionBackend green with GW_TEST_RUNTIME=sysbox-runc, or as an open point with a finding if the test host does not support Sysbox",
+  "Test 'exec-docker/create cleans up network and volume when container create fails' green (failure path)",
+  "Test 'exec-docker/contract destroy is idempotent and removes network and volumes' green",
+  "Test 'exec-docker/contract git config and denyReadPaths unreadable for agent' green",
+  "Test 'exec-docker/contract memory and pids limits enforced' and 'disk watcher aborts on diskMb' green",
+]
+sources = ["01 section 8", "05 section 3", "06 section 3 row sandbox", "ADR-48"]
+depends_on = ["0-E12-T02"]
+owner = "agent"
+estimate_h = 16
+status = "open"
+note = "M46: Docker-in-Docker under gVisor stays unverified (stage 3); this task reports DOCKER_IN_DOCKER only for sysbox."
+
+  [[task.part]]
+  id = "0-E12-T03-S01"
+  title = "Contract suite ExecutionBackend in the testkit or package"
+  done = "Suite red"
+
+  [[task.part]]
+  id = "0-E12-T03-S02"
+  title = "create with network, volumes and cleanup in the failure path"
+  done = "create and cleanup cases green"
+
+  [[task.part]]
+  id = "0-E12-T03-S03"
+  title = "exec with roles, copyIn, copyOut, exportBundle"
+  done = "Handle cases green"
+
+  [[task.part]]
+  id = "0-E12-T03-S04"
+  title = "Permissions in the workspace and denyReadPaths"
+  done = "Permissions case green"
+
+  [[task.part]]
+  id = "0-E12-T03-S05"
+  title = "Resources and disk watcher"
+  done = "Resource cases green"
+
+  [[task.part]]
+  id = "0-E12-T03-S06"
+  title = "destroy idempotent and complete, run under both runtimes"
+  done = "Suite green under runsc, sysbox result recorded"
+
+[[task]]
+id = "0-E12-T04"
+title = "Egress proxy: CONNECT with allowlist per item, binding, control API, air gap"
+description = """`apps/egress-proxy/src/{main,ctl,connect,binding,airgap}.ts` per detailed design 03 section 2.9: control API in the network `worker-egress` (detailed design 06 section 2.3) with a secret, registration per item, binding via the network interface (FE-311), `CONNECT` only for exact hosts of the allowlist, DNS only in the proxy, private addresses rejected except `egress.allow_private`, intersection with `air_gap`, connection log per item, deleting the registration closes connections. No registry cache in stage 0 (FE-319)."""
+design = ["03-execution.md#29-egress-proxy"]
+result = "apps/egress-proxy/src/*.ts, apps/egress-proxy/test/*.test.ts"
+done = [
+  "Test 'egress-proxy/connect denies host outside allowlist' green",
+  "Test 'egress-proxy/connect resolves dns only in proxy and rejects private addresses' green",
+  "Test 'egress-proxy/connect binds connection to item by interface' green (two item networks, a connection on the wrong interface fails)",
+  "Test 'egress-proxy/air gap intersects allowlist' green",
+  "Test 'egress-proxy/ctl requires secret' green (failure path 401)",
+]
+sources = ["05 section 3 (egress proxy)", "06 section 9 (air gap)", "ADR-20", "ADR-44", "ADR-64"]
+depends_on = ["0-E12-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T04-S01"
+  title = "Tests allowlist, binding, DNS, air gap"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T04-S02"
+  title = "Control API and registration"
+  done = "ctl tests green"
+
+  [[task.part]]
+  id = "0-E12-T04-S03"
+  title = "CONNECT with binding and allowlist"
+  done = "CONNECT tests green"
+
+  [[task.part]]
+  id = "0-E12-T04-S04"
+  title = "Air gap and connection log"
+  done = "Air gap test green, log contains no contents"
+
+[[task]]
+id = "0-E12-T05"
+title = "Credential relay in the egress proxy"
+description = """`apps/egress-proxy/src/relay/{server,filter,usage}.ts` per detailed design 03 section 2.10: rules R1 to R10 (binding, placeholder, paths only `/v1/messages` and `count_tokens`, body size, no `mcp_servers` and `container`, server tools per allowlist FE-313, model, `max_tokens`, `anthropic-beta`, block and rate), header swap only when forwarding, removal of foreign credential headers, usage from JSON and SSE, local budget block (FE-312), reporting of 401/403 from the upstream; credential only in memory, discarded on DELETE. Upstream in the test as a local TLS server with recorded responses."""
+design = ["03-execution.md#210-credential-relay", "03-execution.md#46-relay-call"]
+result = "apps/egress-proxy/src/relay/*.ts, apps/egress-proxy/test/relay/*.test.ts"
+done = [
+  "One rejection test per rule R1 to R10 green (names per detailed design 03 section 8)",
+  "Test 'egress-proxy/relay injects real key and strips placeholder' green",
+  "Test 'egress-proxy/relay counts usage from json and sse' green",
+  "Test 'egress-proxy/relay blocks item after budget' green",
+  "Test 'egress-proxy/relay reports upstream auth failure' green",
+  "Test 'egress-proxy/delete drops credential from memory' green",
+]
+sources = ["01 section 6 (credential relay, start path api_key and gateway)", "05 section 3 item 1 (limiting the relay)", "ADR-22"]
+depends_on = ["0-E12-T04"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T05-S01"
+  title = "Rule tests R1 to R10 and TLS upstream fake"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T05-S02"
+  title = "Filter"
+  done = "Rule tests green"
+
+  [[task.part]]
+  id = "0-E12-T05-S03"
+  title = "Forwarding with header swap and streaming"
+  done = "Injection test green"
+
+  [[task.part]]
+  id = "0-E12-T05-S04"
+  title = "Usage from JSON and SSE, budget block, auth errors"
+  done = "Usage, budget and auth tests green"
+
+  [[task.part]]
+  id = "0-E12-T05-S05"
+  title = "Discard credential"
+  done = "Memory test green"
+
+[[task]]
+id = "0-E12-T06"
+title = "Sandbox without DNS: minimum Docker version, resolv.conf, S1 case"
+description = """Per detailed design 03 section 2.9.3, FE-310 and FE-316: container with Dns set to 192.0.2.1, `resolv.conf` without nameserver after start, check function `doctor/dns.ts` (Docker Engine 26 or later, probe without DNS answer); enter evidence on the forwarding of external DNS requests from internal networks (CVE-2024-29018 per recollection, unverified) with source in detailed design 03 section 10; S1 case with a DNS catcher as the upstream resolver of the test host."""
+design = ["03-execution.md#293-dns-without-a-back-channel-adr-64", "03-execution.md#10-open-items"]
+result = "apps/worker/src/doctor/dns.ts, adjustment of plugins/exec-docker, eval/suites/s1/dns-exfiltration.test.ts (or testkit, location per 0-E22), evidence in detailed design 03"
+done = [
+  "Test 's1/sandbox dns exfiltration yields zero queries' green (DNS catcher counts 0 requests)",
+  "Test 'exec-docker/contract sandbox has no dns resolution' green",
+  "Test 'doctor/dns rejects docker engine older than 26' green (failure path)",
+  "Detailed design 03 section 10: item CVE verified with source or entered as refuted with consequence",
+]
+sources = ["05 section 3 (registry cache and DNS without back channel)", "11 section 2.2 (doctor)", "07 S1 (package name and DNS)", "ADR-64"]
+depends_on = ["0-E12-T03", "0-E12-T04", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T06-S01"
+  title = "S1 case with DNS catcher"
+  done = "Case red without the measures"
+
+  [[task.part]]
+  id = "0-E12-T06-S02"
+  title = "Dns and resolv.conf in exec-docker, check function for doctor"
+  done = "Case green, doctor test green"
+
+  [[task.part]]
+  id = "0-E12-T06-S03"
+  title = "Enter evidence on the Docker version"
+  done = "Open point in detailed design 03 closed or left with a finding"
+
+[[task]]
+id = "0-E12-T07"
+title = "Verified capabilities (WorkerCaps.verified)"
+description = """`apps/worker/src/caps.ts` per detailed design 03 section 2.6 table "Verified capabilities": runtime registered and probe container starts (sysbox, gvisor; gVisor identifier in the container as additional evidence, unverified), `egressProxy` via probe (direct fails, via proxy succeeds, DNS fails), harnesses from the cache, `subscription` only with a valid token file and `single_operator`; cache with recheck before the claim; subcommand `probe` for doctor."""
+design = ["03-execution.md#26-worker-binary"]
+result = "apps/worker/src/caps.ts, apps/worker/test/caps.test.ts"
+done = [
+  "Test 'worker/caps reports only probed isolation' green (configuration names sysbox, host has only runsc: only gvisor reported)",
+  "Test 'worker/caps egress probe fails when proxy missing' green (failure path)",
+  "guildwork-worker probe outputs valid WorkerCaps JSON (schema from 0-E11-T01)",
+]
+sources = ["01 section 8 (WorkerCaps, rule 3 verified instead of configured)", "05 section 3", "11 section 3 (isolation is verified)", "ADR-48"]
+depends_on = ["0-E12-T03", "0-E12-T04", "0-E12-T08"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M121 (host prerequisites with root) concerns 0-E18; this task only reports missing runtimes honestly."
+
+  [[task.part]]
+  id = "0-E12-T07-S01"
+  title = "Tests isolation probe and egress probe"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T07-S02"
+  title = "Probes and cache"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "0-E12-T07-S03"
+  title = "Subcommand probe"
+  done = "JSON valid against schema"
+
+[[task]]
+id = "0-E12-T08"
+title = "Harness environment from allowlist and start path subscription (worker side)"
+description = """`apps/worker/src/harness/{env,subscription,cache}.ts` per detailed design 03 section 2.11 and FE-322: `buildHarnessEnv` from an empty environment plus allowlist per credential kind, check of `runtimeExtra` against credential patterns; `readSubscriptionToken` per item from the host file with a check of owner and mode, never stored; handover only as exec env; check the harness cache directory `runtimes.claude_code.cache_dir` and pass it to the runtime, loading via copyIn (FE-333, 05 FE-522). The contract test 'start with subscription' with real claude belongs to 0-E15 and uses these building blocks."""
+design = ["03-execution.md#211-harness-environment-and-start-path-subscription-worker-side"]
+result = "apps/worker/src/harness/{env,subscription,cache}.ts, apps/worker/test/harness/*.test.ts"
+done = [
+  "Test 'worker/harness env contains only allowlist per credential kind' green (foreign ANTHROPIC_*, AWS_*, CLAUDE_CODE_OAUTH_TOKEN in the worker environment, /proc/<pid>/environ of a test process in the sandbox contains none of them)",
+  "Test 'worker/subscription token only from host file, foreign CLAUDE_CODE_OAUTH_TOKEN ignored' green",
+  "Test 'worker/subscription refuses token file readable by group' green (failure path credential_unavailable)",
+  "Test 'worker/subscription token never in envelope, result, artifacts or logs' green (secret scan from 0-E08-T05)",
+]
+sources = ["01 section 6 (environment per credential kind, row subscription)", "05 section 6 conditions 2 to 5", "08 stage 0 (contract test start with subscription)", "ADR-57"]
+depends_on = ["0-E12-T01", "0-E08-T05", "0-E12-T03"]   # 0-E12-T03 added: the allowlist test reads /proc/<pid>/environ in a real sandbox
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M3 is done (allowlist), implemented here; M21 and M36 (CA trust of the inspection proxy) stay with 1-E07."
+
+  [[task.part]]
+  id = "0-E12-T08-S01"
+  title = "Tests allowlist and token file"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T08-S02"
+  title = "buildHarnessEnv"
+  done = "Allowlist tests green"
+
+  [[task.part]]
+  id = "0-E12-T08-S03"
+  title = "readSubscriptionToken with permission check"
+  done = "Token tests green"
+
+  [[task.part]]
+  id = "0-E12-T08-S04"
+  title = "Secret scan over envelope, result, artifacts and logs of a run with a fake harness"
+  done = "Scan test green"
+
+[[task]]
+id = "0-E12-T09"
+title = "Lifecycle of an item in the worker with destroy in the failure path"
+description = """`apps/worker/src/item/{runner,clone,collect,heartbeat}.ts` per detailed design 03 section 4.4: phases preparing to teardown, clone in Z1 with ASKPASS (FE-309), proxy registration, sandbox, harness via the AgentRuntime interface (in the test the dummy from `testkit/fake-runtime.ts`, real harness in 0-E15), heartbeat loop with AbortController, redaction and upload, `complete` or `fail`, `finally` with destroy and deregistration, cleanup at startup, self-abort without Work API based on the lease time, rejection of registry cache (FE-319); execution of `kind: "dummy"` per FE-332 (`item/dummy.ts`, in the test with a dummy script) and addition of the platform MCP host to the egress allowlist (section 2.6)."""
+design = ["03-execution.md#44-lifecycle-of-an-item-in-the-worker", "03-execution.md#45-stop-during-a-run", "03-execution.md#5-failure-and-abort-paths"]
+result = "apps/worker/src/item/*.ts, packages/testkit/src/{fake-worker,fake-runtime}.ts, apps/worker/test/item/*.test.ts"
+done = [
+  "Test 'worker/item destroys sandbox when harness throws' green (done criterion stage 0 'sandbox destroy in the failure path')",
+  "Test 'worker/item aborts and destroys sandbox on cancel' green",
+  "Test 'worker/item destroys sandbox when upload fails' green",
+  "Test 'worker/teardown reports destroy failure and retries' green",
+  "Test 'worker/startup removes leftovers with guildwork label' green",
+  "Test 'worker/collect refuses upload when secret remains' green",
+  "Test 'worker/self-aborts when control plane unreachable beyond lease ttl' green",
+  "Test 'worker/rejects registry cache in stage 0' green",
+  "Test 'worker/clone token never enters sandbox' green",
+  "End-to-end test within the area: Work API, worker, sandbox, fake harness, propose_comment, effect in record mode (precursor of 0-E16)",
+]
+sources = ["01 section 8 (destroy always)", "03 sections 2.4 and 5", "05 section 3 (fresh container per item, clone before agent start)", "08 stage 0"]
+depends_on = ["0-E12-T03", "0-E12-T05", "0-E12-T07", "0-E12-T08", "0-E09-T03"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T09-S01"
+  title = "Tests of the failure paths with fakes (harness throws, upload fails, cancel)"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E12-T09-S02"
+  title = "Clone in Z1 with ASKPASS and tar"
+  done = "Test 'clone token never enters sandbox' green"
+
+  [[task.part]]
+  id = "0-E12-T09-S03"
+  title = "Phases and finally with destroy and deregistration"
+  done = "destroy tests green"
+
+  [[task.part]]
+  id = "0-E12-T09-S04"
+  title = "Heartbeat loop, abort, self-abort"
+  done = "cancel and self-abort tests green"
+
+  [[task.part]]
+  id = "0-E12-T09-S05"
+  title = "Collect, redact, upload, complete"
+  done = "Upload and secret tests green"
+
+  [[task.part]]
+  id = "0-E12-T09-S06"
+  title = "Cleanup at startup and end-to-end test within the area"
+  done = "End-to-end test green"
+
+[[task]]
+id = "0-E12-T10"
+title = "Separation on single-host: check functions and S6 case"
+description = """`apps/worker/src/doctor/separation.ts` and `packages/testkit/src/docker-fixture.ts` per detailed design 03 section 6: `checkSeparation` (no secrets/, no .env, no daemon socket in the worker, worker in no network of the control plane, socket proxy rejects probe requests, gw-item networks internal, Docker 26 or later) for doctor (0-E18); test topology with the networks from detailed design 06 section 2.3 (core, edge, worker-uplink, worker-egress, egress-out, gw-item-*) and the Unix socket of the socket proxy; S6 case that tries to reach secrets/, Postgres, SeaweedFS and the daemon socket from worker and sandbox and requests a host path, privileged and a foreign network via the socket proxy. Run on the real Compose bundle in 0-E22."""
+design = ["03-execution.md#6-security", "03-execution.md#8-tests"]
+result = "apps/worker/src/doctor/separation.ts, packages/testkit/src/docker-fixture.ts, eval/suites/s6/single-host-separation.test.ts (location per 0-E22)"
+done = [
+  "Test 's6/single-host worker and sandbox cannot reach secrets, postgres, seaweedfs or docker socket' green on the test topology (gate 0 successes)",
+  "Test 's6/socket proxy refuses host path, privileged and foreign network' green",
+  "Test 'doctor/separation reports mounted docker socket' green (failure path: a deliberately misconfigured topology is detected)",
+  "Network specification for the Compose bundle is in detailed design 03 section 6 and linked in the PR to 0-E18",
+]
+sources = ["05 section 1 (single-host)", "07 S6", "11 sections 2.2 and 2.4", "ADR-62"]
+depends_on = ["0-E12-T02", "0-E12-T03", "0-E12-T04", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T10-S01"
+  title = "Test topology in the testkit"
+  done = "Topology starts in the test with all networks"
+
+  [[task.part]]
+  id = "0-E12-T10-S02"
+  title = "S6 case reachability and socket proxy"
+  done = "Case green on the correct topology"
+
+  [[task.part]]
+  id = "0-E12-T10-S03"
+  title = "checkSeparation for doctor with counter-check"
+  done = "Counter-check with mounted socket is reported as an error"
+
+[[task]]
+id = "0-E12-T11"
+title = "Contract test: rootless daemon with Sysbox or gVisor"
+description = """Clarify the open point from 09 section 4 and ADR-62: do Sysbox or gVisor run with a rootless Docker daemon under its own user, and are the calls from FE-317 sufficient? Attempt on a test host with both runtimes, contract suite ExecutionBackend against the rootless daemon. Enter the result with commands and outputs in detailed design 03 section 10 and in 09 section 4 (architecture); only with a green test is rootless approved as an alternative in the Compose bundle (0-E18)."""
+design = ["03-execution.md#28-socket-proxy-single-host-adr-62", "03-execution.md#10-open-items"]
+result = "Result in docs/design/03-execution.md section 10 and docs/architecture/09-decisions.md section 4; test run log in the PR"
+done = [
+  "Contract suite ExecutionBackend run against the rootless daemon; result per runtime (green, or red with a reason) documented",
+  "09 section 4 row rootless updated (follow-up list in the PR)",
+]
+sources = ["09 section 4", "05 section 1", "ADR-62"]
+depends_on = ["0-E12-T03"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E12-T11-S01"
+  title = "Set up a test host with rootless daemon and both runtimes (script in the PR)"
+  done = "Script runs reproducibly"
+
+  [[task.part]]
+  id = "0-E12-T11-S02"
+  title = "Run the suite and enter the result"
+  done = "Result entered in 03 and 09"

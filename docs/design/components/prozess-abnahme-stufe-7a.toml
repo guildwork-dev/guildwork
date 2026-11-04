@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-7a"
+title = "Reviewer gates with Learnings, stage report and release 7a"
+kind = "process"
+path = "-"
+stage = "7a"
+purpose = "Qualification of the sub-stage 7a through the gates of the reviewer (Gate A with and without Learnings, Gate B reported), stage report with evidence per done criterion, release with S8 and upgrade test, follow-up list of the architecture. No own code."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08",
+  "09-reviewer-companion-features-and-learnings.md#10-open-points",
+]
+built_by = ["7a-E03-T04", "7a-E03-T05"]
+
+[[provides]]
+name = "eval-bericht-7a"
+kind = "file"
+title = "Eval report 7a with Gate A and Gate B of the reviewer with Learnings and qualification row"
+defined_in = "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"
+from_task = "7a-E03-T04"
+
+[[provides]]
+name = "stufenbericht-7a"
+kind = "file"
+title = "Stage report 7a with command and output per criterion, release log and follow-up list"
+defined_in = "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"
+from_task = "7a-E03-T05"
+
+[[uses]]
+interface = "eval-gates/gates-reviewer"
+from_task = "7a-E03-T04"
+purpose = "Gate A and B of the reviewer"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "7a-E03-T04"
+purpose = "Regression run with and without Learnings"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "7a-E03-T04"
+purpose = "Eval report 7a"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "7a-E03-T04"
+purpose = "knowledge.learnings in the qualification profile"
+
+[[uses]]
+interface = "learnings-lebenszyklus/konfig-knowledge-learnings"
+from_task = "7a-E03-T04"
+purpose = "quality-relevant keys"
+
+[[uses]]
+interface = "eval-suite-learnings/suite-learnings"
+from_task = "7a-E03-T05"
+purpose = "Evidence of the Learnings tests"
+
+[[uses]]
+interface = "eval-suite-learnings/zitat-gueltigkeit"
+from_task = "7a-E03-T05"
+purpose = "Evidence of citation validity 100 %"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "7a-E03-T05"
+purpose = "Suites in the stage report"
+
+[[uses]]
+interface = "reviewer-suites/s8-faelle"
+from_task = "7a-E03-T05"
+purpose = "S8 and upgrade test"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "7a-E03-T05"
+purpose = "Release 7a"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "7a-E03-T05"
+purpose = "Guard test with BUILT_STAGES extended by 7a"

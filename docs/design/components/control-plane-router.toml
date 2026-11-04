@@ -1,0 +1,265 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "control-plane-router"
+title = "Router: filter stages, repo assignment, route selection, permission check G0"
+kind = "role"
+path = "apps/control-plane/src/router/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Assigns every new event to a route: cheap filters, repo assignment, fresh re-read against TOCTOU, configuration at the base SHA, route selection with deny by default and permission check G0 at the provider; the result is a RouteDecision or a skipped event. Creates no run and knows no object lock (FE-210); later stages only add routes, arguments and permission forms here."
+design = [
+  "02-control-plane.md#43-router",
+  "02-control-plane.md#3-data",
+  "02-control-plane.md#5-failure-and-abort-paths",
+]
+built_by = [
+  "0-E04-T05",
+  "0-E04-T06",
+  "1-E08-T04",
+  "2-E07-T02",
+  "4-E01-T03",
+  "5-E04-T01",
+  "6-E03-T01",
+  "6-E06-T07",
+  "8-E01-T08",
+  "9-E06-T05",
+  "10-E02-T01",
+  "10-E03-T01",
+  "2-E04-T10",
+]
+
+[[provides]]
+name = "orchestrator-intake"
+kind = "queue"
+title = "Queue orchestrator-intake with payload { eventId, receivedAt, tenantId, decision: RouteDecision }, sent in the transaction of events.state routed; the handler is the intake of the orchestrator (FE-275)"
+defined_in = "02-control-plane.md#3-data"
+from_task = "0-E04-T05"
+
+[[provides]]
+name = "route-decision"
+kind = "ts-api"
+title = "RouteDecision (target pipeline, services or control, permissions, repo, base SHA) as the payload of orchestrator-intake"
+defined_in = "02-control-plane.md#3-data"
+from_task = "0-E04-T06"
+
+[[provides]]
+name = "skip-gruende"
+kind = "ts-api"
+title = "skip_reason values of the router with audit and reply rule (events.state skipped)"
+defined_in = "02-control-plane.md#43-router"
+from_task = "0-E04-T05"
+
+[[provides]]
+name = "konfig-routing"
+kind = "config"
+title = "Evaluation of routing (on, source, filter, enabled, min_permission), command_permissions and routing.reply_on_skip"
+defined_in = "02-control-plane.md#43-router"
+from_task = "0-E04-T05"
+
+[[provides]]
+name = "konfig-router"
+kind = "config"
+title = "router.permission_cache_s, router.max_attempts"
+defined_in = "02-control-plane.md#7-configuration"
+from_task = "0-E04-T06"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "guildwork.event.skipped with reason, guildwork.router.permission_lookup_failed"
+defined_in = "02-control-plane.md#51-metrics-of-this-area"
+from_task = "0-E04-T06"
+
+[[provides]]
+name = "event-run-steer"
+kind = "event"
+title = "run.steer { runId, messageId, actor } after @agent say (10 section 3.3); consumers orchestrator and worker via the heartbeat task"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E04-T10"
+[[uses]]
+interface = "control-plane-ingress/router-route"
+from_task = "0-E04-T05"
+purpose = "Handler of the queue router-route: read events with state new and route them"
+
+[[uses]]
+interface = "control-plane-ingress/plugin-lookup"
+from_task = "0-E04-T05"
+purpose = "SCMProvider and WorkItemProvider of the instance for fresh re-reads and permissions"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E04-T05"
+purpose = "Tx for events.state and the follow-up job in one transaction"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E04-T05"
+purpose = "withTenant(payload.tenantId) per job"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E04-T05"
+purpose = "Repository events (read, state, skip_reason, resolved)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.events"
+from_task = "0-E04-T05"
+purpose = "Read the event (only state new), write routed or skipped with skip_reason and resolved"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identity-links"
+from_task = "0-E04-T06"
+purpose = "Linked SCM identity for ticket commands with a code consequence (only an active OAuth link)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "0-E04-T05"
+purpose = "is_self and bot flag of the initiator in step 1"
+
+[[uses]]
+interface = "db-queue/send-in-tx"
+from_task = "0-E04-T05"
+purpose = "Job orchestrator-intake in the same transaction as events.state routed"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E04-T05"
+purpose = "Job type and retry on permission_lookup_failed up to router.max_attempts"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "0-E04-T05"
+purpose = "Configuration at the base SHA (routing, command_permissions, services.*.mode, pipelines) without a snapshot"
+
+[[uses]]
+interface = "config-resolver/expr"
+from_task = "0-E04-T05"
+purpose = "filter of the routes with evalExpr in the context route.filter"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E04-T05"
+purpose = "Read getChange and the comment fresh (TOCTOU); getPermission from 0-E04-T06"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "0-E04-T05"
+purpose = "Read getItem fresh, permissions in the ticket project"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E04-T05"
+purpose = "RepoRef, PermissionLevel, Result and PluginError (retryable)"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "0-E04-T05"
+purpose = "StoredEvent, CommandName and ResolvedEvent"
+
+[[uses]]
+interface = "event-schema/event-fixtures"
+from_task = "0-E04-T05"
+purpose = "Router tests with normalized events"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "0-E04-T05"
+purpose = "Visible reply to skip reasons as the platform effect comment via submitPlatform (FE-251)"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E04-T05"
+purpose = "Audit router.skipped per reason according to table 4.3"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E04-T05"
+purpose = "Counters guildwork.event.skipped and guildwork.router.permission_lookup_failed"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E04-T06"
+purpose = "Clock for the permission cache router.permission_cache_s"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E04-T05"
+purpose = "Log per abort with eventId and reason"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E04-T05"
+purpose = "Router tests against a real Postgres"
+
+[[uses]]
+interface = "contract-harness/referenz-fakes"
+from_task = "0-E04-T05"
+purpose = "Fake SCMProvider and fake WorkItemProvider with controllable permissions"
+
+[[uses]]
+interface = "not-aus/kill-switch-gate"
+from_task = "1-E08-T04"
+purpose = "KillSwitchGate.match before the route selection: skipped(kill_switch) with a visible reply"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/routen-ticket-to-pr"
+from_task = "2-E07-T02"
+purpose = "Routes work_item.created and work_item.labeled with filter agent:auto and actor item_author"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/befehl-code"
+from_task = "2-E07-T02"
+purpose = "Command @agent code with permissions work_item write and scm write, label setter with write permission (M90)"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "4-E01-T03"
+purpose = "Record a thread reply without write permission as foreign input instead of as a trigger"
+
+[[uses]]
+interface = "prfixer-watch-und-buttons/watch-opt-in"
+from_task = "5-E04-T01"
+purpose = "Arguments watch and unwatch of the command fix: only the PR author with write permission, no fork"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/thread-antwort-erkennung"
+from_task = "6-E03-T01"
+purpose = "isPlatformThreadReply: route replies in platform threads to the reviewer"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/befehle-im-pr"
+from_task = "6-E03-T01"
+purpose = "Commands remember, pause and review [full] in the PR with command_permissions"
+
+[[uses]]
+interface = "auto-approve/policy-regel-withdraw"
+from_task = "6-E06-T07"
+purpose = "Push, new P0/P1 and @agent pause as triggers of the withdrawal withdraw_approve"
+
+[[uses]]
+interface = "identitaetsverknuepfung/identity-link-service"
+from_task = "8-E01-T08"
+purpose = "IdentityLinkService.resolve for the SCM identity of a Jira initiator; without a link skipped(identity_not_linked)"
+
+[[uses]]
+interface = "plugin-jira-cloud/workitems-lesen"
+from_task = "8-E01-T08"
+purpose = "userPermission in the Jira project fresh from the provider (permission AND)"
+
+[[uses]]
+interface = "service-triage/ereignis-item-triaged"
+from_task = "9-E06-T05"
+purpose = "Auto trigger item.triaged for the pipeline ticket-to-pr with triage as the first stage"
+
+[[provides]]
+name = "rechte-und-pruefung"
+kind = "ts-api"
+title = "AndPermissionChecker.check in router/permissions-and.ts: permissions in the ticket project AND in the target repo via identity_links, result identity_not_linked, permission or permission_lookup_failed"
+defined_in = "13-stage-8-providers-and-bases.md#217-permission-and-check-and-visibility-of-ticket-targets"
+from_task = "8-E01-T08"
+
+[[uses]]
+interface = "config-resolver/route-akteure"
+from_task = "10-E02-T01"
+purpose = "Route actors bot_allowlist and integration in steps 1, 5 and 7 (FE-279)"

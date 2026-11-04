@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-exec-k8s"
+title = "ExecutionBackend k8s for Helm operation"
+kind = "plugin"
+path = "plugins/exec-k8s/"
+package = "@guildwork/plugin-exec-k8s"
+stage = "8"
+purpose = "ExecutionBackend k8s, loaded in the worker pod: sandbox per item as a pod with RuntimeClass in the sandbox namespace, NetworkPolicy per item only to the egress proxy, binding at the proxy via the pod IP (FE-1345, FE-1346). No Docker in the pod, no access to secrets; the Helm chart creates the namespace and the RBAC."
+# New in the catalog: detailed design 13 requires the backend (FE-1345); built in 8-E04-T11.
+design = [
+  "13-stage-8-providers-and-bases.md#244-helm-chart",
+  "13-stage-8-providers-and-bases.md#84-bases-8-e04",
+]
+built_by = ["8-E04-T11"]
+
+[[provides]]
+name = "executionbackend"
+kind = "contract"
+title = "K8sExecutionBackend: create (pod and NetworkPolicy gw-item-<itemId>), exec, spawn, copyIn, copyOut via the Kubernetes API, destroy idempotent, pools, maxConcurrency; verified RuntimeClasses via probe pods; contract attestation"
+defined_in = "13-stage-8-providers-and-bases.md#244-helm-chart"
+from_task = "8-E04-T11"
+
+[[provides]]
+name = "konfig-pool"
+kind = "config"
+title = "pools[] with plugin k8s: K8sBackendOptions (namespace, runtimeClassName, egressProxy, podTemplate) or keys id, runtime_class_name, max_concurrency, isolation, sandbox_namespace"
+defined_in = "13-stage-8-providers-and-bases.md#244-helm-chart"
+from_task = "8-E04-T11"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "8-E04-T11"
+purpose = "ExecutionBackend, SandboxSpec, SandboxHandle, SandboxProcess"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "8-E04-T11"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E04-T11"
+purpose = "manifest.json of the plugin"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "8-E04-T11"
+purpose = "Result, PluginError, CapabilitySet"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "8-E04-T11"
+purpose = "Contract suite ExecutionBackend against kind"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "8-E04-T11"
+purpose = "runContractSuite"
+
+[[uses]]
+interface = "egress-proxy/ctl-source-ip"
+from_task = "8-E04-T11"
+purpose = "Registration of the item with bindVia sourceIp and the pod IP (FE-1346)"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "8-E04-T11"
+purpose = "pools[] with plugin k8s in the worker pod"
+
+[[uses]]
+interface = "core/logger"
+from_task = "8-E04-T11"
+purpose = "Output of exec and errors of destroy into the worker's log file"

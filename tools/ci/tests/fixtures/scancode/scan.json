@@ -1,0 +1,136 @@
+{
+  "headers": [
+    {
+      "tool_name": "scancode-toolkit",
+      "tool_version": "32.5.0",
+      "output_format_version": "4.1.0",
+      "errors": [],
+      "warnings": []
+    }
+  ],
+  "files": [
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "detected_license_expression_spdx": "Apache-2.0",
+      "license_detections": [
+        {
+          "license_expression_spdx": "Apache-2.0",
+          "matches": [
+            {
+              "license_expression_spdx": "Apache-2.0",
+              "from_file": "scan/LICENSE",
+              "start_line": 2,
+              "end_line": 202,
+              "matcher": "1-hash",
+              "score": 100.0
+            }
+          ],
+          "identifier": "apache_2_0-ab23f79b-ec38-9a8a-9b23-85059407f34d"
+        }
+      ],
+      "license_clues": [],
+      "scan_errors": []
+    },
+    {
+      "path": "docs",
+      "type": "directory"
+    },
+    {
+      "path": "docs/notes.md",
+      "type": "file",
+      "detected_license_expression_spdx": "CC-BY-SA-4.0",
+      "license_detections": [
+        {
+          "license_expression_spdx": "CC-BY-SA-4.0",
+          "matches": [
+            {
+              "license_expression_spdx": "CC-BY-SA-4.0",
+              "from_file": "scan/docs/notes.md",
+              "start_line": 3,
+              "end_line": 3,
+              "matcher": "2-aho",
+              "score": 100.0
+            }
+          ],
+          "identifier": "cc_by_sa_4_0-c9023109-5e9d-10fb-18db-d2438e9990f2"
+        }
+      ],
+      "license_clues": [],
+      "scan_errors": []
+    },
+    {
+      "path": "src",
+      "type": "directory"
+    },
+    {
+      "path": "src/copied.py",
+      "type": "file",
+      "detected_license_expression_spdx": "GPL-3.0-only",
+      "license_detections": [
+        {
+          "license_expression_spdx": "GPL-3.0-only",
+          "matches": [
+            {
+              "license_expression_spdx": "GPL-3.0-only",
+              "from_file": "scan/src/copied.py",
+              "start_line": 1,
+              "end_line": 1,
+              "matcher": "2-aho",
+              "score": 100.0
+            }
+          ],
+          "identifier": "gpl_3_0-e39f7784-6450-5675-b07b-42d9f930f54c"
+        }
+      ],
+      "license_clues": [],
+      "scan_errors": []
+    },
+    {
+      "path": "src/dual.py",
+      "type": "file",
+      "detected_license_expression_spdx": "MIT OR Apache-2.0",
+      "license_detections": [
+        {
+          "license_expression_spdx": "MIT OR Apache-2.0",
+          "matches": [
+            {
+              "license_expression_spdx": "MIT OR Apache-2.0",
+              "from_file": "scan/src/dual.py",
+              "start_line": 1,
+              "end_line": 1,
+              "matcher": "1-spdx-id",
+              "score": 100.0
+            }
+          ],
+          "identifier": "mit_or_apache_2_0-38f7a99d-ce6d-0d47-6c23-66fc75f7dd0b"
+        }
+      ],
+      "license_clues": [],
+      "scan_errors": []
+    },
+    {
+      "path": "src/ok.py",
+      "type": "file",
+      "detected_license_expression_spdx": "Apache-2.0",
+      "license_detections": [
+        {
+          "license_expression_spdx": "Apache-2.0",
+          "matches": [
+            {
+              "license_expression_spdx": "Apache-2.0",
+              "from_file": "scan/src/ok.py",
+              "start_line": 1,
+              "end_line": 1,
+              "matcher": "1-spdx-id",
+              "score": 100.0
+            }
+          ],
+          "identifier": "apache_2_0-f590f40b-411c-1850-b68c-588af90e1dea"
+        }
+      ],
+      "license_clues": [],
+      "scan_errors": []
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-statistik"
+title = "Statistics core: metrics, bootstrap, non-inferiority, power, sample size"
+kind = "eval"
+path = "eval/core/src/stats/"
+package = "@guildwork/eval-core"
+stage = "0"
+purpose = "Pure, deterministic statistics of all eval measurements: metrics with the mean over repetitions, seedable randomness, cluster bootstrap, kappa, decision per part (green, red, not decidable), sample size and upper bound at zero failures. Not for gate files, status combination or storage."
+design = [
+  "07-eval-and-qualification.md#28-statistics-core",
+  "07-eval-and-qualification.md#2162-statistics-and-gates",
+]
+built_by = ["0-E20-T02", "0-E20-T03"]
+
+[[provides]]
+name = "kennzahlen-und-bootstrap"
+kind = "ts-api"
+title = "createRng, metric, meanRepetitions, quantile7, clusterBootstrap, agreement; types MetricId, ClusterInput, Cluster, Rng"
+defined_in = "07-eval-and-qualification.md#2162-statistics-and-gates"
+from_task = "0-E20-T02"
+
+[[provides]]
+name = "entscheidung"
+kind = "ts-api"
+title = "decidePart with PartSpec, PartData, Decision; requiredN, halfWidthPaired, halfWidthIndependent, upperBoundZeroFailures"
+defined_in = "07-eval-and-qualification.md#2162-statistics-and-gates"
+from_task = "0-E20-T03"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E20-T02"
+purpose = "Error result STATS_EMPTY of clusterBootstrap"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E20-T02"
+purpose = "sha256Hex of the seed string for the splitmix32 seed (FE-709)"

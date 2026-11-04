@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-analyzer-gitleaks"
+title = "Analyzer gitleaks"
+kind = "plugin"
+path = "plugins/analyzer-gitleaks/"
+package = "@guildwork/plugin-analyzer-gitleaks"
+stage = "2"
+purpose = "Analyzer plugin for gitleaks with default rules plus own rules; its rule file is also used by the hard gate no_secret and the secret scan of the snapshots. Not: the execution of the gate (coder-harte-gates)."
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+built_by = ["2-E05-T05"]
+
+[[provides]]
+name = "analyzer-vertrag"
+kind = "contract"
+title = "Implementation of the analyzer contract v1alpha1 (mode run, manifest, image deploy/images/analyzer-gitleaks by digest, offline), contract suite AN1 with 20 fixture repos"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T05"
+
+[[provides]]
+name = "secret-regeln"
+kind = "file"
+title = "gitleaks configuration plugins/analyzer-gitleaks/rules/guildwork.toml (sk-ant-oat, sk-ant-api, AWS keys, placeholders per item), at the same time the rules of the gate no_secret and of the snapshot scan"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T05"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T05"
+purpose = "Implement the analyzer contract v1alpha1 (run, describe, AnalyzerManifestExt)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "2-E05-T05"
+purpose = "Plugin manifest with license, distribution bundled, offline"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "2-E05-T05"
+purpose = "Contract suite AN1 with 20 fixture repos"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "2-E05-T05"
+purpose = "Fingerprints and required fields of the SARIF output"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "2-E05-T05"
+purpose = "Execution in the tool sandbox without network"
+
+[[uses]]
+interface = "container-images/image.analyzer-gitleaks-osv"
+from_task = "2-E05-T05"
+purpose = "Image by digest"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "2-E05-T05"
+purpose = "License gate of the image"

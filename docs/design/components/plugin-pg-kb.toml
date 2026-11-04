@@ -1,0 +1,208 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-pg-kb"
+title = "KnowledgeStore pg-kb: learnings, queries L1 to L3, vector search"
+kind = "plugin"
+path = "plugins/pg-kb/"
+package = "@guildwork/plugin-pg-kb"
+stage = "7a"
+purpose = "Default implementation of the KnowledgeStore contract on Postgres with pgvector: in 7a the capability LEARNINGS (store, vote, expiry, export, import, retrieval queryLearnings without vector search), from stage 7 writing the layers L1 to L3 via applyIncrement and rebuild (FE-1263) and the queries repoMap, symbolContext, impact, moduleSummary, search and learnings via vector search. Not here: the types of the contract (contracts), the life cycle as domain logic (learnings-lebenszyklus), the check of the deltas before writing (DeltaIntake in indexer-schichten) and the MCP tools kb.* (12)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle",
+  "09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context",
+  "09-reviewer-companion-features-and-learnings.md#410-retrieval-in-the-reviewer",
+  "09-reviewer-companion-features-and-learnings.md#82-sub-stage-7a-per-module",
+  "12-expansion.md#21-indexer-l1-to-l3-7-e01",
+  "12-expansion.md#22-embedder-and-vector-search-7-e01",
+  "12-expansion.md#23-mcp-tools-kb-and-ask-7-e02",
+]
+built_by = ["7a-E01-T03", "7a-E02-T03", "7-E01-T03", "7-E01-T05", "7-E01-T08", "7-E01-T10"]
+
+[[provides]]
+name = "knowledgestore-learnings"
+kind = "contract"
+title = "KnowledgeStore v1alpha1 with capability LEARNINGS: putLearning, invalidate, voteLearning, expireLearnings, exportLearnings, importLearnings; manifest, remaining capabilities none, contract suite"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T03"
+
+[[provides]]
+name = "query-learnings"
+kind = "ts-api"
+title = "queryLearnings(q): filter, ranking by path precision, citation check per hit, budget, learning_uses (FE-942); query.learnings from 01 calls it"
+defined_in = "09-reviewer-companion-features-and-learnings.md#213-retrieval-and-inclusion-in-the-reviewer-context"
+from_task = "7a-E02-T03"
+
+[[provides]]
+name = "metrik-retrieval"
+kind = "metric"
+title = "guildwork.learnings.retrieval"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "7a-E02-T03"
+
+[[provides]]
+name = "apply-increment"
+kind = "ts-api"
+title = "KnowledgeStore.applyIncrement and rebuild for L1 and L2 (src/write/apply-increment.ts, src/write/rebuild.ts): one transaction per layer and repo, edge resolution, shadow swap, kb_layer_state with watermark only after success (FE-1263, FE-966); only caller DeltaIntake"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T03"
+
+[[provides]]
+name = "apply-increment-l3"
+kind = "ts-api"
+title = "applyIncrement and rebuild for L3: chunks with vectors, vector_pending in kb_layer_state"
+defined_in = "12-expansion.md#22-embedder-and-vector-search-7-e01"
+from_task = "7-E01-T08"
+
+[[provides]]
+name = "query-l1"
+kind = "ts-api"
+title = "KnowledgeQueryV7.repoMap, symbolContext, impact, moduleSummary over L1 (and L2) with citations and stale marker; ranking, budget and limits per FE-1271"
+defined_in = "12-expansion.md#23-mcp-tools-kb-and-ask-7-e02"
+from_task = "7-E01-T05"
+
+[[provides]]
+name = "query-search"
+kind = "ts-api"
+title = "query.search: hybrid search with RRF over tsvector and pgvector (SearchRequest, SearchHit, FE-1204)"
+defined_in = "12-expansion.md#22-embedder-and-vector-search-7-e01"
+from_task = "7-E01-T08"
+
+[[provides]]
+name = "query-learnings-vektor"
+kind = "ts-api"
+title = "queryLearnings with optional LearningQuery.vector: vector candidates from chunks source_kind learning, filters from 7a, ranked behind path hits, LearningHit.via and vectorSimilarity (FE-1270); citation check at the headSha remains mandatory"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T10"
+
+[[provides]]
+name = "contract-suite-knowledge-store"
+kind = "contract"
+title = "Contract suite KnowledgeStore for LEARNINGS in packages/testkit/src/contract/suites/knowledge-store.ts (for every further implementation, for example sqlite-artifact)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T03"
+
+[[uses]]
+interface = "contracts/skizze-knowledge-store"
+from_task = "7a-E01-T03"
+purpose = "Contract KnowledgeStore from 01 section 9"
+
+[[uses]]
+interface = "contracts/vertrag-knowledge-store-learnings"
+from_task = "7a-E01-T03"
+purpose = "Binding version v1alpha1 for LEARNINGS"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "7a-E01-T03"
+purpose = "Manifest of the plugin"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "7a-E01-T03"
+purpose = "KbCap LEARNINGS, remaining none"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "7a-E01-T03"
+purpose = "Result, RepoRef, Actor, PermissionLevel"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "7a-E01-T03"
+purpose = "Loading as BuiltinPluginPackage"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "7a-E01-T03"
+purpose = "Contract suite KnowledgeStore"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/tabellen-learnings"
+from_task = "7a-E01-T03"
+purpose = "Tables learnings and learning_events"
+
+[[uses]]
+interface = "learnings-lebenszyklus/tabellen-lebenszyklus"
+from_task = "7a-E01-T03"
+purpose = "learning_votes, learning_uses, learning_imports"
+
+[[uses]]
+interface = "db/connect"
+from_task = "7a-E01-T03"
+purpose = "Db access via createPgKbPlugin(deps)"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "7a-E01-T03"
+purpose = "withTenant per call"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "7a-E01-T03"
+purpose = "Contract suite against real Postgres"
+
+[[uses]]
+interface = "learnings-lebenszyklus/scope"
+from_task = "7a-E02-T03"
+purpose = "scopeAllows per candidate"
+
+[[uses]]
+interface = "learnings-lebenszyklus/redaktion-und-zitat"
+from_task = "7a-E02-T03"
+purpose = "locate per hit"
+
+[[uses]]
+interface = "learnings-lebenszyklus/konfig-knowledge-learnings"
+from_task = "7a-E02-T03"
+purpose = "Budget max_per_review and max_chars_per_review"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "7a-E02-T03"
+purpose = "getFile at the target SHA for the citation check"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "7a-E02-T03"
+purpose = "Metric learnings.retrieval"
+
+[[uses]]
+interface = "kb/schicht-typen"
+from_task = "7-E01-T03"
+purpose = "Layer, LayerStatus (fresh stored as ok), LayerVersions for kb_layer_state"
+
+[[uses]]
+interface = "kb/layer-delta"
+from_task = "7-E01-T03"
+purpose = "LayerDelta and LayerRecord as input of applyIncrement and rebuild"
+
+[[uses]]
+interface = "db/repos"
+from_task = "7-E01-T03"
+purpose = "Repositories of the kb tables from packages/db (7-E01-T02)"
+
+[[uses]]
+interface = "kb/abfrage-typen"
+from_task = "7-E01-T05"
+purpose = "SymbolContext and ImpactSet of the queries"
+
+[[uses]]
+interface = "indexer-schichten/kb-tabellen"
+from_task = "7-E01-T03"
+purpose = "Write and read the kb_* tables of the layers L1 to L3 and the columns versions, vector_pending of kb_layer_state"
+
+[[uses]]
+interface = "kb/hybride-suche"
+from_task = "7-E01-T08"
+purpose = "SearchRequest, SearchHit and rrf"
+
+[[uses]]
+interface = "plugin-model-local-embed/modelprovider-local-embed"
+from_task = "7-E01-T08"
+purpose = "Model ID <name> for the partial index per embed_model; the query vector (<name>:query) is computed by the KB facade of the control plane via local-embed and passed as queryVector, pg-kb never calls the embedder itself"
+
+[[uses]]
+interface = "indexer-schichten/konfig-learnings-vektor"
+from_task = "7-E01-T10"
+purpose = "k and minSimilarity of the learnings retrieval by vector (FE-1270)"

@@ -1,0 +1,202 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "propose-dependency"
+title = "Write request propose_dependency with allowlist, osv and approval"
+kind = "role"
+path = "apps/worker/src/dependency/"
+package = "@guildwork/worker"
+stage = "2"
+purpose = "Lets the coder request an additional dependency: check against the exact name allowlist in the control plane (MCP tool), clarifying question for a name that is not allowed, resolution of the transitive closure in the resolver container and osv check in the worker, storage in the registry cache. Not: filling from the lockfile (registry-cache) and no wildcards in the allowlist."
+design = ["10-planner-architect-coder.md#27-propose_dependency", "10-planner-architect-coder.md#48-propose_dependency"]
+built_by = ["2-E01-T09"]
+
+[[provides]]
+name = "dependency-results"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/dependency-results"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "heartbeat-fetch-dependency"
+kind = "http"
+title = "Heartbeat task fetch_dependency in the heartbeat response to the worker"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "admin-api-dependencies"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/dependencies"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "tabelle-dependency-requests"
+kind = "table"
+title = "dependency_requests (migration 0206) with DependencyRequestState"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "tabelle-approvals-bound-subject"
+kind = "table"
+title = "Column approvals.bound_subject (migration 0209), binding of an approval to a triple or a bundle hash"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "befehl-approve-dependency"
+kind = "ui"
+title = "Command @agent approve dependency <requestId> (human with write access, binds the triple)"
+defined_in = "10-planner-architect-coder.md#27-propose_dependency"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "event-dependency-decided"
+kind = "event"
+title = "dependency.decided { runId, requestId, state }"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "osv-abgleich"
+kind = "ts-api"
+title = "osv check per artifact in the variants osv-api and osv-offline (FE-1029)"
+defined_in = "10-planner-architect-coder.md#27-propose_dependency"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "konfig-security-dependencies"
+kind = "config"
+title = "security.dependencies.{allow, osv_min_severity, fetch_timeout_s, max_per_run}"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E01-T09"
+
+[[provides]]
+name = "konfig-registry-cache-osv"
+kind = "config"
+title = "registry_cache.osv (installation): api or offline, with air_gap offline is required"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E01-T09"
+
+[[uses]]
+interface = "plattform-mcp/tool-registry"
+from_task = "2-E01-T09"
+purpose = "Register tool propose_dependency"
+
+[[uses]]
+interface = "plattform-mcp/propose-dependency"
+from_task = "2-E01-T09"
+purpose = "MCP tool propose_dependency of the platform MCP"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "2-E01-T09"
+purpose = "only the coder may use propose_dependency (policy rule)"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E01-T09"
+purpose = "security.dependencies.* in the schema, wildcards rejected"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "2-E01-T09"
+purpose = "registry_cache.osv and air_gap"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E01-T09"
+purpose = "Migrations 0206 and 0209"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "2-E01-T09"
+purpose = "Approval dependency with bound_subject"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E01-T09"
+purpose = "Repository dependency_requests"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E01-T09"
+purpose = "Subcommand approve dependency <id>"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "2-E01-T09"
+purpose = "command_permissions.approve_dependency (write access)"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "2-E01-T09"
+purpose = "Event dependency.decided to the waiting MCP call"
+
+[[uses]]
+interface = "effekt-executoren/human-input"
+from_task = "2-E01-T09"
+purpose = "Clarifying question needs_human on the ticket or PR"
+
+[[uses]]
+interface = "work-api/http-heartbeat"
+from_task = "2-E01-T09"
+purpose = "Heartbeat task fetch_dependency to the worker"
+
+[[uses]]
+interface = "registry-cache/content-store"
+from_task = "2-E01-T09"
+purpose = "Store artifacts of the closure in the ContentStore, extend the index"
+
+[[uses]]
+interface = "registry-cache/lockfile-parser"
+from_task = "2-E01-T09"
+purpose = "Result of the resolver as LockedArtifact[]"
+
+[[uses]]
+interface = "registry-cache/konfig-upstreams"
+from_task = "2-E01-T09"
+purpose = "Egress of the resolver container only to the upstreams"
+
+[[uses]]
+interface = "egress-proxy/ctl-api"
+from_task = "2-E01-T09"
+purpose = "Registration of the resolver container with an allowlist of the upstreams"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T09"
+purpose = "Resolver container without DNS and without workspace"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E01-T09"
+purpose = "Audit dependency.requested, dependency.approved, dependency.decided"
+
+[[uses]]
+interface = "telemetry/instrumente"
+from_task = "2-E01-T09"
+purpose = "Counters of the failure paths of propose_dependency"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "2-E01-T09"
+purpose = "Test upstream with counting in dependency.*"
+
+[[uses]]
+interface = "testkit/dns-sink"
+from_task = "2-E01-T09"
+purpose = "0 DNS requests in dependency.resolver_ignores_agent_manifest"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E01-T09"
+purpose = "new counters of stage 2 in the metric catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E01-T09"
+purpose = "real Postgres per test file for the migrations and repositories"

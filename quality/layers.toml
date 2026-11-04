@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Single source for workspace dependency rules. Checked by tools/ci/check_layers.py
+# (`make layers`). The rows follow the table of allowed dependencies in the
+# detailed design (section "Packages and dependency rules").
+#
+# [groups]       name -> package directories (globs allowed); a member whose
+#                directory does not exist yet is not an error
+# [[package]]    one entry per package directory or directory glob
+#   path         package directory, or a glob such as "plugins/*"; an exact
+#                path wins over a glob
+#   may_import   workspace packages this package may depend on and import:
+#                "@guildwork/<name>" or "group:<name>"; a name of a package
+#                that does not exist yet is allowed
+#   type_only    packages of may_import that may be imported only with
+#                `import type`, `export type` or `typeof import()`
+# [test_only]    packages and exact subpaths that only test files may import,
+#                and the globs of test files. Test-only packages are open to
+#                every package, as a devDependency and in test files.
+#
+# A package below apps/, packages/, plugins/, drivers/, services/ or eval/
+# without an entry is a configuration error (exit 2). New packages come only
+# from `pnpm new:package <location>/<name>`, which adds the entry. Entries of
+# later stages (service libraries, scm-common, eval/core, the service entry
+# points of the apps) are added by the task that creates the package; until
+# then `make layers` rejects the import.
+
+[groups]
+plugins = ["plugins/*"]
+drivers = ["drivers/*"]
+# Everything except apps/admin-ui, for the cross-cutting eval suites.
+all_but_admin_ui = [
+  "packages/*",
+  "plugins/*",
+  "drivers/*",
+  "services/*",
+  "apps/control-plane",
+  "apps/worker",
+  "apps/cli",
+  "eval/*",
+  "eval/adapters/*",
+  "eval/scorers/*",
+]
+
+[[package]]
+path = "packages/core"
+may_import = []
+
+[[package]]
+path = "packages/contracts"
+may_import = ["@guildwork/core"]
+
+[[package]]
+path = "packages/config"
+may_import = ["@guildwork/core", "@guildwork/contracts"]
+
+[[package]]
+path = "packages/db"
+may_import = ["@guildwork/core", "@guildwork/contracts"]
+
+[[package]]
+path = "packages/telemetry"
+may_import = ["@guildwork/core", "@guildwork/config"]
+
+[[package]]
+path = "packages/sdk-service"
+may_import = ["@guildwork/core", "@guildwork/contracts"]
+
+[[package]]
+path = "packages/testkit"
+may_import = ["@guildwork/core", "@guildwork/contracts", "@guildwork/config"]
+
+[[package]]
+path = "plugins/*"
+may_import = ["@guildwork/core", "@guildwork/contracts"]
+
+[[package]]
+path = "drivers/*"
+may_import = ["@guildwork/core", "@guildwork/contracts"]
+
+[[package]]
+path = "services/*"
+may_import = ["@guildwork/core", "@guildwork/contracts", "@guildwork/sdk-service"]
+
+[[package]]
+path = "apps/control-plane"
+may_import = [
+  "@guildwork/core",
+  "@guildwork/contracts",
+  "@guildwork/config",
+  "@guildwork/db",
+  "@guildwork/telemetry",
+  "@guildwork/sdk-service",
+  "group:plugins",
+  "group:drivers",
+]
+
+# Never @guildwork/db: the worker has no database network and no database code (ADR-62).
+[[package]]
+path = "apps/worker"
+may_import = [
+  "@guildwork/core",
+  "@guildwork/contracts",
+  "@guildwork/config",
+  "@guildwork/telemetry",
+  "@guildwork/sdk-service",
+  "group:plugins",
+  "group:drivers",
+]
+
+[[package]]
+path = "apps/cli"
+may_import = ["@guildwork/core", "@guildwork/contracts", "@guildwork/config", "@guildwork/telemetry"]
+
+[[package]]
+path = "apps/admin-ui"
+may_import = ["@guildwork/contracts"]
+type_only = ["@guildwork/contracts"]
+
+[[package]]
+path = "eval/runner"
+may_import = [
+  "@guildwork/core",
+  "@guildwork/contracts",
+  "@guildwork/config",
+  "@guildwork/db",
+  "@guildwork/sdk-service",
+  "@guildwork/eval-core",
+]
+
+[[package]]
+path = "eval/adapters/*"
+may_import = [
+  "@guildwork/core",
+  "@guildwork/contracts",
+  "@guildwork/config",
+  "@guildwork/db",
+  "@guildwork/sdk-service",
+  "@guildwork/eval-core",
+]
+
+[[package]]
+path = "eval/scorers/*"
+may_import = [
+  "@guildwork/core",
+  "@guildwork/contracts",
+  "@guildwork/config",
+  "@guildwork/db",
+  "@guildwork/sdk-service",
+  "@guildwork/eval-core",
+]
+
+[[package]]
+path = "eval/suites/*"
+may_import = ["group:all_but_admin_ui"]
+
+[test_only]
+packages = ["@guildwork/testkit"]
+subpaths = ["@guildwork/db/testing"]
+file_globs = [
+  "**/*.test.ts",
+  "**/test/**",
+  "eval/suites/**",
+  "**/vitest.config.ts",
+  "**/global-setup.ts",
+]

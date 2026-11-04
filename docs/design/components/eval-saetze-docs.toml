@@ -1,0 +1,133 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-saetze-docs"
+title = "Sets DO1 to DO4"
+kind = "eval"
+path = "eval/sets/do1/"
+package = "@guildwork/eval-suites"
+stage = "10"
+purpose = "Eval sets, gate file and adapter for the docs service: DO1 (drift, gate A), DO3 (docstrings), DO4 (release notes), DO2 as a report part only after license clarification; stored per 07 under eval/sets/<id>/ (FE-1537). Not for F4 and CD1 of the PR fixer."
+design = [
+  "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06",
+  "15-stage-10-edge-layers.md#86-suites-and-acceptance-10-e06",
+]
+built_by = ["10-E01-T05"]
+
+[[provides]]
+name = "saetze"
+kind = "file"
+title = "Sets eval/sets/do1/, do3/, do4/ (DO3 internal only until license clarification)"
+defined_in = "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06"
+from_task = "10-E01-T05"
+
+[[provides]]
+name = "gates"
+kind = "file"
+title = "Gate file eval/gates/docs.gates.json with standards_ref to 10 section 11, gate B open"
+defined_in = "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06"
+from_task = "10-E01-T05"
+
+[[provides]]
+name = "adapter"
+kind = "ts-api"
+title = "Adapter eval/adapters/docs/: DocsArtifact to scoring DO1, DO3, DO4"
+defined_in = "15-stage-10-edge-layers.md#21-directories"
+from_task = "10-E01-T05"
+
+[[provides]]
+name = "bericht"
+kind = "file"
+title = "Report eval/reports/stufe-10-docs.md (gate A DO1, rules DO3 and DO4)"
+defined_in = "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06"
+from_task = "10-E01-T05"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "10-E01-T05"
+purpose = "Sets under eval/sets/do1, do3, do4 in the format guildwork.eval-set/v1"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "10-E01-T05"
+purpose = "SetManifest, EvalCase, Origin, LicenseClass"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "10-E01-T05"
+purpose = "Pin, license and origin rules of the sets"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "10-E01-T05"
+purpose = "Adapter eval/adapters/docs with prepare and collect"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "10-E01-T05"
+purpose = "Scorers DO1 precision, DO3 rules, DO4 rules"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "10-E01-T05"
+purpose = "Report eval/reports/stufe-10-docs.md"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "10-E01-T05"
+purpose = "eval/gates/docs.gates.json with standards_ref"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "10-E01-T05"
+purpose = "Gate A DO1 and rules DO3, DO4 each 100 %"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "10-E01-T05"
+purpose = "Precision against the simple prompt per 10 section 1.4"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "10-E01-T05"
+purpose = "Eval run via the project installation"
+
+[[uses]]
+interface = "eval-dienst/eval-bare"
+from_task = "10-E01-T05"
+purpose = "simple prompt with the same model as comparison arm for DO1"
+
+[[uses]]
+interface = "eval-runner/cli-validate-set"
+from_task = "10-E01-T05"
+purpose = "Check the sets before the commit"
+
+[[uses]]
+interface = "eval-runner/cli-fetch"
+from_task = "10-E01-T05"
+purpose = "Load the sources of the sets with pins, references instead of copies"
+
+[[uses]]
+interface = "eval-runner/check-eval-data"
+from_task = "10-E01-T05"
+purpose = "under eval/sets only manifest, labels, references, README"
+
+[[uses]]
+interface = "eval-richter/richter-api"
+from_task = "10-E01-T05"
+purpose = "Judge for the DocAgent scoring of DO3 (helpfulness, truthfulness)"
+
+[[uses]]
+interface = "service-docs/docs-artefakt"
+from_task = "10-E01-T05"
+purpose = "DocsArtifact as input of the adapter"
+
+[[uses]]
+interface = "service-docs/service-manifest"
+from_task = "10-E01-T05"
+purpose = "qualification.evalSuite docs and gateB reference"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "10-E01-T05"
+purpose = "S1 cases injection via doc text and commit message"

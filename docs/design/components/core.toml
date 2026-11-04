@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "core"
+title = "Package core: Result, errors, IDs, time, hash, secrets, logging, telemetry facade, redaction"
+kind = "package"
+path = "packages/core/"
+package = "@guildwork/core"
+stage = "R"
+purpose = "Base types for every package: result and error types with problem+json, IDs and canonical JSON, clock and randomness, SecretValue, logger with redaction, metric and trace facade with catalog and the single source of redaction rules. Without workspace dependencies and without the OTel SDK (telemetry starts that)."
+design = ["00-codebase-and-conventions.md#25-package-core", "00-codebase-and-conventions.md#31-log-record", "00-codebase-and-conventions.md#32-errors-as-an-http-response", "00-codebase-and-conventions.md#33-metrics-catalog", "04-effects-audit-credentials.md#6-security"]
+built_by = ["R-E01-T05", "0-E01-T01", "0-E01-T02", "0-E01-T03", "0-E01-T04", "0-E01-T05", "0-E08-T01"]
+
+[[provides]]
+name = "result"
+kind = "ts-api"
+title = "Result<T, E>, ok, err, isOk, map, andThen, unwrapOr, fromPromise"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T01"
+
+[[provides]]
+name = "fehler"
+kind = "ts-api"
+title = "ErrorCode, AppError, appError, RETRYABLE, GuildworkError, toProblem, exitCodeFor"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T01"
+
+[[provides]]
+name = "json-assert"
+kind = "ts-api"
+title = "JsonValue, parseJson, assertNever, invariant"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T01"
+
+[[provides]]
+name = "problem-json"
+kind = "file"
+title = "Errors as HTTP response: Problem (RFC 9457) with mapping of ErrorCode to status"
+defined_in = "00-codebase-and-conventions.md#32-errors-as-an-http-response"
+from_task = "0-E01-T01"
+
+[[provides]]
+name = "ids-hash"
+kind = "ts-api"
+title = "Id<B> (UUIDv7), newId, parseId, Slug, parseSlug, sha256Hex, canonicalJson (RFC 8785)"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T02"
+
+[[provides]]
+name = "zeit-zufall"
+kind = "ts-api"
+title = "Clock, systemClock, Timestamp, toTimestamp, parseTimestamp, parseDuration, formatDuration, Random, cryptoRandom"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T03"
+
+[[provides]]
+name = "secret-value"
+kind = "ts-api"
+title = "SecretValue with reveal; toString, toJSON and inspect without plaintext"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T03"
+
+[[provides]]
+name = "logger"
+kind = "ts-api"
+title = "Logger, createLogger (with extraRedactions for registered values, FE-059), redactValue, SECRET_PATTERNS, LOG_LIMITS, untrustedSummary"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T04"
+
+[[provides]]
+name = "log-datensatz"
+kind = "file"
+title = "Log line as JSON on stdout with required and fixed fields"
+defined_in = "00-codebase-and-conventions.md#31-log-record"
+from_task = "0-E01-T04"
+
+[[provides]]
+name = "telemetrie-fassade"
+kind = "ts-api"
+title = "Metrics (count, record, gauge) and Tracer (span, traceparent, withTraceparent) on @opentelemetry/api"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E01-T05"
+
+[[provides]]
+name = "metrik-katalog"
+kind = "ts-api"
+title = "METRICS with name, kind, unit and allowed attributes; MetricName, Attrs"
+defined_in = "00-codebase-and-conventions.md#33-metrics-catalog"
+from_task = "0-E01-T05"
+
+[[provides]]
+name = "schwaerzung"
+kind = "ts-api"
+title = "REDACTION_RULES, scan, redact for texts; one rule source for logger, gateway, worker, audit"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E08-T01"
+
+[[provides]]
+name = "markdown-bereinigung"
+kind = "ts-api"
+title = "stripExternalLinks: remove external links and images except allowed hosts"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "0-E08-T01"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "R-E01-T05"
+purpose = "Placeholder package checks tsconfig, Vitest projects and the condition @guildwork/source"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/paket-vorlage"
+from_task = "R-E01-T05"
+purpose = "Package structure with package.json form and exports"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "0-E01-T01"
+purpose = "Done criterion make check green"
+
+[[uses]]
+interface = "opengrep-regeln/regelsatz"
+from_task = "0-E01-T03"
+purpose = "gw-no-direct-clock allows Date.now() only in time.ts"
+
+[[uses]]
+interface = "sicherheits-scans/secret-samples"
+from_task = "0-E01-T04"
+purpose = "Test values of the pattern redaction from quality/secrets/samples.txt"
+

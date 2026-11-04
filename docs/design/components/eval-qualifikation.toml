@@ -1,0 +1,161 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-qualifikation"
+title = "Qualification matrix, mode decision and reference qualification with remeasurement"
+kind = "role"
+path = "apps/control-plane/src/eval/matrix.ts"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Qualification matrix per qualification_key and scope with validity computed on every query, mode decision off, shadow, live including the marking default not proven, merge gate condition, adoption of the reference qualification with remeasurement in shadow and online decay (matrix.ts, reference.ts). Not for the measurement itself (eval service), the export of the file (eval-runner) or the profile (qualifikationsprofil)."
+design = [
+  "07-eval-and-qualification.md#211-qualification-matrix-and-mode-decision",
+  "07-eval-and-qualification.md#212-reference-qualification",
+  "07-eval-and-qualification.md#45-adoption-and-remeasurement",
+  "07-eval-and-qualification.md#2165-eval-service-and-reference-service",
+]
+built_by = ["0-E20-T17", "0-E20-T18", "0-E20-T20"]
+
+[[provides]]
+name = "matrix"
+kind = "ts-api"
+title = "QualificationMatrix (row, decideMode, isQualifiedForMergeGate, evaluate) with MatrixRow and ModeDecision; contract test matrix.contract.test.ts for the policy"
+defined_in = "07-eval-and-qualification.md#211-qualification-matrix-and-mode-decision"
+from_task = "0-E20-T17"
+
+[[provides]]
+name = "audit-matrix"
+kind = "event"
+title = "Audit actions qualification.evaluated and qualification.unproven_live_used (per snapshot)"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T17"
+
+[[provides]]
+name = "referenz-dienst"
+kind = "ts-api"
+title = "ReferenceService (adopt, rate, checkOnline) and job qualification-online-check"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T20"
+
+[[provides]]
+name = "uebernahme-api"
+kind = "http"
+title = "POST /admin/api/v1/qualification/adopt (admin) and POST /admin/api/v1/eval/shadow-ratings (approver)"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T20"
+
+[[provides]]
+name = "audit-uebernahme"
+kind = "event"
+title = "Audit actions qualification.adopted, qualification.adopt_rejected, qualification.adoption_expired, qualification.rating_added"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T20"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "Counters guildwork.qualification.adopt_rejected and unproven_live; alert rule qualification_fallback_shadow"
+defined_in = "07-eval-and-qualification.md#2165-eval-service-and-reference-service"
+from_task = "0-E20-T20"
+
+[[provides]]
+name = "qualification-konfig"
+kind = "config"
+title = "Keys qualification.remeasure.min_human_ratings, qualification.reference_trust and qualification.online_check_at_utc"
+defined_in = "07-eval-and-qualification.md#7-configuration"
+from_task = "0-E20-T20"
+
+[[uses]]
+interface = "eval-dienst/tabellen-qualifikation"
+from_task = "0-E20-T17"
+purpose = "Read and write qualification, qualification_parts, qualification_adoptions"
+
+[[uses]]
+interface = "eval-dienst/tabellen-eval"
+from_task = "0-E20-T17"
+purpose = "eval_runs (state, kind) and eval_references (current) for validity and evaluate"
+
+[[uses]]
+interface = "eval-dienst/eval-repositories"
+from_task = "0-E20-T17"
+purpose = "Repositories of the eval tables"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "0-E20-T17"
+purpose = "combineGate, rulesHash and GateStatus"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "0-E20-T17"
+purpose = "QualificationProfile of the row, qualificationKeyNoCred"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T17"
+purpose = "ServiceId and SetManifest"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E20-T17"
+purpose = "qualification.allow_unproven_live for decideMode"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E20-T17"
+purpose = "Audit qualification.evaluated and qualification.unproven_live_used"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E20-T17"
+purpose = "Counter guildwork.qualification.unproven_live"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E20-T17"
+purpose = "Matrix tests on real Postgres"
+
+[[uses]]
+interface = "eval-core/referenz-qualifikation-format"
+from_task = "0-E20-T20"
+purpose = "Parse and check the reference file on adoption"
+
+[[uses]]
+interface = "eval-core/eval-run-request"
+from_task = "0-E20-T20"
+purpose = "Create a run of kind shadow_remeasure"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "0-E20-T20"
+purpose = "Start the remeasurement as an eval run"
+
+[[uses]]
+interface = "eval-statistik/kennzahlen-und-bootstrap"
+from_task = "0-E20-T20"
+purpose = "Online metric with cluster bootstrap over runs"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "0-E20-T20"
+purpose = "Check the effect_id of the rating (EFFECT_NOT_FOUND)"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "0-E20-T20"
+purpose = "Routes adopt (admin) and shadow-ratings (approver)"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E20-T20"
+purpose = "Register the job qualification-online-check"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E20-T20"
+purpose = "daily schedule qualification-online-check"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "0-E20-T20"
+purpose = "Alert rule qualification_fallback_shadow"

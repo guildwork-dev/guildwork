@@ -1,0 +1,234 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-bitbucket"
+title = "Bitbucket Cloud"
+kind = "plugin"
+path = "plugins/bitbucket/"
+package = "@guildwork/plugin-bitbucket"
+stage = "9"
+purpose = "Bitbucket Cloud as a code hoster with HMAC webhook, SCMProvider with single inline comments, Code Insights for status and annotations, and labels as comment markers. Not: WorkItemProvider (01 matrix 11.1 dropped), merge."
+design = [
+  "14-stage-9-breadth-and-hardening.md#211-common-host-framework",
+  "14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud",
+  "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts",
+  "14-stage-9-breadth-and-hardening.md#41-host-inbound-with-signature-tier",
+  "14-stage-9-breadth-and-hardening.md#42-review-output-via-the-fallback-chain",
+  "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01",
+]
+built_by = ["9-E01-T02", "9-E01-T07"]
+
+[[provides]]
+name = "fixtures"
+kind = "file"
+title = "Recorded Bitbucket responses and webhooks under plugins/bitbucket/contract/fixtures/"
+defined_in = "14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts"
+from_task = "9-E01-T02"
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource Bitbucket: webhook with HMAC-SHA256 (strong)"
+defined_in = "14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud"
+from_task = "9-E01-T07"
+
+[[provides]]
+name = "scm-provider"
+kind = "contract"
+title = "SCMProvider Bitbucket: single_inline plus summary, Code Insights report as a check with annotations (at most 1,000 per report), SET_LABELS as a comment marker"
+defined_in = "14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud"
+from_task = "9-E01-T07"
+
+[[provides]]
+name = "konfig-bitbucket"
+kind = "config"
+title = "plugins.scm[bitbucket]: BitbucketInstanceConfig (workspace, verify, insights.reportKey)"
+defined_in = "14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud"
+from_task = "9-E01-T07"
+
+[[provides]]
+name = "e2e-suite"
+kind = "file"
+title = "E2E suite eval/suites/e2e/bitbucket/ with a recording from the Owner run"
+defined_in = "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"
+from_task = "9-E01-T07"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E01-T07"
+purpose = "Result, PluginError, refs and SecretRef in all methods"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E01-T07"
+purpose = "Implement PluginBase and PluginContext (ctx.http, ctx.secrets, ctx.audit)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E01-T07"
+purpose = "Manifest with kinds, egress {config.baseUrl} and secrets"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E01-T07"
+purpose = "Report capabilities per instance with native, fallback, none"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "9-E01-T07"
+purpose = "Return comment and description texts as Untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "9-E01-T07"
+purpose = "Implement the TriggerSource of the hoster"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "9-E01-T07"
+purpose = "Implement the SCMProvider of the hoster"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "9-E01-T07"
+purpose = "parse returns a TriggerEvent with signature.strength"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "9-E01-T07"
+purpose = "Recognize mention and command from comments"
+
+[[uses]]
+interface = "event-schema/dedupe-key"
+from_task = "9-E01-T07"
+purpose = "the same dedupeKey from webhook and reconcile"
+
+[[uses]]
+interface = "scm-common/hoster-typen"
+from_task = "9-E01-T07"
+purpose = "HosterInstanceConfig and StaticTokenConfig as the base of the instance configuration"
+
+[[uses]]
+interface = "scm-common/diff-positionen"
+from_task = "9-E01-T07"
+purpose = "Diff positions for threads and inline comments"
+
+[[uses]]
+interface = "scm-common/http-fehler"
+from_task = "9-E01-T07"
+purpose = "Map HTTP responses onto PluginError"
+
+[[uses]]
+interface = "scm-common/effekt-marker"
+from_task = "9-E01-T07"
+purpose = "Recognize (isOwn) and write the marker gw-effect in own comments"
+
+[[uses]]
+interface = "scm-common/ersatzkette"
+from_task = "9-E01-T07"
+purpose = "submitReview via runFallbackChain with fallbackUsed"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "9-E01-T02"
+purpose = "Recording of the hoster responses as cassettes"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "9-E01-T02"
+purpose = "Recording only against permitted test repos"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "9-E01-T02"
+purpose = "make contract-record for the fixtures"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E01-T07"
+purpose = "Contract suite of the plugin with replay"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E01-T07"
+purpose = "abstract suites TriggerSource and SCMProvider"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E01-T07"
+purpose = "contract-attestation.json with fixturesHash"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E01-T07"
+purpose = "register and load as a built-in package"
+
+[[uses]]
+interface = "plugin-rahmen/kein-direktes-netz"
+from_task = "9-E01-T07"
+purpose = "Network only via ctx.http"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "9-E01-T07"
+purpose = "Ingress POST /v1/ingress/{instanceId} calls verify and parse, peer IP in the header x-guildwork-peer"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E01-T07"
+purpose = "Webhook secret and tokens via ctx.secrets"
+
+[[uses]]
+interface = "credential-broker/scm-tokens"
+from_task = "9-E01-T07"
+purpose = "mintScmToken calls mintToken of the weak tier"
+
+[[uses]]
+interface = "effekt-executoren/review"
+from_task = "9-E01-T07"
+purpose = "Executor review calls submitReview and records fallback_used"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "9-E01-T07"
+purpose = "Executor check calls startCheck and updateCheck"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "9-E01-T07"
+purpose = "Executor comment calls upsertSummary or addComment"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "9-E01-T07"
+purpose = "Contract cases without network against recordings"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E01-T07"
+purpose = "E2E review run against the recording"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "9-E01-T07"
+purpose = "Fixture server as the hoster in the E2E"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-9/testkonten"
+from_task = "9-E01-T02"
+purpose = "Spike against the documentation cassettes; recordings only from the optional Owner run"
+
+[[uses]]
+interface = "scm-common/label-marker"
+from_task = "9-E01-T07"
+purpose = "SET_LABELS as a comment with a label marker"
+
+[[uses]]
+interface = "plugin-gitlab/static-scm-token-store"
+from_task = "9-E01-T07"
+purpose = "Repository Access Token as a weak token tier in the broker"
+
+[[uses]]
+interface = "scm-common/scm-revisionsbericht"
+from_task = "9-E01-T07"
+purpose = "Build on the contract version after the revision"

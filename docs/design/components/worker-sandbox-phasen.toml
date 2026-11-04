@@ -1,0 +1,230 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "worker-sandbox-phasen"
+title = "Sandbox phases, egress policy per phase and sandbox without DNS"
+kind = "role"
+path = "apps/worker/src/phases/"
+package = "@guildwork/worker"
+stage = "2"
+purpose = "Takes every agent sandbox through setup, agent and check phase: secrets only in the setup phase, egress policy per item, service and phase with a probe before the harness start, connection log per item and sandbox without DNS resolver (in addition apps/worker/src/egress-policy and apps/worker/src/dns). Not: building the environment snapshot (worker-umgebungs-snapshot) and not the egress proxy itself (egress-proxy)."
+design = ["10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns", "10-planner-architect-coder.md#5-failure-and-abort-paths"]
+built_by = ["2-E01-T02", "2-E01-T05", "2-E01-T07", "2-E01-T08"]
+
+[[provides]]
+name = "spike-protokoll"
+kind = "file"
+title = "Check record docs/design/spikes/2-E01-T02.md: DNS on internal networks, offline protocols per package manager, offline databases (OP-2 to OP-4)"
+defined_in = "10-planner-architect-coder.md#101-open-points-clarified-during-building"
+from_task = "2-E01-T02"
+
+[[provides]]
+name = "phasenwechsel"
+kind = "ts-api"
+title = "Implementation of EnvironmentService.switchPhase: unmount secrets tmpfs, switch policy, egress probe, otherwise egress_not_enforced (FE-1037)"
+defined_in = "10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns"
+from_task = "2-E01-T05"
+
+[[provides]]
+name = "egress-policy"
+kind = "ts-api"
+title = "EgressPolicy and EgressPhase per item to the control API of the egress proxy; registry-cache.internal only for the coder"
+defined_in = "10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns"
+from_task = "2-E01-T07"
+
+[[provides]]
+name = "verbindungsprotokoll"
+kind = "file"
+title = "EgressConnectionLog as NDJSON under t/<tenant>/runs/<runId>/egress/<itemId>.ndjson, reference in the Run Record"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E01-T07"
+
+[[provides]]
+name = "metrik-egress-denied"
+kind = "metric"
+title = "Counter egress_denied per service"
+defined_in = "10-planner-architect-coder.md#5-failure-and-abort-paths"
+from_task = "2-E01-T07"
+
+[[provides]]
+name = "heartbeat-phase"
+kind = "http"
+title = "Field phase in the heartbeat body, the Work API writes sandbox.phase_switched"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T05"
+
+[[provides]]
+name = "setup-secrets-grant"
+kind = "ts-api"
+title = "GrantsV1.setupSecrets from envelope.inputs.setupSecretNames, coder only, broker purpose blueprint_setup (FE-1070)"
+defined_in = "10-planner-architect-coder.md#221-docking-points-of-the-worker-to-the-control-plane-stage-2"
+from_task = "2-E01-T05"
+
+[[provides]]
+name = "eingabe-grants"
+kind = "http"
+title = "GrantsV1.inputs (InputGrantV1) with presignGet or one-time URL GET /work/v1/inputs/{grantId} (FE-1070)"
+defined_in = "10-planner-architect-coder.md#221-docking-points-of-the-worker-to-the-control-plane-stage-2"
+from_task = "2-E01-T05"
+
+[[provides]]
+name = "tabelle-input-grants"
+kind = "table"
+title = "input_grants (migration 0215), fallback level of the input grants without PRESIGN"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E01-T05"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "2-E01-T02"
+purpose = "Throwaway sandboxes on Sysbox and gVisor pools for the check runs"
+
+[[uses]]
+interface = "plugin-exec-docker/sandbox-ohne-dns"
+from_task = "2-E01-T02"
+purpose = "DNS baseline of stage 0 (FE-310) for check question (a)"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E01-T05"
+purpose = "Implement EnvironmentService.switchPhase and PreparedSandbox"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E01-T05"
+purpose = "setup, maintenance and secrets from ResolvedEnvironment"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T05"
+purpose = "exec with environment only in the exec context, tmpfs for setup secrets"
+
+[[uses]]
+interface = "work-item-umschlag/grants-v1"
+from_task = "2-E01-T05"
+purpose = "Setup secrets as grant of the claim response (FE-1070)"
+
+[[uses]]
+interface = "credential-broker/secrets"
+from_task = "2-E01-T05"
+purpose = "Resolution of the repo secrets secret://repos/<repo>/<name> for the grant with audit"
+
+[[uses]]
+interface = "work-api/http-heartbeat"
+from_task = "2-E01-T05"
+purpose = "Field phase in the heartbeat; the Work API writes sandbox.phase_switched"
+
+[[uses]]
+interface = "egress-proxy/ctl-phase"
+from_task = "2-E01-T05"
+purpose = "Switch policy to agent or check before the probe"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E01-T05"
+purpose = "Audit sandbox.phase_switched and sandbox.egress_not_enforced"
+
+[[uses]]
+interface = "worker/item-lebenszyklus"
+from_task = "2-E01-T05"
+purpose = "Phases setup, agent, check in the lifecycle per item"
+
+[[uses]]
+interface = "egress-proxy/ctl-api"
+from_task = "2-E01-T07"
+purpose = "Registration per item with allowlist from security.egress.<service>"
+
+[[uses]]
+interface = "egress-proxy/metriken"
+from_task = "2-E01-T07"
+purpose = "ConnLogEntry per item as the source of the EgressConnectionLog"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E01-T07"
+purpose = "security.egress.<service> as allowlist of the agent phase"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "2-E01-T07"
+purpose = "llmRelay target in every EgressPolicy"
+
+[[uses]]
+interface = "work-api/http-egress-log"
+from_task = "2-E01-T07"
+purpose = "Report reference to the connection log per item"
+
+[[uses]]
+interface = "worker/work-api-client"
+from_task = "2-E01-T07"
+purpose = "Reports and uploads of the worker to the Work API"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "2-E01-T07"
+purpose = "Upload of the connection log into the BlobStore"
+
+[[uses]]
+interface = "telemetry/instrumente"
+from_task = "2-E01-T07"
+purpose = "Counter egress_denied per service"
+
+[[uses]]
+interface = "socket-proxy/check-request"
+from_task = "2-E01-T08"
+purpose = "Check rule sandbox.dns_none in checkRequest"
+
+[[uses]]
+interface = "socket-proxy/regel-dns-none"
+from_task = "2-E01-T08"
+purpose = "Rejection on creation, which the worker reports as sandbox_create_failed"
+
+[[uses]]
+interface = "testkit/dns-sink"
+from_task = "2-E01-T08"
+purpose = "DNS catcher in the tests dns.* and in the S1 case"
+
+[[uses]]
+interface = "testkit/docker-topologie"
+from_task = "2-E01-T08"
+purpose = "Networks and socket proxy for the sandbox tests"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "2-E01-T08"
+purpose = "Alert on sandbox.dns_none and egress_not_enforced"
+
+[[uses]]
+interface = "credential-broker/item-tokens"
+from_task = "2-E01-T05"
+purpose = "Grants of the claim response next to the item token"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "2-E01-T05"
+purpose = "presignGet for input grants, otherwise fallback URL"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.leases"
+from_task = "2-E01-T05"
+purpose = "Validity of an input grant until the end of the lease"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E01-T05"
+purpose = "sha256Hex of the grant secret part in input_grants"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E01-T05"
+purpose = "new counters of stage 2 in the metrics catalog"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "2-E01-T05"
+purpose = "Setup secrets as SecretValue until the tmpfs is unmounted"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E01-T05"
+purpose = "real Postgres per test file for the migrations and repositories"

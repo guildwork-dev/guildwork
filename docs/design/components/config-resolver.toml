@@ -1,0 +1,330 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "config-resolver"
+title = "Config resolver: schemas installation, org, repo, loading at the base SHA, merge, fail closed, snapshot, repo_overrides"
+kind = "package"
+path = "packages/config/"
+package = "@guildwork/config"
+stage = "0"
+purpose = "Provides the effective configuration of a run: schemas with x-merge and x-qualification, loading of the org, group and repo files at the pinned SHA, merging only in the stricter direction, fail closed, consistency rules, snapshot with qualification_key per service, expression language and repo_overrides. Not here: the loader of installation.yaml (config-installation), the profile and key themselves (qualifikationsprofil) and the resolver rules of the plugin areas (config-resolver-regeln)."
+design = [
+  "02-control-plane.md#46-config-resolver",
+  "02-control-plane.md#22-public-interfaces",
+  "02-control-plane.md#43-router",
+  "02-control-plane.md#5-failure-and-abort-paths",
+]
+built_by = [
+  "0-E06-T01",
+  "0-E06-T02",
+  "0-E06-T03",
+  "0-E06-T04",
+  "0-E06-T05",
+  "0-E06-T06",
+  "0-E06-T07",
+  "0-E06-T10",
+  "0-E20-T08",
+  "2-E01-T09",
+  "2-E02-T02",
+  "2-E03-T01",
+  "2-E04-T01",
+  "3-E01-T09",
+  "4-E01-T01",
+  "6-E01-T01",
+  "6-E02-T01",
+  "7a-E01-T02",
+  "7-E02-T05",
+  "10-E02-T01",
+  "10-E03-T01",
+]
+
+[[provides]]
+name = "json-schemas"
+kind = "file"
+title = "org.schema.json and repo.schema.json (Draft 2020-12) in packages/config/schema/, published per release (FE-237); installation.schema.json is provided by config-installation/installation-schema"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E06-T01"
+
+[[provides]]
+name = "org-und-gruppen-datei"
+kind = "config"
+title = "<org>/.agents-platform/org.yaml and groups/<group>.yaml with membership via agents_group or topic (FE-232)"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E06-T03"
+
+[[provides]]
+name = "repo-datei"
+kind = "config"
+title = ".agents/config.yaml at the base SHA with path globs and services.<id> (FE-236)"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E06-T03"
+
+[[provides]]
+name = "schema-module"
+kind = "ts-api"
+title = "TypeBox modules schema/org.ts, repo.ts, common.ts, services/<id>.ts with x-merge and x-qualification; services/<id>.ts re-exports the module from packages/contracts/src/services/<id>-config.ts (FE-248), which services import themselves"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E06-T01"
+
+[[provides]]
+name = "expr"
+kind = "ts-api"
+title = "compileExpr, evalExpr, ExprContext: expression language for filter, required_if, auto_if, when, until and guards of the state machine (FE-207)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T02"
+
+[[provides]]
+name = "validate-file"
+kind = "ts-api"
+title = "Resolver.validateFile(level, yamlText) with ConfigError (line, column, code) for CLI config validate and doctor"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T03"
+
+[[provides]]
+name = "resolver"
+kind = "ts-api"
+title = "createResolver, Resolver.resolve(ResolveRequest): ResolveResult with effective, hash, sources, fallbackUsed, warnings"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T05"
+
+[[provides]]
+name = "consistency-rule"
+kind = "contract"
+title = "ConsistencyRule, EffectiveConfigView and RuleCaps: form of all consistency and resolver rules, also from packages/config/src/rules/ (FE-238, FE-239)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T06"
+
+[[provides]]
+name = "snapshot"
+kind = "ts-api"
+title = "Resolver.snapshot(tx, result): config_snapshots deduplicated by the hash, profiles and qualification_key per service with EffectiveServiceConfig, ResolvedInstallation and the contribution of the service from ResolverServiceInfo (FE-234, FE-247)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T07"
+
+[[provides]]
+name = "overrides"
+kind = "ts-api"
+title = "Overrides.set, lift, list for repo_overrides: only stricter, writer admin or orchestrator with fallback rule, audit"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T10"
+
+[[provides]]
+name = "konfig-cache"
+kind = "config"
+title = "config.cache_ttl_s: cache of parsed files per (source_key, sha) (FE-235)"
+defined_in = "02-control-plane.md#7-configuration"
+from_task = "0-E06-T03"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "guildwork.config.invalid, guildwork.config.loosening_ignored"
+defined_in = "02-control-plane.md#51-metrics-of-this-area"
+from_task = "0-E06-T05"
+
+[[provides]]
+name = "config-store"
+kind = "contract"
+title = "Port ConfigStore (lastValid, recordValid, recordInvalid, putSnapshot, activeOverrides, insertOverride, liftOverride) with the implementation KyselyConfigStore in apps/control-plane/src/config/ (FE-239)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T05"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E06-T01"
+purpose = "TypeBox, compileSchema and toJsonSchema for org, group, repo and service schemas"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E06-T01"
+purpose = "Extend the installation schema in packages/config/src/installation/ with x-merge, x-qualification and the keys from section 7 (FE-237)"
+
+[[uses]]
+interface = "config-installation/installation-schema"
+from_task = "0-E06-T01"
+purpose = "gen:schema writes installation.schema.json next to org.schema.json and repo.schema.json"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E06-T02"
+purpose = "Result of the expression and resolver functions"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E06-T02"
+purpose = "Error codes of the load errors"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E06-T03"
+purpose = "getFile at the pinned SHA; repoInfo for repo class and group membership"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E06-T03"
+purpose = "RepoRef, Result and PluginError when reading the files"
+
+[[uses]]
+interface = "contract-harness/referenz-fakes"
+from_task = "0-E06-T03"
+purpose = "Fake SCMProvider with files per SHA in the loader tests"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E06-T03"
+purpose = "scan over configuration values: a hit is the load error secret_inline"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E06-T03"
+purpose = "Clock for the file cache config.cache_ttl_s"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E06-T04"
+purpose = "Counters guildwork.config.loosening_ignored and guildwork.config.invalid"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E06-T05"
+purpose = "Tx of the app for KyselyConfigStore"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E06-T05"
+purpose = "Repositories config_last_valid, config_snapshots, repo_overrides in the KyselyConfigStore"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-last-valid"
+from_task = "0-E06-T05"
+purpose = "Last valid version per file and error fields (ADR-65)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.repo-overrides"
+from_task = "0-E06-T04"
+purpose = "Apply active overrides last and only in the stricter direction; write them from 0-E06-T10"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "0-E06-T07"
+purpose = "Snapshot per (tenant_id, hash) deduplicated"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E06-T05"
+purpose = "KyselyConfigStore writes audit config.invalid per new error_sha and config.override_set or lifted"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E06-T05"
+purpose = "S2 cases fail closed against a real Postgres"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E06-T06"
+purpose = "RuleCaps.pluginLoaded and repoInfo via the loaded instances (implementation in apps/control-plane/src/config/caps.ts)"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "0-E06-T06"
+purpose = "Capabilities such as OBJECT_LOCK of the BlobStore driver for the rule audit_anchor"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E06-T06"
+purpose = "RuleCaps.blobCaps from the loaded BlobStore driver"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E06-T07"
+purpose = "canonicalJson and sha256Hex for the snapshot hash (FE-234)"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "0-E06-T07"
+purpose = "buildProfile and qualificationKey per service of the run"
+
+[[uses]]
+interface = "eval-dienst/eval-konfig"
+from_task = "0-E20-T08"
+purpose = "Keys eval.* and qualification.remeasure.* into the installation schema (x-qualification false)"
+
+[[uses]]
+interface = "propose-dependency/konfig-security-dependencies"
+from_task = "2-E01-T09"
+purpose = "security.dependencies.allow only with exact names into the schema"
+
+[[uses]]
+interface = "service-planner/konfig-planner"
+from_task = "2-E02-T02"
+purpose = "Keys services.planner into the schema services/planner.ts with x-qualification"
+
+[[uses]]
+interface = "service-architect/konfig-architect"
+from_task = "2-E03-T01"
+purpose = "Keys services.architect into the schema with the resolver rule doc_paths against forbidden_paths"
+
+[[uses]]
+interface = "service-coder/konfig-coder"
+from_task = "2-E04-T01"
+purpose = "Keys services.coder into the schema; best_of_n and max_children rejected before stage 9"
+
+[[uses]]
+interface = "service-qa/konfig-services-qa"
+from_task = "3-E01-T09"
+purpose = "Keys services.qa into the schema with a resolver rule for models.*"
+
+[[uses]]
+interface = "service-prfixer/konfig-services-prfixer"
+from_task = "4-E01-T01"
+purpose = "Keys services.prfixer into the schema, max_rounds and sources only lowering"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/konfig-summary"
+from_task = "6-E01-T01"
+purpose = "Keys services.reviewer.summary.*, models.companion, risk_levels into the schema"
+
+[[uses]]
+interface = "pre-merge-checks/konfig-checks"
+from_task = "6-E02-T01"
+purpose = "Keys services.reviewer.builtin_checks and checks with resolver rules"
+
+[[uses]]
+interface = "learnings-lebenszyklus/konfig-knowledge-learnings"
+from_task = "7a-E01-T02"
+purpose = "Keys knowledge.learnings.* into the schema; an inner layer may only narrow scope"
+
+[[provides]]
+name = "konfig-approvals"
+kind = "config"
+title = "approvals.protected_paths (union), approvals.plan_expiry_days (min), approvals.budget_owner: schema and merging"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E06-T01"
+
+[[provides]]
+name = "konfig-analyzers"
+kind = "config"
+title = "Section analyzers of the org and the repo (instances with image digest, license, distribution, rules; intersect against the allowlist) and installation keys analyzers_allowlist, bundled_licenses"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E06-T01"
+
+[[provides]]
+name = "konfig-knowledge-use"
+kind = "config"
+title = "services.<id>.knowledge.use (off | on) with x-qualification true; on results in its own qualification profile (12 FE-1210)"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E02-T05"
+
+[[provides]]
+name = "eval-profil"
+kind = "ts-api"
+title = "ResolveRequest.evalConfigRef and ConfigSources.evalConfig: the profile file of an eval run replaces the org, group and repo layers, without fallback (FE-246)"
+defined_in = "02-control-plane.md#46-config-resolver"
+from_task = "0-E20-T08"
+
+[[provides]]
+name = "route-akteure"
+kind = "config"
+title = "routing[].actor bot_allowlist (from 10-E02-T01) and integration with responsible and autonomy_cap (from 10-E03-T01), expression context incident.* in contexts.ts (FE-279)"
+defined_in = "02-control-plane.md#43-router"
+from_task = "10-E02-T01"

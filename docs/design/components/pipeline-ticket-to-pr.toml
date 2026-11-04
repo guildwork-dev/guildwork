@@ -1,0 +1,368 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "pipeline-ticket-to-pr"
+title = "PipelineRunner ticket-to-pr with stages, triggers, transitions, G1 and shadow"
+kind = "role"
+path = "apps/control-plane/src/pipeline/"
+package = "@guildwork/control-plane"
+stage = "2"
+purpose = "Controls the pipeline ticket-to-pr in the control plane: stages with on_disabled and stage handlers per service, triggers by command and label, transitions up to awaiting_human_review, approval G1 manual and automatic including shadow measurement, shadow mode; later stages (QA, PR-Fixer, triage) dock on as stage handlers. Not: the work of the services themselves and not the deterministic effects (orchestrator-effekte)."
+design = ["10-planner-architect-coder.md#217-pipeline-ticket-to-pr-appscontrol-planesrcpipeline", "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2", "10-planner-architect-coder.md#42-g1-manual-and-automatic", "10-planner-architect-coder.md#87-pipeline-2-e07"]
+built_by = ["2-E02-T09", "2-E07-T01", "2-E07-T02", "2-E07-T03", "2-E07-T05", "2-E07-T06", "2-E07-T07", "2-E08-T10", "3-E04-T04", "4-E05-T01", "9-E06-T05"]
+
+[[provides]]
+name = "befehl-approve-plan"
+kind = "ui"
+title = "Command @agent approve plan [autonomy=x]: G1 binds plan and design hash, checks currency, caps autonomy"
+defined_in = "10-planner-architect-coder.md#42-g1-manual-and-automatic"
+from_task = "2-E02-T09"
+
+[[provides]]
+name = "event-plan-approved"
+kind = "event"
+title = "plan.approved { runId, planId, version, hash, designHash?, actor, autonomy, auto }"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E02-T09"
+
+[[provides]]
+name = "ausdrucks-bindung"
+kind = "ts-api"
+title = "Binding of plan.* and design.* to the expression evaluator of the router for auto_if, required_if and when (FE-1007, FE-1008)"
+defined_in = "10-planner-architect-coder.md#42-g1-manual-and-automatic"
+from_task = "2-E02-T09"
+
+[[provides]]
+name = "konfig-planner-approval"
+kind = "config"
+title = "services.planner.approval.{required_if, auto_if, auto_mode}"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E02-T09"
+
+[[provides]]
+name = "tabelle-plan-approval-shadow"
+kind = "table"
+title = "plan_approval_shadow (migration 0214)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E02-T09"
+
+[[provides]]
+name = "admin-api-plan-approval-shadow"
+kind = "http"
+title = "GET /admin/api/v1/eval/plan-approval-shadow?repo=&from=&to="
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E02-T09"
+
+[[provides]]
+name = "pipeline-runner"
+kind = "ts-api"
+title = "PipelineDef, StageDef, StageOutcome, PipelineRunner.next (pure decision from stored facts)"
+defined_in = "10-planner-architect-coder.md#217-pipeline-ticket-to-pr-appscontrol-planesrcpipeline"
+from_task = "2-E07-T01"
+
+[[provides]]
+name = "stage-registry"
+kind = "ts-api"
+title = "StageHandler, StageCtx, StageRegistry: docking point per service stage, without a handler a service counts as not built (FE-1069)"
+defined_in = "10-planner-architect-coder.md#217-pipeline-ticket-to-pr-appscontrol-planesrcpipeline"
+from_task = "2-E07-T01"
+
+[[provides]]
+name = "konfig-pipeline"
+kind = "config"
+title = "pipelines.ticket-to-pr (PipelineDef with stages, on_disabled, when, merge.mode only human in stage 2, ci_wait_min)"
+defined_in = "10-planner-architect-coder.md#217-pipeline-ticket-to-pr-appscontrol-planesrcpipeline"
+from_task = "2-E07-T01"
+
+[[provides]]
+name = "tabelle-pipeline-stage-outcomes"
+kind = "table"
+title = "pipeline_stage_outcomes (migration 0213)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E07-T01"
+
+[[provides]]
+name = "befehl-code"
+kind = "ui"
+title = "Command @agent code [--no-plan] in the issue and auto trigger via the label agent:auto (label setter with write permission, FE-1044)"
+defined_in = "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"
+from_task = "2-E07-T02"
+
+[[provides]]
+name = "routen-ticket-to-pr"
+kind = "config"
+title = "Routes work_item.created|work_item.labeled with filter agent:auto and actor item_author, mapping onto TriggerEvent.what"
+defined_in = "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"
+from_task = "2-E07-T02"
+
+[[provides]]
+name = "suite-s5"
+kind = "file"
+title = "Suite S5 eval/suites/s5/ticket-to-draft-pr.test.ts with recorded GitHub responses"
+defined_in = "10-planner-architect-coder.md#87-pipeline-2-e07"
+from_task = "2-E07-T07"
+
+[[uses]]
+interface = "service-planner/event-plan-ready"
+from_task = "2-E02-T09"
+purpose = "plan.ready starts the automatic G1 check"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "2-E02-T09"
+purpose = "Binding plan.* for auto_if and required_if"
+
+[[uses]]
+interface = "service-planner/tabelle-plan-versions"
+from_task = "2-E02-T09"
+purpose = "current plan version and hash for the currency check"
+
+[[uses]]
+interface = "config-resolver/expr"
+from_task = "2-E02-T09"
+purpose = "Expression evaluator for auto_if, required_if, when"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E02-T09"
+purpose = "services.planner.approval.* in the schema"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "2-E02-T09"
+purpose = "Resolver rule auto_mode live only with a green S7"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "2-E02-T09"
+purpose = "G1 with plan and design hash, actor, autonomy"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E02-T09"
+purpose = "Migration 0214 plan_approval_shadow"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E02-T09"
+purpose = "Repository plan_approval_shadow"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E02-T09"
+purpose = "Command @agent approve plan [autonomy=x]"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "2-E02-T09"
+purpose = "command_permissions.approve_plan"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "2-E02-T09"
+purpose = "State awaiting_plan_approval and transition to coding"
+
+[[uses]]
+interface = "control-plane-orchestrator/fristen-queues"
+from_task = "2-E02-T09"
+purpose = "Deadline approvals.plan_expiry_days"
+
+[[uses]]
+interface = "plugin-model-anthropic/preistabelle"
+from_task = "2-E02-T09"
+purpose = "weighted tokens for plan.estimate.tokens (FE-1008)"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E02-T09"
+purpose = "GET /admin/api/v1/eval/plan-approval-shadow"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E02-T09"
+purpose = "Audit of the approvals and rejected approvals"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "2-E07-T01"
+purpose = "RunState and RunEventType in PipelineRunner.next"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "2-E07-T01"
+purpose = "StageHandlers create steps via the controller of the service"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "2-E07-T01"
+purpose = "RunEvents as the input of the pipeline"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "2-E07-T01"
+purpose = "PipelineDef from the effective configuration"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E07-T01"
+purpose = "pipelines.ticket-to-pr in the schema"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "2-E07-T01"
+purpose = "Resolver rule merge.mode only human in stage 2"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "2-E07-T01"
+purpose = "effective mode per service for on_disabled"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E07-T01"
+purpose = "Migration 0213 pipeline_stage_outcomes"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E07-T01"
+purpose = "Repository pipeline_stage_outcomes"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "2-E07-T02"
+purpose = "Routes work_item.created and work_item.labeled"
+
+[[uses]]
+interface = "event-schema/routing-name"
+from_task = "2-E07-T02"
+purpose = "Mapping of the route names onto TriggerEvent.what (M38)"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E07-T02"
+purpose = "Command @agent code [--no-plan]"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "2-E07-T02"
+purpose = "RouteDecision with target pipeline"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E07-T02"
+purpose = "getPermission of the label setter fresh from the provider"
+
+[[uses]]
+interface = "plugin-github-trigger/trigger-source"
+from_task = "2-E07-T02"
+purpose = "labeled event with sender"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "2-E07-T02"
+purpose = "Object lock against two active runs"
+
+[[uses]]
+interface = "service-planner/controller"
+from_task = "2-E07-T03"
+purpose = "Stage planner"
+
+[[uses]]
+interface = "service-coder/controller"
+from_task = "2-E07-T03"
+purpose = "Stage coder"
+
+[[uses]]
+interface = "service-coder/event-change-proposed"
+from_task = "2-E07-T03"
+purpose = "change.proposed leads to verifying"
+
+[[uses]]
+interface = "service-reviewer/controller"
+from_task = "2-E07-T03"
+purpose = "Reviewer at the head in verifying"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E07-T03"
+purpose = "Required checks at the head SHA"
+
+[[uses]]
+interface = "control-plane-orchestrator/status-comment-render"
+from_task = "2-E07-T03"
+purpose = "Notes such as no machine review in the status comment"
+
+[[uses]]
+interface = "service-architect/controller"
+from_task = "2-E07-T05"
+purpose = "Stage architect with when required_if"
+
+[[uses]]
+interface = "service-architect/event-design-ready"
+from_task = "2-E07-T05"
+purpose = "design.ready and design hash for G1"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "2-E07-T06"
+purpose = "Effects shadowed in the eval log"
+
+[[uses]]
+interface = "limit-ledger/settle"
+from_task = "2-E07-T06"
+purpose = "Costs booked in shadow as well"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "2-E07-T07"
+purpose = "S5 end to end"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "2-E07-T07"
+purpose = "recorded GitHub responses"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "2-E07-T07"
+purpose = "Suite S5 in the framework"
+
+[[uses]]
+interface = "qa-klassifikation-und-ausgabe/pipeline-stufe-qa"
+from_task = "3-E04-T04"
+purpose = "StageHandler qa in verifying"
+
+[[uses]]
+interface = "service-prfixer/pipeline-stufe-prfixer"
+from_task = "4-E05-T01"
+purpose = "StageHandler prfixer with until and max_rounds"
+
+[[uses]]
+interface = "service-triage/ereignis-item-triaged"
+from_task = "9-E06-T05"
+purpose = "Auto trigger item.triaged of the stage triage"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E02-T09"
+purpose = "real Postgres per test file for the migrations and repositories"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "2-E07-T03"
+purpose = "Clock for ci_wait_min"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "2-E07-T03"
+purpose = "FakeClock in pipeline.ci_wait_timeout_human"
+
+[[uses]]
+interface = "qa-klassifikation-und-ausgabe/event-qa-done"
+from_task = "3-E04-T04"
+purpose = "Transition from verifying to merge_gate or awaiting_human_review depends on qa.done (11 sections 3.2 and 4.9)"
+
+[[uses]]
+interface = "service-prfixer/event-fix-done"
+from_task = "4-E05-T01"
+purpose = "Stage PR-Fixer of the pipeline ends with fix.done (11 section 3.2)"

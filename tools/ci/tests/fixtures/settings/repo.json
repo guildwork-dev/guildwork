@@ -1,0 +1,25 @@
+{
+  "id": 42,
+  "name": "guildwork",
+  "full_name": "guildwork-dev/guildwork",
+  "private": false,
+  "visibility": "public",
+  "default_branch": "main",
+  "has_discussions": true,
+  "allow_squash_merge": true,
+  "allow_merge_commit": false,
+  "allow_rebase_merge": false,
+  "allow_auto_merge": false,
+  "delete_branch_on_merge": true,
+  "squash_merge_commit_title": "PR_TITLE",
+  "squash_merge_commit_message": "COMMIT_MESSAGES",
+  "merge_commit_title": "MERGE_MESSAGE",
+  "merge_commit_message": "PR_TITLE",
+  "web_commit_signoff_required": true,
+  "security_and_analysis": {
+    "secret_scanning": { "status": "enabled" },
+    "secret_scanning_push_protection": { "status": "enabled" },
+    "secret_scanning_non_provider_patterns": { "status": "disabled" },
+    "dependabot_security_updates": { "status": "disabled" }
+  }
+}

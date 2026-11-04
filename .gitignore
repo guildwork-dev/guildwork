@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Review evidence written by the red team reviewer (.review/<sha>.md), local only.
+.review/
+
+# Pinned tool binaries fetched by `make bootstrap`.
+.tools/
+
+# Reports of the quality gates.
+.reports/
+
+# Dependencies and build output.
+node_modules/
+dist/
+.venv/
+
+# Caches of the toolchain.
+*.tsbuildinfo
+coverage/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Local environment and editor files.
+.env
+.DS_Store
+.idea/
+.vscode/

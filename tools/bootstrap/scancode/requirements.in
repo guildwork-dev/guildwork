@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Python packages of ScanCode for `make scancode` (both runners). Compiled into
+# requirements.txt with exact versions and hashes (command in its header).
+# scancode-toolkit-mini is ScanCode Toolkit without the prebuilt native plugins,
+# whose wheels exist only for x86_64; pylibmagic ships libmagic for Linux
+# (x86_64, aarch64) and macOS (x86_64, arm64), see tools/ci/scancode_policy.py.
+scancode-toolkit-mini==32.5.0
+pylibmagic==0.5.0

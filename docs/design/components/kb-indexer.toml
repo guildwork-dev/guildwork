@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "kb-indexer"
+title = "Package kb-indexer: tree-sitter parser, chunker, delta building"
+kind = "package"
+path = "packages/kb-indexer/"
+package = "@guildwork/kb-indexer"
+stage = "7"
+purpose = "Runs in the sandbox of the indexer jobs L1 and L3: parses repo files with web-tree-sitter, splits them into chunks and builds a LayerDelta from them, called via the command gw-kb-indexer. Never writes to the database and calls no model; planning, acceptance of the delta and embedding belong to the service indexer."
+design = [
+  "12-expansion.md#21-indexer-l1-to-l3-7-e01",
+  "12-expansion.md#34-envelopes-and-file-formats",
+]
+built_by = [
+  "7-E01-T04",
+  "7-E01-T08",
+]
+
+[[provides]]
+name = "language-parser"
+kind = "ts-api"
+title = "LanguageParser for TypeScript, JavaScript, Python, Go and Java via web-tree-sitter; other languages only at file level (FE-1203)"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T04"
+
+[[provides]]
+name = "tags-abfragen"
+kind = "file"
+title = "queries/<language>/tags.scm and an import query per language; their hash goes into parserV"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T04"
+
+[[provides]]
+name = "delta-bau"
+kind = "ts-api"
+title = "IndexerJobInput, classifyFile (skipping by size, binary, generated, exclusion) and buildL1Delta"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T04"
+
+[[provides]]
+name = "befehl-gw-kb-indexer"
+kind = "cli"
+title = "gw-kb-indexer <l1|l3> --input /in/job.json --out /out/delta.json in the sandbox image; exit 0 only with a valid LayerDelta, 2 on invalid input (FE-1261; l3 from 7-E01-T08)"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T04"
+
+[[provides]]
+name = "chunker"
+kind = "ts-api"
+title = "Chunker along the L1 symbols, otherwise line windows (FE-1207), and buildL3Delta without vectors"
+defined_in = "12-expansion.md#21-indexer-l1-to-l3-7-e01"
+from_task = "7-E01-T08"
+
+[[uses]]
+interface = "kb/schicht-typen"
+from_task = "7-E01-T04"
+purpose = "Layer, LayerVersions and SkippedFile reasons for the delta building"
+
+[[uses]]
+interface = "kb/layer-delta"
+from_task = "7-E01-T04"
+purpose = "Build LayerDelta and L1FileRecord and check them against the schema before output"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "7-E01-T04"
+purpose = "Result and RepoRef in parser and delta building"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/grammars-lock"
+from_task = "7-E01-T04"
+purpose = "the same pinned tree-sitter grammars as gw-review-context; their hash goes into parserV (FE-1263)"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "7-E01-T04"
+purpose = "Ship gw-kb-indexer as a bundled Node script in the image sandbox-base (FE-1263)"

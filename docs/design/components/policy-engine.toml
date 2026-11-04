@@ -1,0 +1,207 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "policy-engine"
+title = "Policy engine: deny by default, command covers effect, service mode, rules per service"
+kind = "role"
+path = "apps/control-plane/src/policy/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Pure function over stored facts that decides run start, service mode, write requests, platform effects and work items with rule IDs POL-nnn and logs every decision in policy_decisions. Never reads model text and executes nothing; the Effect Gateway executes effects, and the citation check itself lives there."
+design = [
+  "02-control-plane.md#47-policy",
+  "02-control-plane.md#22-public-interfaces",
+  "14-stage-9-breadth-and-hardening.md#261-injection-detector",
+]
+built_by = [
+  "0-E06-T08",
+  "0-E06-T09",
+  "2-E07-T04",
+  "7-E05-T05",
+  "9-E06-T01",
+  "6-E03-T02",
+  "6-E04-T03",
+  "9-E04-T03",
+  "9-E06-T02",
+  "9-E07-T01",
+  "10-E01-T03",
+  "10-E02-T01",
+  "10-E02-T02",
+  "10-E03-T01",
+]
+
+[[provides]]
+name = "policy"
+kind = "ts-api"
+title = "Policy: evaluateRunStart, evaluateEffect, evaluateWorkItem, record, version; PolicyDecision, EffectPolicyInput, RunStartInput, WorkItemPolicyInput"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T08"
+
+[[provides]]
+name = "regel-ids"
+kind = "ts-api"
+title = "Rule IDs POL-001 to POL-081, occasion rules of the platform effects POL-101 to POL-114 and POL-082, rules of individual services POL-200 to POL-299, each with a name (FE-250, FE-254, FE-256)"
+defined_in = "02-control-plane.md#47-policy"
+from_task = "0-E06-T08"
+
+[[provides]]
+name = "service-mode"
+kind = "ts-api"
+title = "Policy.evaluateServiceMode(ServiceModeInput): effective mode off, shadow or live with unproven (FE-253)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E06-T09"
+
+[[provides]]
+name = "injection-detector"
+kind = "ts-api"
+title = "Injection detector: InjectionScanRequest, InjectionScanResult, decide() as a pure function; step injection_scan (service platform, work item model_call) before the first agent step and on new untrusted input; only escalates, scan_failed counts as a hit (FE-1434)"
+defined_in = "14-stage-9-breadth-and-hardening.md#261-injection-detector"
+from_task = "9-E06-T01"
+
+[[provides]]
+name = "tabelle-injection-signals"
+kind = "table"
+title = "injection_signals and column runs.injection_suspected (migration 0908, FE-1454)"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E06-T01"
+
+[[provides]]
+name = "regel-pol-080"
+kind = "ts-api"
+title = "Policy rule POL-080 (apps/control-plane/src/policy/rules/pol-080.ts): with runs.injection_suspected G1 always human, no merge gate, awaiting_human_review"
+defined_in = "14-stage-9-breadth-and-hardening.md#261-injection-detector"
+from_task = "9-E06-T01"
+
+[[provides]]
+name = "konfig-injection-detector"
+kind = "config"
+title = "security.injection_detector.threshold (only tightening, off by default) and security.injection_detector.model"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E06-T01"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "guildwork.policy.denied with rule"
+defined_in = "02-control-plane.md#51-metrics-of-this-area"
+from_task = "0-E06-T08"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "0-E06-T08"
+purpose = "EffectiveConfig of the snapshot as input of all rules"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "0-E06-T08"
+purpose = "RunState in EffectPolicyInput (propose_push only in coding and fixing)"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "0-E06-T08"
+purpose = "EffectType and EffectTarget in EffectPolicyInput"
+
+[[uses]]
+interface = "effect-gateway/effekt-katalog"
+from_task = "0-E06-T08"
+purpose = "PlatformEffect names for POL-012 and the occasion rules POL-101 to POL-114"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "0-E06-T08"
+purpose = "CommandName in RunStartInput and EffectPolicyInput"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E06-T08"
+purpose = "CredentialKind for POL-050"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "0-E06-T08"
+purpose = "effects of the service manifest for POL-010"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E06-T08"
+purpose = "Tx for record()"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.policy-decisions"
+from_task = "0-E06-T08"
+purpose = "Decision log with rule_id, input hash and POLICY_VERSION"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E06-T08"
+purpose = "canonicalJson and sha256Hex for the hash of the inputs"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E06-T08"
+purpose = "Counter guildwork.policy.denied with rule"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E06-T08"
+purpose = "Test policy.decisions_recorded against real Postgres"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "0-E06-T09"
+purpose = "ModeDecision as a stored fact in ServiceModeInput (FE-255)"
+
+[[uses]]
+interface = "orchestrator-effekte/policy-regeln-orchestrator"
+from_task = "2-E07-T04"
+purpose = "Occasion rules POL-105 to POL-108 for orchestrator effects of the pipeline"
+
+[[uses]]
+interface = "credential-broker/profil-labels"
+from_task = "7-E05-T05"
+purpose = "Permission profile labels for propose_labels, propose_link and comment hide of the triage"
+
+[[uses]]
+interface = "service-triage/manifest-triage"
+from_task = "7-E05-T05"
+purpose = "Write requests of the triage for POL-010 and POL-011"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "9-E06-T01"
+purpose = "Enqueue step injection_scan as work item model_call (the control plane calls no model)"
+
+[[uses]]
+interface = "worker/model-call"
+from_task = "9-E06-T01"
+purpose = "Model call of the detector in the worker with outputSchema { score, spans }"
+
+[[uses]]
+interface = "herkunft-foreign-input/tabelle-run-untrusted-inputs"
+from_task = "9-E06-T01"
+purpose = "New untrusted inputs of a run trigger a scan"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "9-E06-T01"
+purpose = "Guard for runs.injection_suspected as a new state machine version (02 section 4.4, FE-258)"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E06-T01"
+purpose = "Migration 0908"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "9-E06-T01"
+purpose = "Keys security.injection_detector.threshold and .model, rejection with threshold without model"
+
+[[uses]]
+interface = "ui-run-record/run-record-view"
+from_task = "9-E06-T01"
+purpose = "Score, threshold, model, spans (positions only) and decision in the Run Record"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "9-E06-T01"
+purpose = "Only the untrusted blocks of a run as input of the detector"

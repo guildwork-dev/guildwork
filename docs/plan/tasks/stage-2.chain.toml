@@ -1,0 +1,2828 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area chain of stage 2. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/10-planner-architect-coder.md (rulings FE-1000 to FE-1099)
+stage = "2"
+
+[[epic]]
+id = "2-E01"
+title = "Shared building blocks of the agent services"
+goal = "Blueprint sandbox, enforced egress proxy, registry cache offline, `propose_dependency`, no DNS, `foreign_input_seen`; plus the agent run shell and work-state snapshot that planner, architect and coder share"
+sources = ["02 section 0", "05 section 3", "ADR-60, ADR-64"]
+depends_on = ["1-E01"]
+
+[[epic]]
+id = "2-E02"
+title = "Planner"
+goal = "Read-only, plan verifier, plan critique, consistency analysis, versions, G1 by hand and automatic (automatic first in shadow for S7 c)"
+sources = ["02 section 1", "10 section 4"]
+depends_on = ["2-E01"]
+
+[[epic]]
+id = "2-E03"
+title = "Architect"
+goal = "Mode `review` (first in `shadow` on architecture PRs of the project repo), then `spec` (EARS), `adr`, threat model per STRIDE and `conformance` as a library in the reviewer"
+sources = ["02 section 2", "ADR-46", "10 section 5"]
+depends_on = ["2-E01"]
+
+[[epic]]
+id = "2-E04"
+title = "Coder"
+goal = "Self-check bundle, hard gates, draft PR per PR template, `agent-approval-check`, G4, question L1, steering L2, environment setup L4"
+sources = ["02 section 3", "10 section 6"]
+depends_on = ["2-E01", "1-E04"]
+
+[[epic]]
+id = "2-E05"
+title = "Analyzers in mode run and quality-gate"
+goal = "Analyzer contract `v1alpha1` binding, analyzers in their own tool sandbox with baseline, platform gate `quality-gate` for self-check and merge gate"
+sources = ["01 section 12", "ADR-40"]
+depends_on = ["1-E06"]
+
+[[epic]]
+id = "2-E06"
+title = "CI on agent branches"
+goal = "`security.agent_ci` with `agent_fork` or `guarded_workflows`, check in `doctor` and per claim, otherwise `no_safe_ci`; contract test `agent_fork` against GitHub"
+sources = ["ADR-59", "05 section 3"]
+depends_on = ["2-E04"]
+
+[[epic]]
+id = "2-E07"
+title = "Pipeline ticket-to-pr"
+goal = "From GitHub Issues, trigger via command and label `agent:auto`, stages with `on_disabled`, fix stage `on_disabled: human` until stage 4, S5 up to the draft PR"
+sources = ["03 section 1", "02 section 11"]
+depends_on = ["2-E02", "2-E04"]
+
+[[epic]]
+id = "2-E08"
+title = "Eval, qualification and acceptance stage 2"
+goal = "P1 to P4, AR1 to AR4, C1p, B1 to B4; Gate A green, Gate B required parts measured and reported; hard gates 0 violations; S1, S2, S5, S7 c; release with S8"
+sources = ["07 sections 3.2 to 3.4", "10 sections 4 to 6"]
+depends_on = ["2-E03", "2-E05", "2-E06", "2-E07"]
+
+# ======================================================================
+# 2-E01 Shared building blocks
+# ======================================================================
+
+[[task]]
+id = "2-E01-T01"
+title = "Reconciliation of the interfaces with the detailed designs of stages 0 and 1"
+description = """Check the names of tables, columns, work API calls, platform MCP, Effect Gateway write requests, step API and reviewer library that detailed design 10 uses as an assumption (sections 2.19 and 3.1) against the merged detailed designs 01 to 08. Carry deviations over into detailed design 10 and into the tasks of this file (the name there applies). Check migration block 0200 to 0299 against 01. Closes OP-1."""
+design = ["10-planner-architect-coder.md#31-used-tables-from-earlier-stages", "10-planner-architect-coder.md#219-endpoints"]
+result = "docs/design/10-planner-architect-coder.md (sections 2.19, 3.1, 10.1 adjusted), docs/plan/tasks/stage-2.chain.toml"
+done = ["Reconciliation list in the PR: every assumption from 10 sections 3.1 and 2.19 with a reference in 01 to 08 or a changed name", "OP-1 in 10 section 10.1 marked as done", "python3 tools/plan/plan.py check green"]
+sources = ["detailed design README section 4", "docs/plan/README.md section 4"]
+depends_on = ["0-E02", "0-E05", "0-E09", "0-E11", "0-E12", "0-E13", "1-E04"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T01-S01"
+  title = "Check the list of all assumed names from 10 sections 2.19 and 3.1 against 01 to 08"
+  done = "Table assumption, reference, result in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T01-S02"
+  title = "Carry deviations over into detailed design 10 and into stage-2.chain.toml"
+  done = "Diff in 10 and TOML; plan.py check green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T02"
+title = "Spike: DNS in sandbox networks, offline registry protocols, offline databases"
+description = """Short trial runs against throwaway containers on a pool with Sysbox and one with gVisor (no external effect): (a) does Docker's embedded DNS service answer on networks with `internal: true`, and do `Dns: ["192.0.2.1"]` plus a read-only resolv.conf without `nameserver` (FE-1033) prevent every resolution (OP-2); (b) which endpoints and fields do npm, pnpm, yarn v1, pip, poetry, uv and go need against a read-only server (packument, PEP 503, GOPROXY) with the pinned versions (OP-3); (c) commands, size and updating of the offline databases of osv-scanner and Trivy (OP-4). Result as a test log with command and output; enter the consequences in detailed design 10 sections 2.5, 2.6, 2.14."""
+design = ["10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns", "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"]
+result = "docs/design/spikes/2-E01-T02.md (test log), adjustments in 10 sections 2.5, 2.6, 2.14, 10.1"
+done = ["Test log with command and output per question (a), (b), (c)", "OP-2, OP-3, OP-4 in 10 section 10.1 closed with a result or reworded as a ruling", "If (a) turns out negative: alternative path (network rule against port 53 in the sandbox network) entered in 10 as a ruling"]
+sources = ["ADR-64", "05 section 3", "09 section 4 (offline mode of the registry caches)"]
+depends_on = ["0-E12"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Spike, local containers only; do not publish packages, no third-party accounts"
+
+  [[task.part]]
+  id = "2-E01-T02-S01"
+  title = "Measure DNS behavior on internal networks under Sysbox and gVisor (DNS catcher, tcpdump)"
+  done = "Log: number of DNS packets per setting"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T02-S02"
+  title = "Determine minimal endpoints per package manager against a fake server"
+  done = "List endpoint, fields, package manager version"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T02-S03"
+  title = "Load offline databases of osv-scanner and Trivy and query them offline"
+  done = "Commands, size, duration in the log"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T02-S04"
+  title = "Enter results in detailed design 10"
+  done = "OP-2 to OP-4 closed"
+  status = "open"
+
+[[task]]
+id = "2-E01-T03"
+title = "Package @guildwork/agent-step: run shell of the agent steps"
+description = """Package `packages/agent-step` per detailed design 10 section 2.3: types `AgentStepInput`, `TrackedUntrusted`, `UntrustedSource`, `AgentStepOutcome`; the prompt builder embeds every foreign content marked and sanitized; agent files (CLAUDE.md, AGENTS.md, REVIEW.md, rules) only from the base SHA via `--append-system-prompt-file`, the head version in the workspace replaced and passed on as untrusted; `outputSchema` mandatory, validation of the output (otherwise `schema_invalid`); reporting of the untrusted inputs to the work API before the harness starts (fail closed); `run` and `resume` via `AgentRuntime` from 0-E15. In addition the types of the step handler context `AgentJobContext` (`EnvironmentService`, `WorkSnapshotService`, `AnalyzerRunnerService`, `UntrustedReporter`, FE-1066); the report goes via a plugged-in `UntrustedReporter` that 2-E01-T12 connects to the endpoint."""
+design = ["10-planner-architect-coder.md#23-agent-run-shell-guildworkagent-step"]
+result = "packages/agent-step/src/{types,prompt-builder,agent-files,runner,provenance}.ts, packages/agent-step/test/"
+done = ["Test agent_step.untrusted_blocks_marked green", "Test agent_step.agent_files_from_base_only green", "Test agent_step.output_schema_required green", "Test provenance.report_failure_blocks_start green (failure path: report fails, harness does not start, step failed with audit)", "make check green"]
+sources = ["02 section 0", "05 sections 3 item 5 and 4", "01 section 6", "ADR-17", "ADR-24"]
+depends_on = ["0-E11", "0-E13", "0-E15", "2-E01-T01", "2-E01-T04", "2-E05-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T03-S01"
+  title = "Test: foreign content marked and sanitized in the prompt"
+  done = "Test red because the prompt builder is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T03-S02"
+  title = "Prompt builder with untrusted blocks and sanitizer"
+  done = "agent_step.untrusted_blocks_marked green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T03-S03"
+  title = "Test and implementation: agent files only from the base SHA, head version replaced"
+  done = "agent_step.agent_files_from_base_only green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T03-S04"
+  title = "Output schema mandatory and validation, status schema_invalid"
+  done = "agent_step.output_schema_required green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T03-S05"
+  title = "Reporting of the untrusted inputs before the start, fail closed"
+  done = "provenance.report_failure_blocks_start green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T04"
+title = "Package @guildwork/blueprint: schema, parser, devcontainer subset, snapshotKey"
+description = """Package `packages/blueprint` per detailed design 10 section 2.4: TypeBox schema `Blueprint` for `.agents/environment.yaml` (setup, maintenance, post_build, knowledge, commands with test, lint, build, format_check, coverage, junit, ecosystems, secrets, resources, requires_docker, base_image), parser with an upper limit of 256 KiB and errors with key and line, rule "secrets never in maintenance or post_build"; devcontainer subset (`image` only from `sandbox_images_allowlist`, `postCreateCommand` as setup, `features` visibly rejected, FE-1038); `ResolvedEnvironment` with `snapshotKey`. Export the JSON Schema to `packages/contracts/schemas`. CLI `guildwork doctor --repo` reports blueprint errors via the per-repo check R01-blueprint (register from detailed design 06 FE-642) and `internal-cli blueprint check` (detailed design 10 section 2.20, FE-1067)."""
+design = ["10-planner-architect-coder.md#24-blueprint-guildworkblueprint"]
+result = "packages/blueprint/src/{schema,parse,devcontainer,snapshot-key}.ts, packages/contracts/schemas/blueprint.v1.json, apps/cli/src/doctor/checks/R01-blueprint.ts, internal-cli blueprint check"
+done = ["Test blueprint.schema_roundtrip green", "Test blueprint.invalid_neutral green (failure path: status neutral with key and line)", "Test blueprint.devcontainer_subset green", "Test blueprint.snapshot_key_changes green", "make check green"]
+sources = ["02 section 3 stages 0 and 1", "04 section 4 (environment)", "06 section 3 (environment description)", "ADR-17"]
+depends_on = ["0-E01", "0-E18", "2-E01-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T04-S01"
+  title = "Test fixtures valid and invalid, tests for schema and error lines"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T04-S02"
+  title = "Schema and parser with size limit and secret rule"
+  done = "blueprint.schema_roundtrip and blueprint.invalid_neutral green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T04-S03"
+  title = "devcontainer subset with allowlist for image"
+  done = "blueprint.devcontainer_subset green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T04-S04"
+  title = "snapshotKey from blueprint, lockfiles, base image, worker environment version"
+  done = "blueprint.snapshot_key_changes green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T04-S05"
+  title = "doctor shows blueprint errors per repo"
+  done = "CLI test with fixture repo shows key and line"
+  status = "open"
+
+[[task]]
+id = "2-E01-T05"
+title = "Setup phase and agent phase in the worker with phase probe"
+description = """Extension of the sandbox lifecycle (apps/worker/src/phases) per detailed design 10 section 2.5: setup commands with open network and secrets only as tmpfs files and exec environment; then `maintenance` without secrets; phase switch: unmount tmpfs, egress policy to `agent`, probe (a direct connection to a test target fails, rejected via the proxy); without a passed probe the harness does not start (`egress_not_enforced`, FE-1037). Phase switch via the heartbeat field `phase`, audit `sandbox.phase_switched` by the work API. Check phase `check` without network except the registry cache. In addition the claim grants of stage 2 per detailed design 10 section 2.21 (FE-1070): `setupSecrets` only for coder items and only for names from `envelope.inputs.setupSecretNames` (broker purpose `blueprint_setup`), input grants `inputs[]` with `presignGet` or the one-time URL `GET /work/v1/inputs/{grantId}` (migration 0215 `input_grants`); if a setup secret is missing, the step ends with `setup_secret_missing`."""
+design = ["10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns", "10-planner-architect-coder.md#5-failure-and-abort-paths"]
+result = "apps/worker/src/phases/{setup,switch,probe}.ts, apps/worker/test/phases/"
+done = ["Test phases.setup_secrets_removed green (/proc/*/environ of the agent processes without secret)", "Test egress.probe_failure_aborts_before_agent green (failure path: step failed, audit, status neutral)", "Test phases.switch_audited green", "Test env.setup_secret_missing_failed green (failure path: no setup command, step failed, audit, status neutral)", "Test env.setup_secrets_only_for_coder green", "Test work_snapshot.restore_via_input_grant grant part: the one-time URL delivers exactly one blob, expires with the lease, the pool key alone loads nothing", "make check green"]
+sources = ["05 section 3 (two phases)", "02 section 3 stage 1", "ADR-20"]
+depends_on = ["2-E01-T04", "2-E01-T07", "2-E01-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T05-S01"
+  title = "Test: after the phase switch no secret in the process environment and file system"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T05-S02"
+  title = "Setup with tmpfs and exec environment, unmounting at the switch"
+  done = "phases.setup_secrets_removed green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T05-S03"
+  title = "Test and implementation of the egress probe, abort before the harness"
+  done = "egress.probe_failure_aborts_before_agent green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T05-S04"
+  title = "Audit entries for phase switch and probe"
+  done = "Audit test green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T06"
+title = "Environment snapshot per repo with post_build, baseline test list and secret scan"
+description = """Building and reusing the environment snapshot (apps/worker/src/env-snapshot) per detailed design 10 section 2.6: migration 0204 `env_snapshots`; build via `ExecutionBackend.buildSnapshot` per `snapshotKey` and pool; run `post_build`, storing the tests that are red at the base SHA from the JUnit report as `baseline_failing_tests` (for FE-1015); secret scan of the snapshot content (gitleaks plus own rules), a hit discards it; reuse with the same key; rebuild with a new key; status `neutral` for a red post_build. Lookup via `envelope.inputs.envSnapshots` (the controller enters up to five ready rows), report via `POST /work/v1/leases/{leaseId}/env-snapshots`; a foreign `backend_ref` on another worker host leads to a rebuild (detailed design 10 sections 2.6 and 2.21, FE-1070, FE-1071). The secret scan runs with the image and the rule file from 2-E05-T05."""
+design = ["10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache", "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"]
+result = "apps/worker/src/env-snapshot/*.ts, packages/db/migrations/0204_env_snapshots.sql, repository in packages/db"
+done = ["Test env.snapshot_reused green", "Test env.post_build_failed_neutral green (failure path: state post_build_failed, audit, status neutral with log excerpt)", "Test snapshot.secret_found_discarded green (failure path: discarded, audit, alarm)", "Baseline list of red tests stored in the record (test with a fixture repo with 2 red tests)", "Test env.host_local_miss_rebuilds green", "Test work_api.stage2_report_rejected green (failure path: 422 invalid_report, nothing stored, audit)", "make check green"]
+sources = ["02 section 3 stage 1", "01 section 8 (buildSnapshot)", "05 sections 3 item 4 and 5"]
+depends_on = ["2-E01-T04", "2-E01-T05", "2-E05-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T06-S01"
+  title = "Migration 0204 and repository"
+  done = "Migration test against a Postgres container green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T06-S02"
+  title = "Test and build with post_build and baseline test list"
+  done = "env.post_build_failed_neutral green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T06-S03"
+  title = "Secret scan before storing"
+  done = "snapshot.secret_found_discarded green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T06-S04"
+  title = "Reuse and rebuild by key"
+  done = "env.snapshot_reused green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T07"
+title = "Egress policy per service and phase, connection log"
+description = """Extension of the egress proxy from stage 0 (apps/worker/src/egress-policy and proxy image) per detailed design 10 section 2.5: `EgressPolicy` per item with field `phase`; allowlist of the agent phase from `security.egress.<service>`; target `registry-cache.internal` only for the coder; connection log `EgressConnectionLog` per item as NDJSON in the BlobStore, reference via `POST /work/v1/leases/{leaseId}/egress-log`; counter `egress_denied`. FE-1039."""
+design = ["10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns", "10-planner-architect-coder.md#219-endpoints"]
+result = "apps/worker/src/egress-policy/*.ts, deploy/images/egress-proxy (policy extension), apps/control-plane/src/work/egress-log.ts"
+done = ["Test egress.policy_per_service green (planner does not reach registry-cache.internal, coder does)", "Test egress.denied_logged green", "Connection log in the BlobStore with a reference in the Run Record (test)", "make check green"]
+sources = ["05 section 3 (egress proxy)", "04 section 3 security.egress", "ADR-20"]
+depends_on = ["0-E12", "0-E11"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T07-S01"
+  title = "Test: allowlist per service and phase"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T07-S02"
+  title = "Policy type, handover to the proxy, phase field"
+  done = "egress.policy_per_service green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T07-S03"
+  title = "Connection log and work API endpoint"
+  done = "egress.denied_logged green, endpoint test with 409 for an expired lease"
+  status = "open"
+
+[[task]]
+id = "2-E01-T08"
+title = "Sandbox without DNS resolver"
+description = """Per detailed design 10 section 2.5 and FE-1033: create the sandbox with the DNS setting from detailed design 03 FE-310 (`Dns: ["192.0.2.1"]`, no `DnsSearch` and `DnsOptions`, resolv.conf without `nameserver`), newly mounted read-only; proxy address as an IP in `HTTPS_PROXY`; check rule `sandbox.dns_none` in the socket proxy from stage 0, which rejects every deviating DNS setting; DNS catcher as a test helper for S1 (counts UDP and TCP 53 on the sandbox network). Take the result of spike 2-E01-T02 into account."""
+design = ["10-planner-architect-coder.md#25-sandbox-phases-enforced-egress-proxy-no-dns"]
+result = "apps/worker/src/dns/*.ts, socket proxy rule sandbox.dns_none, packages/testkit/src/dns-sink.ts"
+done = ["Test dns.no_resolver_in_sandbox green", "Test dns.socket_proxy_rejects_resolver green (failure path: creation rejected, audit, alarm)", "DNS catcher counts 0 packets for an HTTP call via the proxy (test)", "make check green"]
+sources = ["ADR-64", "05 section 3 (registry cache and DNS without back channel)", "ADR-62"]
+depends_on = ["0-E12", "2-E01-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T08-S01"
+  title = "DNS catcher as a test helper and test without resolver"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T08-S02"
+  title = "Creation parameters and resolv.conf"
+  done = "dns.no_resolver_in_sandbox green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T08-S03"
+  title = "Check rule in the socket proxy"
+  done = "dns.socket_proxy_rejects_resolver green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T09"
+title = "Write request propose_dependency with exact allowlist, osv and human approval"
+description = """Per detailed design 10 sections 2.7 and 4.8, FE-1034 and FE-1035: migration 0206 `dependency_requests` and 0209 (`approvals.bound_subject`); MCP tool `propose_dependency` (coder only per policy); schema of `security.dependencies.allow` only with exact names (wildcards rejected); for a name that is not allowed, no request upstream but a question to a human; subcommand `@agent approve dependency <id>` (permission scm write) binds the triple; heartbeat task `fetch_dependency` to the worker; the worker checks the version against the upstream list, resolves the transitive closure in the resolver container (manifest and lockfile from the base SHA, never from the workspace, plus the approved triple; no DNS, egress only to `registry_cache.upstreams`; origin of every artifact checked; package manager without scripts, OP-5) and checks every artifact against osv (`api` or `offline`, FE-1029); result via `POST /work/v1/leases/{leaseId}/dependency-results`; artifacts into the ContentStore and the index; waiting time `fetch_timeout_s`, limit `max_per_run`; admin API `GET /admin/api/v1/runs/{runId}/dependencies`."""
+design = ["10-planner-architect-coder.md#27-propose_dependency", "10-planner-architect-coder.md#48-propose_dependency"]
+result = "apps/control-plane/src/mcp/tools/propose-dependency.ts, apps/worker/src/dependency/*.ts, packages/db/migrations/0206_dependency_requests.sql, 0209_approvals_subject.sql, packages/config (schema security.dependencies)"
+done = ["Test dependency.not_allowlisted_asks_human green (0 requests to the test upstream)", "Test dependency.glob_rejected_by_schema green", "Test dependency.unknown_version_rejected green", "Test dependency.osv_red_rejected_even_after_approval green", "Test dependency.approval_binds_triple green", "Test dependency.resolver_no_scripts_no_repo green", "Test dependency.resolver_ignores_agent_manifest green (URL and foreign module dependency in the workspace: 0 requests to the test host, 0 DNS requests)", "Test dependency.resolver_failure_rejected green (failure path: rejected with log reference, audit)", "make check green"]
+sources = ["ADR-64", "02 section 0", "05 section 3", "04 section 3 security.dependencies", "03 section 4"]
+depends_on = ["2-E01-T10", "2-E01-T11", "0-E06", "0-E11", "0-E04", "2-E01-T08", "2-E01-T14"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+note = "The new subcommand approve dependency (W-4 in detailed design 10 section 10.2) has been in 03 section 4 and 04 command_permissions since the consistency run of 2026-11-01"
+
+  [[task.part]]
+  id = "2-E01-T09-S01"
+  title = "Migrations 0206 and 0209, states of the request"
+  done = "Migration test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T09-S02"
+  title = "Tests: allowlist exact, question without upstream request"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T09-S03"
+  title = "MCP tool, policy, schema of the allowlist, question"
+  done = "dependency.not_allowlisted_asks_human and dependency.glob_rejected_by_schema green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T09-S04"
+  title = "Subcommand approve dependency with binding to the triple"
+  done = "dependency.approval_binds_triple green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T09-S05"
+  title = "Worker: version list, resolver container without scripts, osv check"
+  done = "dependency.unknown_version_rejected, dependency.resolver_no_scripts_no_repo, dependency.resolver_ignores_agent_manifest, dependency.osv_red_rejected_even_after_approval, dependency.resolver_failure_rejected green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T09-S06"
+  title = "Result endpoint, index addition, waiting time and limit per run"
+  done = "Test pending after fetch_timeout_s and limit_reached green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T10"
+title = "Registry cache: lockfile parser and filling from the lockfile"
+description = """Package `packages/registry-cache` part parser and filling per detailed design 10 section 2.6, FE-1031 and FE-1032: `LockfileParser` for package-lock.json (v2, v3), pnpm-lock.yaml (v6, v9), yarn.lock (v1), requirements*.txt with `--hash`, poetry.lock, uv.lock, go.sum, each with an upper limit on entries and size; `ContentStore` per tenant on the worker host; filling in the setup phase by the worker (not the sandbox) with an integrity check; `CacheIndex` per environment snapshot in the BlobStore. Other ecosystems: note `registry_cache: unsupported:<ecosystem>` in the Run Record."""
+design = ["10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"]
+result = "packages/registry-cache/src/{parsers/*,content-store,fill,index}.ts, apps/worker/src/registry/fill.ts"
+done = ["Test registry.parsers_fixtures green (all seven formats)", "Test registry.integrity_mismatch_aborts green (failure path: filling aborted, audit, status neutral)", "Test registry.index_lockfile_only green", "make check green"]
+sources = ["ADR-64", "05 section 3", "02 section 0"]
+depends_on = ["2-E01-T02", "2-E01-T04", "2-E01-T03", "2-E01-T06"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T10-S01"
+  title = "Fixtures and tests per lockfile format"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T10-S02"
+  title = "Parsers npm, pnpm, yarn v1"
+  done = "npm part of registry.parsers_fixtures green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T10-S03"
+  title = "Parsers requirements with hash, poetry.lock, uv.lock"
+  done = "PyPI part green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T10-S04"
+  title = "Parser go.sum"
+  done = "Go part green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T10-S05"
+  title = "ContentStore, filling with integrity check, index"
+  done = "registry.integrity_mismatch_aborts green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T11"
+title = "Registry cache: server per item, only from the index, never upstream"
+description = """Package `packages/registry-cache` part server and image `deploy/images/registry-cache` per detailed design 10 section 2.6: npm (packument only with index versions, tarballs), PyPI (PEP 503 page, files), Go (GOPROXY `@v/list`, `.info`, `.mod`, `.zip`); every other request 404 with the reason "not present" and the counter `registry_cache_miss`; the server has no egress (own network without a route). Started per item by the worker on the sandbox network; reachable only via the egress proxy as `registry-cache.internal`."""
+design = ["10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"]
+result = "packages/registry-cache/src/server/*.ts, deploy/images/registry-cache/Dockerfile, apps/worker/src/registry/serve.ts"
+done = ["Test registry.serves_index_only green (npm, pip, go install against the server)", "Test registry.miss_never_upstream green (test upstream receives 0 requests)", "Image green in the license gate", "make check green"]
+sources = ["ADR-64", "05 section 3"]
+depends_on = ["2-E01-T10", "2-E01-T07", "0-E21-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T11-S01"
+  title = "Tests with real package managers against the server"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T11-S02"
+  title = "Endpoints npm, PyPI, Go from the index"
+  done = "registry.serves_index_only green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T11-S03"
+  title = "404 with counter, server without egress, image"
+  done = "registry.miss_never_upstream green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T12"
+title = "Attribute foreign_input_seen in the Run Record"
+description = """Per detailed design 10 section 2.8 and FE-1036: migration 0207 (`run_untrusted_inputs`; the column `runs.foreign_input_seen` is created by 0003 from 0-E02, detailed design 01 section 3.4); endpoint `POST /work/v1/leases/{leaseId}/untrusted-inputs`; computation in Z0 with a fresh permission query at the provider (cache per run and actor); rules for foreign (without write permission, created or edited after the trigger, permissions unknown); read tools of the platform MCP report the content they delivered (`via: mcp_tool`); display in the Run Record of the admin UI and a row in the status comment; endpoint `GET /admin/api/v1/runs/{runId}/untrusted-inputs`."""
+design = ["10-planner-architect-coder.md#28-origin-attribute-foreign_input_seen-adr-60", "10-planner-architect-coder.md#219-endpoints"]
+result = "packages/agent-step/src/provenance.ts, apps/control-plane/src/provenance/*.ts, packages/db/migrations/0207_untrusted_inputs.sql, apps/admin-ui (Run Record)"
+done = ["Test provenance.foreign_rules green", "Test provenance.mcp_tool_reads_recorded green", "Test provenance.unknown_permission_is_foreign green (failure path: permissions not readable yields foreign, audit)", "Test provenance.edited_after_trigger_excluded green (TOCTOU per 05 section 4 item 3, FE-1064)", "Run Record shows source and author of every foreign input (UI test)", "make check green"]
+sources = ["ADR-60", "05 section 8 (Run Record)", "03 section 1a condition 12"]
+depends_on = ["2-E01-T03", "1-E08", "0-E11"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T12-S01"
+  title = "Migration 0207 and tests of the foreign rules"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T12-S02"
+  title = "Endpoint and computation with permission cache"
+  done = "provenance.foreign_rules and provenance.unknown_permission_is_foreign green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T12-S03"
+  title = "Reporting from the read tools of the platform MCP"
+  done = "provenance.mcp_tool_reads_recorded green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T12-S04"
+  title = "Display in admin UI and status comment"
+  done = "UI test green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T13"
+title = "Work-state snapshot and restore"
+description = """Per detailed design 10 section 2.9 and FE-1020: migration 0205 `work_snapshots`; archive of the defined paths (workspace with .git, configuration directory of the harness), secret scan before storing, upload into the BlobStore, report via `POST /work/v1/leases/{leaseId}/snapshots`; restore into a sandbox from the environment snapshot with the same key (otherwise rebuild), check of sha256 and harness version; download of the archive only via the input grant of the claim response (detailed design 10 section 2.21, FE-1070); deletion job `work-snapshots-expire` after `expires_at` with audit (FE-1072)."""
+design = ["10-planner-architect-coder.md#29-work-state-snapshot-and-restore"]
+result = "apps/worker/src/work-snapshot/*.ts, packages/db/migrations/0205_work_snapshots.sql, apps/control-plane/src/jobs/snapshot-retention.ts"
+done = ["Test work_snapshot.roundtrip green", "Test work_snapshot.version_mismatch_refused green", "Test snapshot.secret_found_discarded also covers work-state snapshots", "Test work_snapshot.restore_via_input_grant green", "Test work_snapshot.expiry_job_deletes green (deletion job: deleted with an audit entry; Object Lock leaves the row expired)", "make check green"]
+sources = ["03 section 2.4", "01 section 8 (snapshot, restore)", "02 section 3 stage 4"]
+depends_on = ["2-E01-T05", "2-E01-T06"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T13-S01"
+  title = "Migration 0205 and round-trip test"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T13-S02"
+  title = "Archive, secret scan, upload, report"
+  done = "Storage part of work_snapshot.roundtrip green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T13-S03"
+  title = "Restore with check of hash and harness version"
+  done = "work_snapshot.roundtrip and work_snapshot.version_mismatch_refused green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E01-T13-S04"
+  title = "Deletion job after expiry"
+  done = "Deletion job test green"
+  status = "open"
+
+[[task]]
+id = "2-E01-T14"
+title = "Executor human_input"
+description = """`apps/control-plane/src/effects/executors/human-input.ts` per detailed design 04 section 2.1.5: question as a comment with marker `gw-question:<questionId>` on the ticket (`addComment`) or on the PR (`upsertSummary`); the transition to `awaiting_input` is made by the orchestrator after `effect.applied`, not by the executor. Users: planner, architect, coder (stage 2), QA (stage 3). Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/human-input.ts, apps/control-plane/test/effects/executors/human-input.test.ts"
+done = [
+  "Test 'effects/executors/human_input live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/human_input failure path stores audits and logs' green (failure path: failed does not set the run to awaiting_input, the orchestrator treats the step as failed; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/human_input reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry human_input with executor file, stage and usedIn; guard test from 0-E09-T10 green without human_input in the planned list",
+]
+sources = ["02 section 0", "03 section 4 (question)", "ADR-06"]
+depends_on = ["0-E09-T05", "0-E14-T14"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T14-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "2-E01-T14-S02"
+  title = "Executor human_input with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["2-E01-T14-S01"]
+
+  [[task.part]]
+  id = "2-E01-T14-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["2-E01-T14-S02"]
+
+[[task]]
+id = "2-E01-T15"
+title = "Executor ready_for_review"
+description = """`apps/control-plane/src/effects/executors/ready-for-review.ts` per detailed design 04 section 2.1.5: `updateChange({ draft: false })`, reconciliation via `getChange().draft`. Users: orchestrator effect draft to ready (2-E07-T04), revert PR (5-E02-T04). Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/ready-for-review.ts, apps/control-plane/test/effects/executors/ready-for-review.test.ts"
+done = [
+  "Test 'effects/executors/ready_for_review live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/ready_for_review failure path stores audits and logs' green (failure path: PR closed yields failed with conflict, the status comment names the reason; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/ready_for_review reconcile reads draft flag' green",
+  "Catalog entry ready_for_review with executor file, stage and usedIn; guard test from 0-E09-T10 green without ready_for_review in the planned list",
+]
+sources = ["03 section 1", "05 section 2 (profile write_branch)", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T08"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T15-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "2-E01-T15-S02"
+  title = "Executor ready_for_review with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["2-E01-T15-S01"]
+
+  [[task.part]]
+  id = "2-E01-T15-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["2-E01-T15-S02"]
+
+[[task]]
+id = "2-E01-T16"
+title = "Executor request_reviewers"
+description = """`apps/control-plane/src/effects/executors/request-reviewers.ts` per detailed design 04 section 2.1.5: `requestReview` with the responsible people from `codeowners()` without author and bots; reconciliation by calling again (verify the effect at GitHub with the recording). Users: 2-E07-T04, revert PR (5-E02-T04). Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/request-reviewers.ts, apps/control-plane/test/effects/executors/request-reviewers.test.ts"
+done = [
+  "Test 'effects/executors/request_reviewers live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/request_reviewers failure path stores audits and logs' green (failure path: a person without access yields failed with invalid, the status comment names them, the run continues; checked are state and error on the effect, audit entry and metric)",
+  "Open item from detailed design 04 section 10 (repeated requestReview without effect) answered with the recording and noted there",
+  "Catalog entry request_reviewers with executor file, stage and usedIn; guard test from 0-E09-T10 green without request_reviewers in the planned list",
+]
+sources = ["03 section 1", "05 section 2", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T08"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T16-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "2-E01-T16-S02"
+  title = "Executor request_reviewers with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["2-E01-T16-S01"]
+
+  [[task.part]]
+  id = "2-E01-T16-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["2-E01-T16-S02"]
+
+[[task]]
+id = "2-E01-T17"
+title = "Executor ticket_transition with linkExternal and transition for GitHub Issues"
+description = """`apps/control-plane/src/effects/executors/ticket-transition.ts` per detailed design 04 section 2.1.5 (FE-430): first `linkExternal`, then `transition`. In addition, in the plugin `github-issues` the write methods `transition` (only `done` and `todo`, other categories without a call with `fallback_used = no_status`) and `linkExternal` (fallback level comment with marker) per detailed design 05 section 2.14.8. Jira comes with 8-E01-T06 via the same executor. Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/ticket-transition.ts, apps/control-plane/test/effects/executors/ticket-transition.test.ts, plugins/github/src/issues/write/{transition,link-external}.ts"
+done = [
+  "Test 'effects/executors/ticket_transition live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/ticket_transition failure path stores audits and logs' green (failure path: no matching transition yields failed with invalid and the list of possible targets; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/ticket_transition reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Tests 'github-issues.transition.done-closes', '.todo-reopens', '.in-review-no-call' and 'github-issues.link-external.upsert-by-marker' green against cassettes",
+  "Catalog entry ticket_transition with executor file, stage and usedIn; guard test from 0-E09-T10 green without ticket_transition in the planned list",
+]
+sources = ["03 section 1", "05 section 2 (profile comment_issue)", "01 section 4", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T14"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "2-E01-T17-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "2-E01-T17-S02"
+  title = "Executor ticket_transition with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["2-E01-T17-S01"]
+
+  [[task.part]]
+  id = "2-E01-T17-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["2-E01-T17-S02"]
+
+# ======================================================================
+# 2-E02 Planner
+# ======================================================================
+
+[[task]]
+id = "2-E02-T01"
+title = "Package @guildwork/clarity: clarity gate"
+description = """Package `packages/clarity` per detailed design 10 section 2.11 and FE-1054: `ClarityInput`, `ClarityResult` (clear, tooLarge, questions, split proposal), `clarityRequest` builds a `GenerateRequest` with schema, `interpretClarity` checks the response; the package itself calls no model. Prompt under `packages/clarity/prompts/clarity.v1.md` with `prompt_v`. Own fixtures (clear, unclear, too large tickets) with recorded model responses. Usable by `triage` from stage 7 on."""
+design = ["10-planner-architect-coder.md#211-clarity-gate-guildworkclarity"]
+result = "packages/clarity/src/index.ts, packages/clarity/prompts/clarity.v1.md, packages/clarity/test/fixtures/"
+done = ["Test clarity.schema_and_cases green", "An invalid model response yields schema_invalid (test)", "make check green"]
+sources = ["02 section 1 stage 2", "02 section 9 stage 3 (shared library)", "ADR-58"]
+depends_on = ["0-E15"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T01-S01"
+  title = "Fixtures and tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T01-S02"
+  title = "Schema, request building, evaluation, prompt v1"
+  done = "clarity.schema_and_cases green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T02"
+title = "Planner scaffold: manifest, controller, steps, inputs, repo resolution"
+description = """Service `services/planner` per detailed design 10 section 2.10: service manifest (write requests `propose_plan`, `propose_comment` ticket only, `request_human_input`), entry points `controller` and `jobs`, step table with the nine steps, `PlanRequest` from `@agent plan` (ticket) and `brief` (free description with attachments as a reference, content untrusted), step `planner.resolve_repo` via `repo_mapping`, links in the ticket, otherwise question `repo_unknown`. Config keys of the planner from detailed design 10 section 7 into the schema with `x-qualification`. The controller never calls a model (FE-1001)."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#7-configuration"]
+result = "services/planner/{manifest.yaml,src/controller/*,src/jobs/index.ts,src/schema/request.ts}, packages/config (schema services.planner)"
+done = ["Test planner.repo_unresolved_asks green (failure path: awaiting_input with question, audit)", "Schema test: every new key under services.planner has x-qualification", "Opengrep rule or test: the controller imports no ModelProvider", "make check green"]
+sources = ["02 section 1", "04 section 3 (repo_mapping, services.planner)", "01 section 14", "ADR-58", "ADR-66"]
+depends_on = ["2-E01-T03", "0-E06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T02-S01"
+  title = "Manifest and scaffold with empty steps"
+  done = "Service loads in the contract harness"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T02-S02"
+  title = "Test and implementation resolve_repo"
+  done = "planner.repo_unresolved_asks green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T02-S03"
+  title = "Inputs @agent plan and brief"
+  done = "Router test: command creates a planner run with PlanRequest"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T02-S04"
+  title = "Config keys into the schema with marking"
+  done = "Schema test green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T03"
+title = "PlanArtifact: schema, versions, round-trip format, admin API"
+description = """Per detailed design 10 sections 2.10, 3.2 and 3.3: TypeBox schema `PlanArtifact` with field `schema` (FE-1061), export as JSON Schema under packages/contracts/schemas/artifacts/v1alpha1; canonical hash; migration 0201 `plan_versions`; storage as an `artifacts` row plus BlobStore (JSON and Markdown); `renderPlanMarkdown` and `parsePlanMarkdown` in the fixed round-trip format with marker (FE-1004); admin API `GET /admin/api/v1/runs/{runId}/plans` and `.../versions/{n}`; platform MCP tool `plan.get` (detailed design 10 section 2.18, FE-1068)."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049", "10-planner-architect-coder.md#33-artifacts-and-events"]
+result = "services/planner/src/schema/plan.ts, services/planner/src/render/{render,parse}.ts, packages/contracts/schemas/artifacts/v1alpha1/PlanArtifact.json, packages/db/migrations/0201_plan_versions.sql, apps/control-plane/src/api/plans.ts"
+done = ["Test planner.markdown_roundtrip green", "Test planner.versions_preserved green", "Test: generated JSON Schema equals the checked-in file", "Hash test: same content same hash, order of the keys irrelevant", "make check green"]
+sources = ["02 section 1 (output)", "03 section 1a item 3 (typed artifacts)", "backlog M111"]
+depends_on = ["2-E02-T02", "0-E02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M111 partially: artifact schemas with version; event enum and consumes/produces in the ServiceManifest remain open"
+
+  [[task.part]]
+  id = "2-E02-T03-S01"
+  title = "Schema, hash, export as JSON Schema"
+  done = "Schema and hash tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T03-S02"
+  title = "Migration 0201 and storage per version"
+  done = "planner.versions_preserved green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T03-S03"
+  title = "Round-trip tests, then rendering and parsing"
+  done = "planner.markdown_roundtrip green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T03-S04"
+  title = "Admin API for plan versions"
+  done = "API test with 404 for an unknown version green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T04"
+title = "Research read-only with citation check"
+description = """Step `planner.research` per detailed design 10 sections 2.10 and 4.1: work item with sandbox and checkout at the base SHA, harness via `@guildwork/agent-step` with `nativeTools: "read"`, MCP tools only `item.get`, `item.comments`, `repo.read_file`, `repo.list_files` (detailed design 10 section 2.18, FE-1068; `kb.*` only from 7-E02 on; `request_human_input` is only added with 2-E04-T09, until then questions only via `questions[]` and `awaiting_input`); egress only LLM relay and platform MCP; output `ResearchResult` (points with citations, candidate files and symbols); then in the worker a deterministic citation check in the workspace (file, lines, quote hash), invalid points are dropped."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#41-planner-run", "10-planner-architect-coder.md#218-platform-mcp-tools-per-service-stage-2"]
+result = "services/planner/src/jobs/research.ts, services/planner/prompts/research.v1.md, services/planner/src/schema/research.ts"
+done = ["Test planner.research_read_only green (write attempt fails, egress only allowed targets)", "Test planner.citation_check_drops_invalid green", "Test planner.schema_invalid_neutral covers research (failure path: status neutral, transcript stored)", "make check green"]
+sources = ["02 section 1 stage 3", "05 section 3 (egress per service)", "02 section 7 (KB off)"]
+depends_on = ["2-E02-T02", "2-E01-T07", "2-E01-T12", "2-E01-T14"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T04-S01"
+  title = "Tests read-only and egress"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T04-S02"
+  title = "Research step with schema and prompt v1"
+  done = "planner.research_read_only green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T04-S03"
+  title = "Citation check in the worker"
+  done = "planner.citation_check_drops_invalid green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T05"
+title = "Clarity gate in the planner, consistency analysis and synthesis"
+description = """Steps `planner.clarity` (with `@guildwork/clarity` from 2-E02-T01, detailed design 10 section 2.11, FE-1076), `planner.consistency` and `planner.synthesis` per detailed design 10 sections 2.10 and 4.1 (FE-1002): single calls via the ModelProvider path with their own schema and `prompt_v` per stage; the consistency analysis returns gaps, contradictions, unstated requirements as `questions[]` with `blocking`; blocking questions lead to `awaiting_input`; the synthesis creates the `PlanArtifact` draft with a mandatory citation per research point, `agentPrompt` per phase and overall, `estimate`."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#41-planner-run"]
+result = "services/planner/src/jobs/{clarity,consistency,synthesis}.ts, services/planner/prompts/{consistency,synthesis}.v1.md"
+done = ["Test planner.clarity_unclear_waits green (failure path: awaiting_input, no plan, audit)", "Test: a blocking question from the consistency analysis leads to awaiting_input without a plan", "Test planner.schema_invalid_neutral covers synthesis", "Test: a plan without a citation per research point is rejected", "make check green"]
+sources = ["02 section 1 stages 4 and 5", "[swe-rpg] per 02", "ADR-58"]
+depends_on = ["2-E02-T03", "2-E02-T04", "2-E02-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T05-S01"
+  title = "Tests with recorded model responses"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T05-S02"
+  title = "Consistency analysis with questions and transition"
+  done = "Test blocking question green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T05-S03"
+  title = "Synthesis with schema and citation requirement"
+  done = "Synthesis tests green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T06"
+title = "Plan verifier: static in Z0 and with a fresh model"
+description = """Steps `planner.verify_static` (controller, FE-1003) and `planner.verify_model` per detailed design 10 section 2.10: static via `SCMProvider.getFile` at the base SHA (files as existing or new, symbols via word-boundary search, citations with lines and quote hash, upper limit `verify.max_files`, milestones from `milestone_min_files` on); model check with fresh context against rules, AGENTS.md and the principles file (`principles_path`) from the base SHA; result `verification.status` green or red."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner"]
+result = "services/planner/src/controller/verify-static.ts, services/planner/src/jobs/verify-model.ts, services/planner/prompts/verifier.v1.md"
+done = ["Test planner.verify_static_cases green", "Test planner.milestones_required green", "Test planner.verify_red_blocks_auto green", "Test: a rule violation with a citation from AGENTS.md from the base SHA is reported, the head version ignored", "make check green"]
+sources = ["02 section 1 stage 6", "ADR-17"]
+depends_on = ["2-E02-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T06-S01"
+  title = "Tests static cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T06-S02"
+  title = "Static verifier with upper limit and milestones"
+  done = "planner.verify_static_cases and planner.milestones_required green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T06-S03"
+  title = "Model verifier against rules and principles from the base SHA"
+  done = "Rule violation test green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T07"
+title = "Plan critique by a fresh model"
+description = """Step `planner.critique` per detailed design 10 section 2.10, FE-1053: only for autonomy `high` and `full`; fresh context without research and planner prompt, input only ticket, plan and base SHA excerpts of the named files; verdict `ok`, `concerns`, `blocked` with points; resolver rule: `models.critique` mandatory if `max_autonomy` allows `high` or `full`."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#7-configuration"]
+result = "services/planner/src/jobs/critique.ts, services/planner/prompts/critique.v1.md, resolver rule in packages/config"
+done = ["Test planner.critique_only_high_full green", "Test planner.critique_fresh_context green", "Test planner.critique_blocked_requires_human green", "S2 test: missing models.critique with max_autonomy high is rejected at load time", "make check green"]
+sources = ["02 section 1 stage 7", "03 section 1a (G1 auto)", "ADR-58", "[jules-changelog] per 02"]
+depends_on = ["2-E02-T06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T07-S01"
+  title = "Tests fresh context and autonomy condition"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T07-S02"
+  title = "Critique step and prompt v1"
+  done = "planner.critique_fresh_context and planner.critique_only_high_full green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T07-S03"
+  title = "Resolver rule models.critique"
+  done = "S2 test green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T08"
+title = "Publishing, human editing, persisting"
+description = """Step `planner.publish` and editing per detailed design 10 sections 2.10 and 4.2: write requests `propose_plan` and `propose_comment` (plan comment with cost estimate, commands, verifier and critique result; status "plan awaiting approval"); event `plan.ready`; human editing via `@agent plan --replace` with Markdown and via editing the plan comment (only a human with write permission, the app's own edits ignored) yields `v{n+1}` with `humanEdited` and a renewed check; a parse error yields a reply without a version; function for persisting to `persist_path` for the coder worker (FE-1005)."""
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#42-g1-manual-and-automatic"]
+result = "services/planner/src/controller/{publish,edit}.ts, services/planner/src/persist.ts"
+done = ["Test planner.human_edit_new_version green", "Test planner.edit_parse_error_no_version green (failure path: no version, reply with line, audit)", "Test planner.persist_branch_path green", "Resolver test: persist_path in forbidden_paths is rejected", "make check green"]
+sources = ["02 section 1 stage 8 and human editing", "04 section 2 (forbidden_paths)"]
+depends_on = ["2-E02-T06", "0-E09", "0-E14", "2-E02-T11"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T08-S01"
+  title = "Publishing with effects and plan.ready"
+  done = "Effect test in mode record green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T08-S02"
+  title = "Editing via --replace and comment edit"
+  done = "planner.human_edit_new_version and planner.edit_parse_error_no_version green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T08-S03"
+  title = "Persisting and resolver rule"
+  done = "planner.persist_branch_path and resolver test green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T09"
+title = "G1 by hand and automatic, shadow measurement S7 c"
+description = """Per detailed design 10 section 4.2, FE-1006 to FE-1008: `@agent approve plan [autonomy=...]` binds plan hash and design hash in `approvals`, checks freshness and caps the autonomy; a change request creates a new version; binding of the expression variables `plan.*` and `design.*` for `auto_if` and `required_if` to the evaluator of the router; weighted tokens for `plan.estimate.tokens` from the price table (M128); switch `approval.auto_mode: shadow | live` (resolver: live only with a green S7 of the installation); in shadow, migration 0214 `plan_approval_shadow` and comparison with the later human decision; deadline `plan_expiry_days`; never approval after a timeout."""
+design = ["10-planner-architect-coder.md#42-g1-manual-and-automatic", "10-planner-architect-coder.md#7-configuration"]
+result = "apps/control-plane/src/pipeline/g1.ts, services/planner/src/estimate.ts, packages/db/migrations/0214_plan_approval_shadow.sql, apps/control-plane/src/api/eval-plan-approval-shadow.ts"
+done = ["Test g1.manual_approve_binds_hash green", "Test g1.stale_hash_rejected green", "Test g1.autonomy_capped green", "Test g1.auto_live_requires_s7 green", "Test g1.auto_shadow_records_decision green", "Test g1.no_timeout_approval green (failure path: expired, audit, comment)", "Test: weighted tokens from the price table for a fixture profile", "make check green"]
+sources = ["03 sections 1a (G1 auto) and 3 (G1)", "04 section 3 (approval)", "07 section 5 S7 (c)", "backlog M128"]
+depends_on = ["2-E02-T07", "2-E02-T08", "0-E05", "0-E06", "0-E07"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+note = "M128 for the planner: weighted tokens instead of the raw sum; the ledger unit as a whole stays in the stage 0 area"
+
+  [[task.part]]
+  id = "2-E02-T09-S01"
+  title = "Tests G1 by hand (binding, stale, cap)"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T09-S02"
+  title = "approve plan with binding and cap"
+  done = "g1.manual_approve_binds_hash, g1.stale_hash_rejected, g1.autonomy_capped green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T09-S03"
+  title = "Binding of the expression variables and weighted tokens"
+  done = "auto_if cases from fixtures green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T09-S04"
+  title = "auto_mode with shadow recording and resolver rule"
+  done = "g1.auto_live_requires_s7 and g1.auto_shadow_records_decision green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T09-S05"
+  title = "Deadline without waving through"
+  done = "g1.no_timeout_approval green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T10"
+title = "Planner suite: mandatory properties, alone on, failure paths"
+description = """Suite cases for the planner per detailed design 10 section 8.2 and [02] section 1 DoD: structure including agent prompt, read-only, versions, duration at most 10 minutes (starting value) on a fixture repo; S4 "planner alone on, all others off"; S6 cases of the planner rows from section 5."""
+design = ["10-planner-architect-coder.md#82-planner-and-clarity-gate-2-e02", "10-planner-architect-coder.md#5-failure-and-abort-paths"]
+result = "eval/suites/s4/planner-alone.test.ts, eval/suites/s6/planner-*.test.ts, services/planner/test/suite/"
+done = ["Test planner.duration_under_10min green", "Test s4.planner_alone green", "all planner rows from detailed design 10 section 5 have a green S6 case", "make check green"]
+sources = ["02 section 1 DoD", "07 section 5 (S4, S6)"]
+depends_on = ["2-E02-T09", "0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T10-S01"
+  title = "Mandatory properties and duration"
+  done = "planner.duration_under_10min green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T10-S02"
+  title = "S4 alone on"
+  done = "s4.planner_alone green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E02-T10-S03"
+  title = "S6 cases of the planner rows"
+  done = "S6 planner cases green"
+  status = "open"
+
+[[task]]
+id = "2-E02-T11"
+title = "Executor plan"
+description = """`apps/control-plane/src/effects/executors/plan.ts` per detailed design 04 section 2.1.5: plan comment on the ticket with marker `guildwork:plan run=<runId>`, the first version via `addComment`, every further one via `updateComment` of the same comment; reconciliation via marker and version. Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/plan.ts, apps/control-plane/test/effects/executors/plan.test.ts"
+done = [
+  "Test 'effects/executors/plan live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/plan failure path stores audits and logs' green (failure path: comment deleted by humans: new comment instead of an update with result.recreated; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/plan reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry plan with executor file, stage and usedIn; guard test from 0-E09-T10 green without plan in the planned list",
+]
+sources = ["02 section 1 (planner)", "05 section 2 (profile comment_issue)", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T14"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "2-E02-T11-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "2-E02-T11-S02"
+  title = "Executor plan with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["2-E02-T11-S01"]
+
+  [[task.part]]
+  id = "2-E02-T11-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["2-E02-T11-S02"]
+
+# ======================================================================
+# 2-E03 Architect
+# ======================================================================
+
+[[task]]
+id = "2-E03-T01"
+title = "Architect scaffold: manifest, steps, artifact, routes, write permissions"
+description = """Service `services/architect` per detailed design 10 section 2.12: manifest (write requests `propose_comment`, `propose_check` `ai-design-review`, `propose_change` only `doc_paths`, `request_human_input`), `DesignRequest` and `DesignArtifact` with field `schema`, migration 0202 `design_versions`; routes `@agent architect [spec|adr|review]` in the ticket and on PRs, PR review for `review_paths`; config keys `modes`, `spec_path`, derived `doc_paths` (FE-1009) with a resolver rule against `forbidden_paths`; policy rule `architect.doc_paths`; platform MCP tool `design.get` (FE-1068) and admin API `GET /admin/api/v1/runs/{runId}/designs/{designId}/versions/{n}`."""
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check", "10-planner-architect-coder.md#62-permission-profiles-and-effects-per-service-stage-2"]
+result = "services/architect/{manifest.yaml,src/controller/*,src/jobs/index.ts,src/schema/design.ts}, packages/db/migrations/0202_design_versions.sql, packages/config (services.architect)"
+done = ["Test architect.path_outside_doc_paths_rejected green (failure path: request with rule ID, no effect, audit)", "Router test: command and PR on review_paths each start one architect run", "Schema test for services.architect with x-qualification", "make check green"]
+sources = ["02 section 2", "02 section 0 (write requests)", "03 section 4", "04 section 3 (services.architect)", "ADR-46"]
+depends_on = ["2-E01-T03", "0-E06", "0-E04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "W-3 (FE-1009): spec_path and the derivation of doc_paths have been in 04 since the consistency run of 2026-11-01"
+
+  [[task.part]]
+  id = "2-E03-T01-S01"
+  title = "Manifest, scaffold, artifact schema, migration 0202"
+  done = "Service loads, migration test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T01-S02"
+  title = "Routes and permissions"
+  done = "Router test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T01-S03"
+  title = "doc_paths, resolver rule, policy rule"
+  done = "architect.path_outside_doc_paths_rejected green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T02"
+title = "Mode review with check ai-design-review"
+description = """Mode `review` per detailed design 10 sections 2.12 and 4.3, FE-1010: context read-only at the base SHA or head (quality scenarios from `quality_scenarios_path`, existing ADRs under `adr_path`, changed architecture files), agent phase `architect.review` with `nativeTools: read`; check against quality scenarios (ATAM-like), C4 checklist (rule part from `@guildwork/method-check`, the rest via the model), contradictions to existing ADRs; findings in the finding schema with kind `design`; verifier from 2-E03-T04; output as one summary comment and check `ai-design-review` with annotations (success, neutral, failure, never silent green); platform MCP tool `change.threads` (FE-1068)."""
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check", "10-planner-architect-coder.md#43-architect"]
+result = "services/architect/src/modes/review/*.ts, services/architect/prompts/review.v1.md"
+done = ["Test architect.review_check_never_silent_green green (failure path: run fails, check neutral with reason)", "Test: a planted contradiction to an existing ADR is reported as a finding with a citation", "Test: findings only as a comment and annotations, no propose_review", "make check green"]
+sources = ["02 section 2 stages 1, 4, 7, 8", "10 section 5", "[c4-checklist] per 10"]
+depends_on = ["2-E03-T01", "2-E03-T03", "2-E03-T04"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T02-S01"
+  title = "Fixtures with planted defects, tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T02-S02"
+  title = "Context and agent phase review"
+  done = "ADR contradiction test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T02-S03"
+  title = "C4 check rule plus model"
+  done = "Test with a diagram without a legend green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T02-S04"
+  title = "Output as comment and check, never silent green"
+  done = "architect.review_check_never_silent_green green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T03"
+title = "Package @guildwork/method-check: EARS, MADR, C4 checklist"
+description = """Package `packages/method-check` per detailed design 10 section 2.12, FE-1012 and FE-1013: read the C4 review checklist (21 questions) at the source, pinned version with date and CC BY 4.0 attribution as the data file `c4-checklist.v1.json` with `kind: rule | model` per question (OP-6); read the mandatory sections of the pinned MADR template and store them as `MadrTemplate` (OP-7); `checkEars` for the six patterns; `checkMadr`; `checkC4` for the rule questions."""
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"]
+result = "packages/method-check/src/{ears,madr,c4}.ts, packages/method-check/data/{c4-checklist.v1.json,madr-template.v1.json}, NOTICE entry"
+done = ["Test method.ears_patterns green", "Test method.madr_required_sections green", "Test method.c4_rule_questions green (one positive and one negative case per rule question)", "OP-6 and OP-7 closed in detailed design 10, source and retrieval date in the data file", "make check green"]
+sources = ["02 section 2 benchmark", "10 section 5 B1", "[c4-checklist], [madr-license], [ears] per 02"]
+depends_on = ["0-E01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "Only read checklist and template (GET), no external effect; licenses CC BY 4.0 or MIT or CC0 per 02"
+
+  [[task.part]]
+  id = "2-E03-T03-S01"
+  title = "Read C4 checklist and MADR template, data files with origin"
+  done = "Data files checked in, OP-6 and OP-7 closed"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T03-S02"
+  title = "Tests EARS, then checker"
+  done = "method.ears_patterns green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T03-S03"
+  title = "Tests MADR, then checker"
+  done = "method.madr_required_sections green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T03-S04"
+  title = "Tests C4 rule questions, then checker"
+  done = "method.c4_rule_questions green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T04"
+title = "Architect verifier: citations and Mermaid"
+description = """Per detailed design 10 section 2.12 and FE-1011: spike on whether `mermaid.parse` runs in Node without a browser (OP-8); tool image `deploy/images/mermaid-check` (license of the building blocks in the license gate), call in the role `check` without network; the verifier checks every citation at the base SHA or head and every Mermaid diagram; findings without a valid citation are dropped, list in the Run Record."""
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"]
+result = "deploy/images/mermaid-check/, services/architect/src/verifier.ts, docs/design/spikes/2-E03-T04.md"
+done = ["Test architect.mermaid_invalid_neutral green", "Test architect.uncited_dropped green", "Image green in the license gate", "OP-8 closed", "make check green"]
+sources = ["02 section 2 stage 7", "02 section 2 (no shell except diagram rendering)"]
+depends_on = ["2-E03-T01", "0-E21-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T04-S01"
+  title = "Spike mermaid.parse without a browser"
+  done = "Test log, OP-8 closed"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T04-S02"
+  title = "Tool image and call"
+  done = "architect.mermaid_invalid_neutral green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T04-S03"
+  title = "Citation check and dropping"
+  done = "architect.uncited_dropped green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T05"
+title = "Mode spec with EARS, design and tasks"
+description = """Mode `spec` per detailed design 10 sections 2.12 and 4.3: requirements in the EARS pattern with IDs `REQ-<n>` and source in the ticket, design (C4 levels 1 to 3 as Mermaid, data flow, error handling, test strategy), tasks with dependencies and requirement IDs, consistency analysis with questions instead of assumptions; outside the pipeline `propose_change` with `docs/specs/<key>/requirements.md`, `design.md`, `tasks.md` (commit by the worker). Templates following the Spec Kit pattern with a license notice; arc42 only linked."""
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check", "10-planner-architect-coder.md#43-architect"]
+result = "services/architect/src/modes/spec/*.ts, services/architect/templates/spec/, services/architect/prompts/spec.v1.md"
+done = ["Test architect.spec_ears_ids green", "Test: an unclear requirement leads to a question instead of an assumption (awaiting_input)", "Test: spec files only under spec_path, commit by the worker", "License notice for adopted templates in NOTICE", "make check green"]
+sources = ["02 section 2 stage 2", "10 section 5", "[speckit-repo], [kiro-specs] per 02"]
+depends_on = ["2-E03-T02", "2-E03-T03", "2-E02-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T05-S01"
+  title = "Tests EARS IDs and question"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T05-S02"
+  title = "Agent phase spec with schema and templates"
+  done = "architect.spec_ears_ids green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T05-S03"
+  title = "Spec files as propose_change"
+  done = "Path test green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T06"
+title = "Mode adr per MADR"
+description = """Mode `adr` per detailed design 10 section 4.3: ADR draft per `designChoice` with `scope: beyond_ticket`, content per the pinned MADR template, check with `checkMadr`, file under `adr_path` with the next free number at the base SHA, commit by the worker; a contradiction to an existing ADR becomes a finding instead of a draft."""
+design = ["10-planner-architect-coder.md#43-architect"]
+result = "services/architect/src/modes/adr/*.ts, services/architect/templates/madr/"
+done = ["Test architect.adr_beyond_ticket_only green", "Test: every draft passes checkMadr", "Test: next free number at the base SHA", "make check green"]
+sources = ["02 section 2 stage 3", "[adr], [madr-license] per 02"]
+depends_on = ["2-E03-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T06-S01"
+  title = "Tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T06-S02"
+  title = "Mode adr with MADR check and numbering"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T07"
+title = "Mode threat_model per STRIDE"
+description = """Mode `threat_model` per detailed design 10 sections 2.12 and 4.3: elements, trust boundaries and threats per STRIDE for each touched boundary, every threat with a verified code or document location and a countermeasure; threats without evidence are dropped in the verifier; output in `DesignArtifact.threatModel` and as findings of kind `threat`."""
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check", "10-planner-architect-coder.md#43-architect"]
+result = "services/architect/src/modes/threat-model/*.ts, services/architect/prompts/threat-model.v1.md"
+done = ["Test architect.threat_evidence_required green", "Test: every STRIDE category recognized in the fixtures", "make check green"]
+sources = ["02 section 2 stage 5", "10 section 5 B2", "[ms-stride], [stride-gpt] per 02"]
+depends_on = ["2-E03-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T07-S01"
+  title = "Fixtures with a human threat model, tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T07-S02"
+  title = "Agent phase and schema"
+  done = "Category test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T07-S03"
+  title = "Evidence requirement in the verifier"
+  done = "architect.threat_evidence_required green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T08"
+title = "Mode conformance as a library in the reviewer"
+description = """Per detailed design 10 section 4.3: building block `@guildwork/method-check/conformance` (FE-1077: `conformanceRequest`, `interpretConformance`, `traceability` with their own views on plan and design, no model call in the package) returns `met`, `open` or `deviating` per requirement and findings `plan_deviation` with severity; connection in the reviewer as finder `plan_conformance` (single call `reviewer.find`) when the architect is on; approved plan and design version via the port `ControllerHost.approvedDesignInputs` with hash check (addendum A-6 to detailed design 00 section 2.13 and 08 open item 10.14 in the same PR); models and `prompt_v` in the profile of the reviewer (ADR-66); a P1 deviation blocks like other P1; traceability requirement, task, test."""
+design = ["10-planner-architect-coder.md#43-architect"]
+result = "packages/method-check/src/conformance/*.ts, packages/method-check/prompts/conformance.v1.md, services/architect/src/modes/conformance/handler.ts, apps/control-plane (port approvedDesignInputs), connection in services/reviewer (finder plan_conformance)"
+done = ["Test architect.conformance_p1_deviation green", "Test architect.traceability_full green", "Test: the library call uses the profile of the reviewer (qualification_key unchanged compared to the config snapshot)", "make check green"]
+sources = ["02 section 2 stage 6", "02 section 4 stage 4", "07 section 2 (library calls)", "ADR-66"]
+depends_on = ["2-E03-T05", "2-E02-T03", "1-E04", "1-E05", "2-E04-T01"]   # gap round: approvedDesignInputs reads change_proposals, which only 2-E04-T01 creates (10 FE-1077)
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T08-S01"
+  title = "Fixtures with planted deviations, tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T08-S02"
+  title = "Library with requirement status and traceability"
+  done = "architect.traceability_full green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T08-S03"
+  title = "Connection in the reviewer, profile of the caller"
+  done = "architect.conformance_p1_deviation and profile test green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T09"
+title = "Architect suite: alone on, method conformance, failure paths"
+description = """Suite cases per detailed design 10 section 8.3: S4 "architect alone on"; method conformance as a suite over all generated artifacts of the fixtures (EARS, MADR, C4 rule questions 100 %); S6 cases of the architect rows from section 5."""
+design = ["10-planner-architect-coder.md#83-architect-2-e03", "10-planner-architect-coder.md#5-failure-and-abort-paths"]
+result = "eval/suites/s4/architect-alone.test.ts, eval/suites/method-conformance/, eval/suites/s6/architect-*.test.ts"
+done = ["Test s4.architect_alone green", "Method conformance on all fixture artifacts 100 % (suite report)", "all architect rows from detailed design 10 section 5 have a green S6 case", "make check green"]
+sources = ["02 section 2 DoD", "10 section 5 B1", "07 section 5"]
+depends_on = ["2-E03-T02", "2-E03-T06", "2-E03-T07", "2-E03-T08", "0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E03-T09-S01"
+  title = "S4 alone on"
+  done = "s4.architect_alone green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T09-S02"
+  title = "Suite method conformance"
+  done = "Report 100 %"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T09-S03"
+  title = "S6 cases"
+  done = "S6 architect cases green"
+  status = "open"
+
+[[task]]
+id = "2-E03-T10"
+title = "Architect review in shadow on architecture PRs of the project repo"
+description = """Switch-on step per detailed design 10 section 4.3 and [02] section 2 (first `review` in `shadow` on architecture PRs of the own repo). Owner part: in the project installation (M135) switch on the architect with `mode: shadow`, `modes: [review]` and `review_paths` for the architecture docs; costs are measured before and after. Agent part: configuration proposal and decision sheet (costs per run from the ledger of the suite runs, effect, risks), after the first runs an evaluation of the shadow results (acceptance of the findings by maintainers, share with citation) as a report. The project repo is external_code: only without repo code execution, isolation sysbox or gvisor."""
+design = ["10-planner-architect-coder.md#43-architect"]
+result = "Decision sheet and report in the PR; configuration of the project installation in the ops repo (private)"
+done = ["Decision sheet with costs, effect, risks in the PR", "Owner go documented", "Shadow runs evaluated on at least the architecture PRs of one period (report with number of PRs and findings)", "0 external effects in shadow (eval log)"]
+sources = ["02 section 2 (order of switching on)", "08 stage 2", "05 section 3 (consequence for the own public repo)", "backlog M135"]
+depends_on = ["2-E03-T09", "1-E10"]
+owner = "agent+owner"
+estimate_h = 4
+status = "open"
+note = "M135: requires a project installation; if it is missing, the task stays blocked with a reason (owner decision)"
+
+  [[task.part]]
+  id = "2-E03-T10-S01"
+  title = "Decision sheet and configuration proposal"
+  done = "Sheet in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T10-S02"
+  title = "Owner switches on shadow mode"
+  done = "Owner go and config state in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E03-T10-S03"
+  title = "Evaluation of the shadow runs"
+  done = "Report in the PR"
+  status = "open"
+
+# ======================================================================
+# 2-E04 Coder
+# ======================================================================
+
+[[task]]
+id = "2-E04-T01"
+title = "Coder scaffold: manifest, steps, artifacts, configuration, resolver rules"
+description = """Service `services/coder` per detailed design 10 section 2.13: manifest with write requests from section 6.2 (including `propose_check`, FE-1062), steps `coder.prepare`, `coder.env_bootstrap`, `coder.implement`, `coder.resume`, `coder.wip_push`, `coder.propose`; types `CodeRequest`, `CoderAgentOutput`, `ChangeProposal`, `SelfCheckReport`, `HardGateResult` with field `schema`; migration 0203 `change_proposals`; config keys from section 7 into the schema (M39: `env_bootstrap`, `max_children`, `best_of_n`, `ask_grace_s`, `require_repro`, `ci_config_paths`, `test_globs`, `git_identity`); the resolver rejects `best_of_n` not equal to 1 and `max_children` not equal to 0 (FE-1023); `@agent handoff` replies "from stage 9 on" without a state change; coder with `subscription` only in profile `operator_test` (rule from stage 1, here the case for the coder); admin API `GET /admin/api/v1/runs/{runId}/proposal`."""
+design = ["10-planner-architect-coder.md#213-coder-servicescoder", "10-planner-architect-coder.md#7-configuration"]
+result = "services/coder/{manifest.yaml,src/controller/*,src/jobs/index.ts,src/schema.ts}, packages/db/migrations/0203_change_proposals.sql, packages/config (services.coder)"
+done = ["Test coder.stage9_keys_rejected green", "Test coder.handoff_not_available_stage2 green (reply, audit, no state change)", "S2 test: coder with subscription without operator_test is rejected at load time", "Test coder.plan_hash_bound green", "make check green"]
+sources = ["02 section 3", "04 section 3 (services.coder)", "08 stage 2", "05 section 6 condition 9", "backlog M39"]
+depends_on = ["2-E01-T03", "0-E06", "1-E07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M39 partially: coder keys complete in the schema"
+
+  [[task.part]]
+  id = "2-E04-T01-S01"
+  title = "Manifest, scaffold, types, migration 0203"
+  done = "Service loads, migration test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T01-S02"
+  title = "Schema of the coder keys with marking, resolver rules stage 9"
+  done = "coder.stage9_keys_rejected green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T01-S03"
+  title = "handoff reply and subscription case"
+  done = "coder.handoff_not_available_stage2 and S2 test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T01-S04"
+  title = "Start only with an approved plan hash"
+  done = "coder.plan_hash_bound green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T02"
+title = "Agent phase per plan phase with plan reminder and budget per phase"
+description = """Step `coder.implement` agent phase part per detailed design 10 sections 2.13 and 4.4, FE-1055 and FE-1058: sandbox from the environment snapshot, phase switch, one harness turn per plan phase (the first `run`, further ones `resume`) with exactly the text of this phase, `nativeTools: "edit+shell"`, MCP tools per section 2.18 (without `propose_push` and `propose_change`); budget per phase proportional; output `CoderAgentOutput`; mode `--no-plan` with the ticket as the task; for `kind: bugfix` the instruction "first a test that is red at the base SHA"; `cannot_implement` with a reason."""
+design = ["10-planner-architect-coder.md#213-coder-servicescoder", "10-planner-architect-coder.md#44-coder-run"]
+result = "services/coder/src/jobs/implement.ts, services/coder/prompts/{implement,phase}.v1.md"
+done = ["Test coder.phase_reminder_per_turn green", "Test coder.agent_has_no_push_tool green", "Test: the budget of a phase exhausted leads to paused_budget with a snapshot instead of a loss (failure path, audit)", "Test: cannot_implement ends with a report and without a push", "make check green"]
+sources = ["02 section 3 stages 1 to 3", "[plan-to-action] per 02", "03 section 2.1 (coding)", "05 section 3"]
+depends_on = ["2-E04-T01", "2-E01-T05", "2-E01-T06", "2-E01-T11", "2-E02-T03", "2-E03-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T02-S01"
+  title = "Tests plan reminder and tool list"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T02-S02"
+  title = "Turns per phase with run and resume"
+  done = "coder.phase_reminder_per_turn green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T02-S03"
+  title = "Budget per phase and path paused_budget"
+  done = "Budget test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T02-S04"
+  title = "no-plan, bugfix notice, cannot_implement"
+  done = "cannot_implement test green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T03"
+title = "Self-check bundle deterministic in the worker"
+description = """Per detailed design 10 section 2.13, FE-1015, FE-1016, FE-1024: role `check`; `tests` against the baseline list of red tests from `post_build` (JUnit via `commands.junit`, otherwise exit code 0); `lint`, `build`, `format` (missing command: `skipped`, visible); `repro` for `bugfix` (named test files red on a base copy, green at the head); `plan_alignment` as a notice; analyzers from `self_check.analyzers` via the analyzer runner from 2-E05 and the `quality-gate` decision; report `SelfCheckReport` in the BlobStore; check `ai-self-check` at the head SHA via `propose_check`. The QA library "E2E smoke" is skipped in stage 2 with a note (W-7)."""
+design = ["10-planner-architect-coder.md#213-coder-servicescoder"]
+result = "services/coder/src/selfcheck/{tests,lint,repro,plan-alignment,analyzers,report}.ts"
+done = ["Test coder.tests_new_failures_only green", "Test coder.tests_no_junit_exit_code green", "Test coder.repro_missing_red green", "Test coder.plan_alignment_not_blocking green", "Test: an analyzer neutral does not make the bundle green (no silent green)", "make check green"]
+sources = ["02 section 0 (self-check bundle)", "02 section 3 stages 2 and 7", "ADR-40"]
+depends_on = ["2-E04-T02", "2-E05-T02", "2-E05-T07"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T03-S01"
+  title = "Fixture repos with red baseline tests, bugfix case, tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T03-S02"
+  title = "tests, lint, build, format"
+  done = "coder.tests_new_failures_only and coder.tests_no_junit_exit_code green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T03-S03"
+  title = "repro check"
+  done = "coder.repro_missing_red green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T03-S04"
+  title = "plan_alignment as a notice"
+  done = "coder.plan_alignment_not_blocking green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T03-S05"
+  title = "Analyzers, quality-gate, report, check ai-self-check"
+  done = "Analyzer neutral test green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T04"
+title = "Hard gates in the worker and authoritative in the Effect Gateway"
+description = """Per detailed design 10 section 6.3: gates `ci_config_unchanged` (path list, the repo may add to it), `no_secret` (gitleaks plus own rules over diff, commit texts, test logs, transcript, work-state snapshot), `no_test_removed_or_skipped` (deleted files under `test_globs`, skip marker table per language), `self_check_green` (report for the same head SHA), `protected_paths_g4`, `forbidden_paths`. The same check in the worker (repair possible) and in the Effect Gateway on the bundle (authoritative); disagreement raises an alarm. Test deletion and skipping lead to G4 (FE-1019). The WIP push is exempt only from `self_check_green` (FE-1059)."""
+design = ["10-planner-architect-coder.md#63-hard-gates-of-the-coder"]
+result = "services/coder/src/gates/*.ts (shared), services/coder/src/gates/skip-markers.ts, Effect Gateway checker for propose_push"
+done = ["Test hard_gate.ci_config green", "Test hard_gate.secret_in_diff_log_snapshot green", "Test hard_gate.test_removed_or_skipped green (one marker per language of the table)", "Test hard_gate.no_push_without_green green", "Test hard_gate.protected_without_g4 green", "Test gateway.hard_gate_authoritative green (failure path: rejected_policy with rule ID, audit, alarm)", "make check green"]
+sources = ["02 section 3 (hard gates)", "05 section 2 item 4", "01 section 5 (push check)", "04 section 2"]
+depends_on = ["2-E04-T03", "0-E09", "2-E05-T05"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T04-S01"
+  title = "Tests per gate with fixture bundles"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T04-S02"
+  title = "ci_config_unchanged and forbidden_paths"
+  done = "hard_gate.ci_config green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T04-S03"
+  title = "no_secret over all stores"
+  done = "hard_gate.secret_in_diff_log_snapshot green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T04-S04"
+  title = "Test deletion and skip markers with the path via G4"
+  done = "hard_gate.test_removed_or_skipped green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T04-S05"
+  title = "Check in the Effect Gateway, alarm on disagreement"
+  done = "gateway.hard_gate_authoritative, hard_gate.no_push_without_green, hard_gate.protected_without_g4 green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T05"
+title = "Self-review with the reviewer library and repair rounds"
+description = """Per detailed design 10 section 2.13: a fresh run of the reviewer library from stage 1 only on the diff and the task (ticket, plan, design), never on the transcript; models and `prompt_v` from the profile of the coder (ADR-66); execution via the `ItemExecutor` in the worker (reviewer handlers in fresh sessions, a second sandbox with a read-only workspace, no work item, no row in `findings`, FE-1073); findings from P1 up as a repair job (`coder.repair` turn), at most `repair_rounds`; red after that: run `failed`, bundle and report in the BlobStore, comment with the last test run."""
+design = ["10-planner-architect-coder.md#213-coder-servicescoder", "10-planner-architect-coder.md#44-coder-run"]
+result = "services/coder/src/self-review.ts, services/coder/prompts/repair.v1.md"
+done = ["Test coder.self_review_diff_and_task_only green", "Test coder.self_review_p1_repairs green", "Test coder.selfcheck_red_after_rounds_failed green (failure path: no push, bundle and report in the BlobStore, audit, comment)", "Test: the self-review also runs with reviewer.mode off", "Test coder.self_review_item_executor green", "make check green"]
+sources = ["02 section 3 stage 8", "03 section 5 (self-check red after repair_rounds)", "07 section 2 (library calls)"]
+depends_on = ["2-E04-T03", "1-E04", "1-E03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T05-S01"
+  title = "Tests input of the self-review and repair"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T05-S02"
+  title = "Call of the library with the profile of the coder"
+  done = "coder.self_review_diff_and_task_only green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T05-S03"
+  title = "Repair loop and failure path"
+  done = "coder.self_review_p1_repairs and coder.selfcheck_red_after_rounds_failed green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T06"
+title = "Normalize commits, bundle, PR text from the repo template"
+description = """Per detailed design 10 section 2.13, FE-1014, FE-1017, FE-1018: rewrite the agent's commits (author and committer `git_identity`, trailers `Agent-Run: <url>` and `Co-authored-by: <platform-identity>`, empty commits discarded, parent chain from the base SHA checked); optionally the plan file as the first commit (`planner.persist: branch`); Git bundle; PR template at the base SHA in a fixed search order, filling per heading from `prSections`, platform block (Closes, plan link, self-check, AI notice, run link, undelivered steering instructions); `StepResult` with `propose_push` and `propose_change` from the worker."""
+design = ["10-planner-architect-coder.md#213-coder-servicescoder"]
+result = "services/coder/src/{commits,bundle}.ts, services/coder/src/pr-body/{template,fill,platform-block}.ts"
+done = ["Test coder.commit_normalized_trailers green", "Test coder.pr_template_order green", "Test coder.pr_template_filled green", "Test: a parent chain not starting from the base SHA leads to an abort with a reason (failure path)", "make check green"]
+sources = ["02 section 3 (output, stage 10)", "03 section 1a condition 11", "[devin-llms], [amp] per research coding"]
+depends_on = ["2-E04-T05", "2-E02-T08"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T06-S01"
+  title = "Tests commits and templates"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T06-S02"
+  title = "Commit normalization and bundle"
+  done = "coder.commit_normalized_trailers green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T06-S03"
+  title = "Find and fill the template, platform block"
+  done = "coder.pr_template_order and coder.pr_template_filled green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T06-S04"
+  title = "StepResult with write requests from the worker"
+  done = "Integration test work API green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T07"
+title = "Draft PR, agent-approval-check and ticket linking"
+description = """Per detailed design 10 sections 4.4 and 4.10, FE-1046: step `coder.propose` passes the write requests to policy and Effect Gateway; push to `agent/<key>-<slug>` with `expectedOldSha`, draft PR with title and text, label, ticket linked (Closes and remote link); check `agent-approval-check` at the head SHA `in_progress`; after a human approve at the current SHA by a human with write permission `success`; every new push sets a new check `in_progress` at the new SHA; a platform approve never counts; event `change.proposed`; row in `quality_gate_decisions` from the accepted SelfCheckReport, `check_ref` after `effect.applied` (FE-1074)."""
+design = ["10-planner-architect-coder.md#44-coder-run", "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+result = "services/coder/src/controller/propose.ts, apps/control-plane/src/orchestrator-effects/agent-approval-check.ts"
+done = ["Test draft_pr.opened_with_check green", "Test agent_approval_check.human_approve_at_sha green", "Test agent_approval_check.new_push_resets green", "Test quality_gate.decision_stored_by_controller green", "Test: a failing effect (provider 5xx) is retried with the idempotency key, after N attempts a status comment (failure path)", "make check green"]
+sources = ["02 section 3 stage 10", "03 sections 1a (branch protection), 3 (G2)", "01 section 5 (push, openChange)", "05 section 2 profile write_branch"]
+depends_on = ["2-E04-T06", "2-E04-T04", "0-E09", "0-E14", "0-E09-T08", "0-E09-T09", "2-E01-T17"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T07-S01"
+  title = "Tests with recorded GitHub responses"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T07-S02"
+  title = "Push, draft PR, linking"
+  done = "draft_pr.opened_with_check green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T07-S03"
+  title = "agent-approval-check per SHA with human approve"
+  done = "agent_approval_check.human_approve_at_sha and agent_approval_check.new_push_resets green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T08"
+title = "G4 before the push: protected paths and test deletion"
+description = """Per detailed design 10 sections 4.4 and 6.3, FE-1019: step `coder.propose` detects `protected_paths` and deleted or skipped tests; state `awaiting_risk_approval`, the bundle stays in the BlobStore, nothing pushed; comment on the ticket with paths and reason, diff inline up to `g4.max_inline_diff_lines` only with equal visibility of ticket and repo, otherwise paths and a link to `GET /admin/api/v1/runs/{runId}/proposal/diff`; `@agent approve risk` on the ticket (before the push) and on the PR, only by a CODEOWNER of the affected paths at the base SHA, bound to the bundle hash; label `agent-risk`; deadline like approvals."""
+design = ["10-planner-architect-coder.md#63-hard-gates-of-the-coder", "10-planner-architect-coder.md#44-coder-run"]
+result = "services/coder/src/controller/g4.ts, apps/control-plane/src/api/proposal-diff.ts"
+done = ["Test g4.requested_before_push green", "Test g4.non_codeowner_denied green", "Test g4.expiry_nothing_pushed green (failure path: expired, bundle stays, audit, comment)", "Test g4.diff_visibility green", "make check green"]
+sources = ["03 sections 3 (G4) and 4 (approve risk)", "02 section 3 (hard gates)", "ADR-63"]
+depends_on = ["2-E04-T06", "0-E05"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "W-1 (FE-1019): approve risk on the ticket before the push has been in 03 section 4 and 04 since the consistency run of 2026-11-01"
+
+  [[task.part]]
+  id = "2-E04-T08-S01"
+  title = "Tests G4"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T08-S02"
+  title = "Detection, state, comment with visibility rule"
+  done = "g4.requested_before_push and g4.diff_visibility green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T08-S03"
+  title = "approve risk with CODEOWNERS and bundle hash, deadline"
+  done = "g4.non_codeowner_denied and g4.expiry_nothing_pushed green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T09"
+title = "Question during coding (L1) with snapshot, continuation, deadline and rate limit pause"
+description = """Per detailed design 10 sections 2.9 and 4.5, FE-1020, FE-1059: MCP tool `request_human_input` for the coder only with the capability `RESUME`; reply "end your turn now", abort after `ask_grace_s`; work-state snapshot, `complete(awaiting_input)`, lease released; question as a write request of effect type `human_input` (arguments and result per detailed design 03 section 2.5.1, FE-323); the reply of an authorized person starts `coder.resume` (restore, `AgentRuntime.resume`); deadline `ask_timeout_h` leads to `expired` and `coder.wip_push` (branch `agent/<key>-wip` without PR); contract test: `--resume` from a restored configuration directory and a check whether a transcript can be continued locally (OP-11, 09 section 4); subscription rate limit with a distant `resetsAt` as a pause with snapshot (M101)."""
+design = ["10-planner-architect-coder.md#45-question-and-continuation-l1", "10-planner-architect-coder.md#29-work-state-snapshot-and-restore"]
+result = "services/coder/src/jobs/{resume,wip-push}.ts, apps/control-plane/src/mcp/tools/request-human-input.ts, plugins/claude-code (contract test resume)"
+done = ["Test coder.ask_snapshot_resume green", "Test coder.ask_forced_abort_snapshots green", "Test coder.ask_snapshot_failure_wip green (failure path)", "Test coder.ask_expiry_wip_branch green", "Test coder.answer_after_expiry_hint green", "Test coder.resume_version_mismatch_wip green", "Test coder.restore_failure_wip green", "Test coder.rate_limit_snapshot_resume green", "Contract test resume with the result in the PR, OP-11 resume part closed", "make check green"]
+sources = ["03 sections 2.1 and 2.4", "02 section 3 stage 4", "01 sections 6 and 8", "backlog M101"]
+depends_on = ["2-E04-T02", "2-E01-T13", "2-E04-T06", "2-E04-T04", "2-E01-T14"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M101 included; W-2 (WIP push without a green self-check, FE-1059) in 02 section 3 since the consistency run of 2026-11-01"
+
+  [[task.part]]
+  id = "2-E04-T09-S01"
+  title = "Contract test --resume from a restored configuration directory"
+  done = "Test log; on failure a ruling for an alternative path in detailed design 10"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T09-S02"
+  title = "Tests question and continuation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T09-S03"
+  title = "Tool, forced abort, snapshot, lease released"
+  done = "coder.ask_snapshot_resume and coder.ask_forced_abort_snapshots green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T09-S04"
+  title = "Deadline and WIP push, failure paths restore and version"
+  done = "coder.ask_expiry_wip_branch, coder.ask_snapshot_failure_wip, coder.resume_version_mismatch_wip, coder.restore_failure_wip, coder.answer_after_expiry_hint green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T09-S05"
+  title = "Rate limit pause with continuation at resetsAt"
+  done = "coder.rate_limit_snapshot_resume green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T10"
+title = "Steering with @agent say (L2)"
+description = """Per detailed design 10 section 4.6, FE-1021, FE-1057: command `say` via `routing` and `command_permissions` (trigger or write in the repo); event `run.steer`; table `run_steer_messages` from 0003 (detailed design 01 section 3.4, delivery values there), text redacted in the BlobStore; contract test whether `claude -p --input-format stream-json` accepts messages during a turn (OP-11); with a green test `STEER` and delivery via the heartbeat task `steer`, otherwise in the next turn; states `pending`, `live_steer`, `next_item`, `undelivered_handover`; the state of the run never changes; `allow_steer: false` replies visibly; capture as `steer_text` for the origin; admin API `GET /admin/api/v1/runs/{runId}/steer`."""
+design = ["10-planner-architect-coder.md#46-steering-l2"]
+result = "apps/control-plane/src/commands/say.ts (event run.steer), services/coder/src/jobs/steer.ts, apps/control-plane/src/work/ (heartbeat task steer), apps/worker (delivery to AgentRuntime.steer), plugins/claude-code (STEER)"
+done = ["Test steer.live_when_supported green (or capability none with the log of the contract test)", "Test steer.next_item_when_unsupported green", "Test steer.never_dropped green", "Test steer.disabled_answer green", "Test steer.state_unchanged green", "make check green"]
+sources = ["03 sections 2.4 and 4", "01 section 6 (STEER)", "04 section 3 command_permissions.say"]
+depends_on = ["2-E04-T09", "0-E04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T10-S01"
+  title = "Contract test stream-json during a turn"
+  done = "Test log; capability STEER native or none fixed"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T10-S02"
+  title = "Command, event, delivery via run_steer_messages"
+  done = "steer.disabled_answer and steer.state_unchanged green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T10-S03"
+  title = "Delivery live and in the next turn"
+  done = "steer.live_when_supported and steer.next_item_when_unsupported green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T10-S04"
+  title = "Never discarded: list in the status comment and PR text"
+  done = "steer.never_dropped green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T11"
+title = "Agent-led environment setup (L4)"
+description = """Per detailed design 10 section 4.7, FE-1022, FE-1056: without blueprint and devcontainer and with `env_bootstrap: off`, the coder runs on `sandbox-base` (`environment: none` in the Run Record); with `propose`, work item `coder.env_bootstrap` (open network, without repo write permission, without repo secrets), output blueprint, check with `@guildwork/blueprint` and a trial build with a green `post_build`; `propose_change` only on `.agents/environment.yaml` in mode `env_bootstrap` (policy checks mode and path), branch `agent/<key>-env`; pipeline to `awaiting_input` (origin coding), the merge of the blueprint PR or a comment by an authorized person counts as the reply; base change: only the blueprint changed, the plan stays approved, otherwise `verify_static` at the new base SHA."""
+design = ["10-planner-architect-coder.md#47-agent-led-environment-setup-l4"]
+result = "services/coder/src/jobs/env-bootstrap.ts, services/coder/prompts/env-bootstrap.v1.md, policy rule coder.env_bootstrap"
+done = ["Test bootstrap.blueprint_pr green", "Test bootstrap.invalid_blueprint_no_pr green (failure path: no PR, run failed, audit, comment)", "Test bootstrap.resume_after_merge green", "Test: propose_change on other paths in mode env_bootstrap rejected", "Test: gate forbidden_paths lets exactly .agents/environment.yaml through only in mode env_bootstrap, rejected in every other mode (W-9)", "make check green"]
+sources = ["02 section 3 stage 0", "02 section 0 (propose_change on .agents/environment.yaml only in mode env_bootstrap)", "04 section 3 (env_bootstrap)", "[cursor-cloud], [codex-cloud] per 02"]
+depends_on = ["2-E04-T07", "2-E01-T06", "2-E04-T09"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T11-S01"
+  title = "Fixture repos without blueprint, tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T11-S02"
+  title = "Fallback sandbox-base when off"
+  done = "Test environment none green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T11-S03"
+  title = "Bootstrap step with check and trial build"
+  done = "bootstrap.invalid_blueprint_no_pr green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T11-S04"
+  title = "Blueprint PR and policy for mode and path"
+  done = "bootstrap.blueprint_pr and path test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T11-S05"
+  title = "Waiting, merge as the reply, base change"
+  done = "bootstrap.resume_after_merge green"
+  status = "open"
+
+[[task]]
+id = "2-E04-T12"
+title = "Coder suite: hard gates, alone on, failure paths"
+description = """Suite per detailed design 10 section 8.4: own suite of the hard gates over all fixture bundles with the target 0 violations; S4 "coder alone on" (`@agent code` with a clear task yields a draft PR); S6 cases of all coder rows from section 5."""
+design = ["10-planner-architect-coder.md#84-coder-2-e04", "10-planner-architect-coder.md#5-failure-and-abort-paths"]
+result = "eval/suites/hard-gates/, eval/suites/s4/coder-alone.test.ts, eval/suites/s6/coder-*.test.ts"
+done = ["Suite hard_gates.zero_violations for the coder green (0 violations)", "Test s4.coder_alone green", "all coder rows from detailed design 10 section 5 have a green S6 case", "make check green"]
+sources = ["02 section 3 DoD (hard gates)", "07 section 5"]
+depends_on = ["2-E04-T04", "2-E04-T07", "2-E04-T08", "2-E04-T10", "2-E04-T11", "0-E20-T21"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E04-T12-S01"
+  title = "Suite hard gates"
+  done = "0 violations"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T12-S02"
+  title = "S4 coder alone on"
+  done = "s4.coder_alone green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E04-T12-S03"
+  title = "S6 cases coder"
+  done = "S6 coder cases green"
+  status = "open"
+
+# ======================================================================
+# 2-E05 Analyzers in mode run and quality-gate
+# ======================================================================
+
+[[task]]
+id = "2-E05-T01"
+title = "Analyzer contract v1alpha1 binding and package @guildwork/sarif"
+description = """Per detailed design 10 section 2.14, FE-1026, FE-1027: freeze the contract `Analyzer` (run, describe, ingest), `AnalyzerManifestExt`, `AnalyzerReport`, `AnalyzerFinding` in `packages/contracts` as `v1alpha1` (changes afterwards only with a new version); package `packages/sarif` with `validateSarif` (mandatory fields), `fingerprint`, `normalizeLine`, `compareBaseline`, schema of the properties bag `guildwork/metrics`; scaffold of the contract suite AN1 in the contract harness (comparison with a direct call, failure paths)."""
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+result = "packages/contracts/src/analyzer/v1alpha1.ts, packages/sarif/src/*.ts, packages/testkit/src/contract/an1.ts"
+done = ["Test sarif.required_fields green", "Test sarif.fingerprint_stable green", "AN1 scaffold with a dummy analyzer green", "Contract file marked as v1alpha1, change test (schema hash) green", "make check green"]
+sources = ["01 section 12", "ADR-40", "08 principle 3 (contracts binding when used)", "[sarif] per 01"]
+depends_on = ["0-E13"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T01-S01"
+  title = "Tests SARIF mandatory fields and fingerprint"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T01-S02"
+  title = "Package sarif"
+  done = "sarif.required_fields and sarif.fingerprint_stable green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T01-S03"
+  title = "Freeze the contract and AN1 scaffold"
+  done = "Schema hash test and dummy AN1 green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T02"
+title = "Analyzers in their own tool sandbox"
+description = """Per detailed design 10 section 2.14, FE-1025 (M112): the analyzer runner in the worker creates one sandbox per analyzer from the image (digest from `analyzers_allowlist`), mounts the workspace volume read-only, a rule volume with rules and configuration from the base SHA (`git show`), optionally an offline database volume; no network; time limit `analysis.timeout_s`; crash, time limit, invalid SARIF yield `neutral` with a reason; the loader rejects `needsBuild: true`; migration 0211 `analyzer_runs`; per run a report `POST /work/v1/leases/{leaseId}/analyzer-runs`, the control plane writes the row (detailed design 10 section 2.21, FE-1070)."""
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+result = "apps/worker/src/analyzer-runner/*.ts, packages/db/migrations/0211_analyzer_runs.sql"
+done = ["Test analyzer.sandbox_readonly_no_net green", "Test analyzer.rules_from_base green", "Test analyzer.crash_neutral_never_green green (failure path: neutral with reason, audit)", "Test analyzer.needs_build_rejected green", "Test analyzer.runs_reported green", "make check green"]
+sources = ["01 section 12 rules 1 and 4", "05 section 3 (repo configuration only in the sandbox)", "ADR-17", "ADR-40", "backlog M112"]
+depends_on = ["2-E05-T01", "0-E12", "2-E01-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M112 done via FE-1025 (own tool sandbox, needsBuild not supported in stage 2)"
+
+  [[task.part]]
+  id = "2-E05-T02-S01"
+  title = "Tests isolation, rules from the base SHA, failure paths"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T02-S02"
+  title = "Tool sandbox with volumes and without network"
+  done = "analyzer.sandbox_readonly_no_net and analyzer.rules_from_base green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T02-S03"
+  title = "Time limit, crash, SARIF check, needsBuild, migration 0211"
+  done = "analyzer.crash_neutral_never_green and analyzer.needs_build_rejected green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T03"
+title = "Baseline: base against head with the same version"
+description = """Per detailed design 10 section 2.14 rule 3: analysis at the base SHA with the same analyzer version, stored base in `analyzer_baselines` only with the same `toolVersion` and `rulesHash`; `compareBaseline` sets `new`, `unchanged`, `absent`; base checkout as a second read-only volume. Existing bases from `envelope.inputs.analyzerBaselines` (entered by the controller), SARIF via the input grant `baseline:<analyzerId>`, a new base via the report `analyzer-runs` with `baseline: true` (detailed design 10 section 2.21)."""
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+result = "apps/worker/src/analyzer-runner/baseline.ts, table analyzer_baselines (migration 0211)"
+done = ["Test analyzer.baseline_states green", "Test: a different rulesHash forces a new base analysis", "make check green"]
+sources = ["01 section 12 rule 2"]
+depends_on = ["2-E05-T02", "2-E01-T05"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T03-S01"
+  title = "Tests baseline states"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T03-S02"
+  title = "Base analysis, storage, comparison"
+  done = "analyzer.baseline_states green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T04"
+title = "Plugin analyzer-opengrep with its own default rule set"
+description = """Per detailed design 10 section 2.14, FE-1030: plugin `plugins/analyzer-opengrep` (manifest with license LGPL-2.1, `rulesLicense` Apache-2.0, `distribution: bundled`, `runsRepoCode: false`, `offline: true`), image by digest; own rule set `guildwork-default` (starting set of about 10 rules for dangerous patterns, estimate) with one positive and one negative test case each; repo rules from `.agents/rules/opengrep/` at the base SHA; AN1 with 20 fixture repos."""
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+result = "plugins/analyzer-opengrep/, deploy/images/analyzer-opengrep/, plugins/analyzer-opengrep/rules/guildwork-default/, plugins/analyzer-opengrep/test/an1-fixtures/"
+done = ["Test opengrep.default_rules_tests green", "Contract suite an1.opengrep green (20 fixture repos, fingerprints equal to the direct call)", "Image green in the license gate, no Opengrep rule collection and no Semgrep registry rules in the image (test)", "make check green"]
+sources = ["01 section 12 (scope of delivery)", "ADR-50", "02 section 0 (self-check bundle)", "07 section 3.8 AN1"]
+depends_on = ["2-E05-T02", "2-E05-T03", "0-E21-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T04-S01"
+  title = "Plugin and image"
+  done = "Plugin loads in the contract harness"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T04-S02"
+  title = "Default rules with test cases"
+  done = "opengrep.default_rules_tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T04-S03"
+  title = "AN1 with 20 fixture repos and license counter-test"
+  done = "an1.opengrep green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T05"
+title = "Plugins analyzer-gitleaks and analyzer-osv-scanner"
+description = """Per detailed design 10 section 2.14, FE-1029: `plugins/analyzer-gitleaks` with default rules plus own rules for `sk-ant-oat`, `sk-ant-api`, AWS keys and the placeholder per item; `plugins/analyzer-osv-scanner` offline with a database volume that the worker keeps current (commands from the spike, OP-4), with `air_gap` from the registry mirror; AN1 each with 20 fixture repos."""
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+result = "plugins/analyzer-gitleaks/, plugins/analyzer-osv-scanner/, deploy/images/analyzer-{gitleaks,osv-scanner}/, apps/worker/src/analyzer-runner/offline-db.ts"
+done = ["Contract suite an1.gitleaks green", "Contract suite an1.osv-scanner green", "Test: own rule detects the sk-ant-oat fixture", "Test analyzer.offline_db_stale_neutral green (failure path: neutral with reason offline_db_stale, thresholds analysis.offline_db_refresh_h and analysis.offline_db_max_age_h, FE-1075)", "make check green"]
+sources = ["01 section 12", "05 section 3 item 4 (own rules)", "ADR-50"]
+depends_on = ["2-E05-T02", "2-E05-T03", "2-E01-T02", "0-E21-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T05-S01"
+  title = "gitleaks plugin with own rules and AN1"
+  done = "an1.gitleaks green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T05-S02"
+  title = "Offline database in the worker, check age"
+  done = "Failure path test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T05-S03"
+  title = "osv-scanner plugin with AN1"
+  done = "an1.osv-scanner green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T06"
+title = "Plugin analyzer-trivy"
+description = """Per detailed design 10 section 2.14: `plugins/analyzer-trivy` for dependencies and IaC, offline with a database volume like osv-scanner; AN1 with 20 fixture repos; license Apache-2.0, `distribution: bundled`."""
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+result = "plugins/analyzer-trivy/, deploy/images/analyzer-trivy/"
+done = ["Contract suite an1.trivy green", "Image green in the license gate", "make check green"]
+sources = ["01 section 12 (Trivy stage 2)", "04 section 4 (analyzers in the repo)"]
+depends_on = ["2-E05-T05", "0-E21-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T06-S01"
+  title = "Plugin and image"
+  done = "Plugin loads"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T06-S02"
+  title = "AN1 with 20 fixture repos"
+  done = "an1.trivy green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T07"
+title = "Platform gate quality-gate"
+description = """Package `packages/quality-gate` per detailed design 10 section 2.15, FE-1027, FE-1028: `GateConfig` as `analysis.gate` in the schema (starting values: 0 new findings from warning up, hotspots reviewed, coverage of new code at least 80 %, duplication at most 3 %, `min_new_lines` 20, `on_missing` neutral); `decide` with the precedence failed before neutral before passed; conversion of lcov and Cobertura to new lines; choose a duplication tool and check its license at the source (OP-12), connected as an analyzer with a properties bag; migration 0212 `quality_gate_decisions`; check `quality-gate` at the head SHA."""
+design = ["10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate"]
+result = "packages/quality-gate/src/*.ts, packages/db/migrations/0212_quality_gate_decisions.sql, analyzer plugin for duplication or a ruling without duplication"
+done = ["Test quality_gate.conditions green", "Test quality_gate.revision_mismatch_neutral green", "Test quality_gate.coverage_missing_neutral green", "Test quality_gate.min_new_lines_skips green", "OP-12 closed with license evidence or a ruling (duplication condition neutral until clarified)", "make check green"]
+sources = ["ADR-40", "ADR-36", "10 section 13 B1 (starting values as in the reference project, bothy-vorlage-projekt-setup section 2.3)", "01 section 12 rule 6"]
+depends_on = ["2-E05-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T07-S01"
+  title = "Tests per condition"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T07-S02"
+  title = "GateConfig, decide, migration 0212"
+  done = "quality_gate.conditions and quality_gate.revision_mismatch_neutral green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T07-S03"
+  title = "Coverage from lcov and Cobertura on new lines"
+  done = "quality_gate.coverage_missing_neutral and quality_gate.min_new_lines_skips green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T07-S04"
+  title = "Duplication tool with license check"
+  done = "OP-12 closed"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T07-S05"
+  title = "Check quality-gate at the head SHA"
+  done = "Effect test in mode record green"
+  status = "open"
+
+[[task]]
+id = "2-E05-T08"
+title = "Gate B1 fixtures of the platform gate and analyzer findings as candidates in the reviewer"
+description = """Per detailed design 10 section 2.14 rule 7 and 2.15: own fixture cases per gate condition (passed, missed, missing data), required part B1 from 10 section 13 (100 % the same decision as the published definition); in the reviewer, findings from `run` in addition to `ingest` go into the verifier as candidates, deduplicated with LLM findings via fingerprint, line IoU and CWE."""
+design = ["10-planner-architect-coder.md#215-platform-gate-guildworkquality-gate", "10-planner-architect-coder.md#85-analyzer-and-platform-gate-2-e05"]
+result = "eval/suites/quality-gate-b1/, connection in services/reviewer (analyzer source run)"
+done = ["Test quality_gate.b1_fixtures green (100 %)", "Test reviewer.run_findings_as_candidates green", "make check green"]
+sources = ["10 section 13 B1", "ADR-33", "02 section 4 stages 3 and 4"]
+depends_on = ["2-E05-T07", "2-E05-T04", "1-E04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E05-T08-S01"
+  title = "Fixtures per condition and suite"
+  done = "quality_gate.b1_fixtures green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E05-T08-S02"
+  title = "Candidates from run in the reviewer"
+  done = "reviewer.run_findings_as_candidates green"
+  status = "open"
+
+# ======================================================================
+# 2-E06 CI on agent branches
+# ======================================================================
+
+[[task]]
+id = "2-E06-T01"
+title = "Package @guildwork/workflow-guard: analysis of the workflow files"
+description = """Per detailed design 10 section 2.16, FE-1040: YAML parser with a size limit for `.github/workflows/*` at the base SHA; rules per `GuardReason` (secret other than `GITHUB_TOKEN` without an environment with a mandatory reviewer, exclusion of `agent/**` per event: for `push` via `branches-ignore`, for `pull_request` only via a job condition on `github.head_ref`, because branch filters there check the target branch (FE-1040, W-8), `pull_request_target` with a checkout of the head, `workflow_run` with secrets, reusable workflows with `secrets: inherit` including the target, parse errors, only `GITHUB_TOKEN`); anything unknown counts as `unguarded`; read the protection of the environments via `SCMProvider.environmentProtection` in the GitHub plugin (detailed design 05 FE-544), not readable means `environment_unreadable` (clarify OP-9 with a recorded response)."""
+design = ["10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"]
+result = "packages/workflow-guard/src/{parse,rules,decide}.ts, packages/workflow-guard/test/fixtures/, plugins/github (reading environments)"
+done = ["Test workflow_guard.cases green (at least one fixture per GuardReason; pull_request with branches-ignore agent/** is unguarded)", "Test: a YAML error yields unguarded with parse_error (failure path)", "OP-9 closed with a recorded response or documented as environment_unreadable", "make check green"]
+sources = ["ADR-59", "05 section 3 (CI on agent branches)", "09 section 4"]
+depends_on = ["0-E14"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E06-T01-S01"
+  title = "Fixtures per reason and tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T01-S02"
+  title = "Parser and rules for triggers and secrets"
+  done = "Triggers and secrets part of workflow_guard.cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T01-S03"
+  title = "Reusable workflows and workflow_run"
+  done = "reusable and workflow_run part green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T01-S04"
+  title = "Read the protection of the environments, unreadable equals unguarded"
+  done = "OP-9 closed, test green"
+  status = "open"
+
+[[task]]
+id = "2-E06-T02"
+title = "Variant agent_fork: fork creation by the operator, push and PR from the fork"
+description = """Per detailed design 10 section 2.16, FE-1041, FE-1060: CLI `guildwork agent-fork create --repo <r>` creates the fork under `fork_owner` with the operator's token from their shell and afterwards checks the app installation (the app never gets `administration`); the Effect Gateway pushes `agent/*` into the fork (token per effect for the fork repo, profile `write_branch`), syncs the default branch of the fork beforehand (`SCMProvider.syncFork`, `merge-upstream`, unverified, OP-10); fork checks via `SCMProvider.forkInfo` (both in the GitHub plugin, detailed design 05 FE-544) and opens the PR with `head: <fork_owner>:<branch>`; `contract-status.json` in the release with the result of the contract test, the resolver rejects `agent_fork` without `passed`; tests with recorded responses."""
+design = ["10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"]
+result = "apps/cli/src/commands/agent-fork.ts, plugins/github (forkInfo, syncFork), gateway extension for fork targets, deploy/release/contract-status.json, resolver rule in packages/config"
+done = ["Test agent_fork.push_and_pr_from_fork green (recording)", "Test agent_ci.fork_mode_rejected_without_contract green", "CLI test: without an operator token a clear error message, no call with the app token", "make check green"]
+sources = ["ADR-59", "05 sections 2 and 3", "04 section 3 (agent_ci.fork_owner)", "08 stage 2 (until then only guarded_workflows)"]
+depends_on = ["2-E06-T01", "0-E09", "0-E14", "0-E18", "0-E21-T01"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+note = "The CLI has an external effect (creates a repo) and runs only at the operator with their token; tests only against recordings"
+
+  [[task.part]]
+  id = "2-E06-T02-S01"
+  title = "Tests with recorded responses for push and PR from the fork"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T02-S02"
+  title = "Gateway: fork target, syncing, PR with fork head"
+  done = "agent_fork.push_and_pr_from_fork green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T02-S03"
+  title = "CLI agent-fork create with operator token"
+  done = "CLI test green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T02-S04"
+  title = "contract-status.json and resolver rule"
+  done = "agent_ci.fork_mode_rejected_without_contract green"
+  status = "open"
+
+[[task]]
+id = "2-E06-T03"
+title = "Check in doctor and per claim, failure path no_safe_ci"
+description = """Per detailed design 10 sections 2.16 and 4.9, FE-1042: migration 0210 `agent_ci_checks` with `cacheKey` (checkerVersion, blob SHAs of the workflows, environment protection, fork checks); check in the orchestrator at every claim of the coder (hook for QA and PR fixer prepared) at the base SHA; result in the Run Record; `no_safe_ci`: the item stays put, status `neutral` with workflows and reasons, counter per repo; `guildwork doctor --repo` with the per-repo check R02-agent-ci via `internal-cli agent-ci check`, without `--repo` D18-agent-ci summarizes the latest results (detailed design 10 section 2.20, FE-1067, detailed design 06 FE-642); admin API `GET /admin/api/v1/repos/{repoId}/agent-ci` and `POST .../recheck` (admin, audit)."""
+design = ["10-planner-architect-coder.md#49-check-securityagent_ci-per-claim", "10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"]
+result = "apps/control-plane/src/agent-ci/*.ts, packages/db/migrations/0210_agent_ci_checks.sql, apps/cli/src/doctor/checks/R02-agent-ci.ts, apps/cli/src/doctor/checks/D18-agent-ci.ts, internal-cli agent-ci check, apps/control-plane/src/api/agent-ci.ts"
+done = ["Test agent_ci.no_safe_ci_blocks_claim green (failure path: item stays, audit, status neutral, counter)", "Test agent_ci.cache_key_invalidation green", "Test agent_ci.fork_missing_no_safe_ci green", "Test doctor.agent_ci_section green", "make check green"]
+sources = ["ADR-59", "03 section 5 (no safe CI path)", "04 section 3", "11 section 2.2 (doctor)"]
+depends_on = ["2-E06-T01", "2-E06-T02", "0-E05", "0-E18"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "2-E06-T03-S01"
+  title = "Migration 0210 and cache key"
+  done = "agent_ci.cache_key_invalidation green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T03-S02"
+  title = "Claim check and failure path no_safe_ci"
+  done = "agent_ci.no_safe_ci_blocks_claim and agent_ci.fork_missing_no_safe_ci green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T03-S03"
+  title = "doctor and admin API"
+  done = "doctor.agent_ci_section and API tests green"
+  status = "open"
+
+[[task]]
+id = "2-E06-T04"
+title = "Owner: provide the test environment for the real contract test agent_fork"
+description = """Owner step (accounts, external effect). The agent prepares a decision sheet (costs: 0 for free GitHub organizations, unverified for the need for Actions minutes; effect; risks), the owner carries out: a test organization with a test repo (workflow with a dummy secret that points to a test host), a second organization as `fork_owner`, installation of the GitHub App of the test installation on both, fork setting "approval before the run" on the test repo. No product repo, no real secrets."""
+design = ["10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"]
+result = "Decision sheet in the PR; test organizations and app installation (owner's accounts)"
+done = ["Decision sheet with costs, effect, risks in the PR", "Owner confirms the creation with the names of the test organizations in the ops repo (private)", "Dummy secret is demonstrably not a real credential"]
+sources = ["08 stage 2 (contract test agent_fork against GitHub)", "docs/plan/README.md section 5"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "2-E06-T04-S01"
+  title = "Prepare decision sheet (agent)"
+  done = "Sheet in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T04-S02"
+  title = "Organizations, test repo, app installation (owner)"
+  done = "Confirmation in the ops repo"
+  status = "open"
+
+[[task]]
+id = "2-E06-T05"
+title = "Real contract test agent_fork against GitHub"
+description = """Per detailed design 10 section 2.16 and OP-10: test `contract.agent_fork_github`, active only with the owner's environment variable: the Effect Gateway pushes an agent branch with a workflow step that would send the dummy secret to the test host into the fork and opens the PR from the fork with the app; checked: the secret is withheld, the workflow only starts after approval, `merge-upstream` is possible with the app token. The owner starts the run; the agent records the responses as fixtures, enters the result in `contract-status.json` and reports it for 09 section 4 (follow-up list)."""
+design = ["10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"]
+result = "plugins/github/test/contract/agent-fork.live.test.ts, recorded fixtures, deploy/release/contract-status.json"
+done = ["Test contract.agent_fork_github green with an owner run or documented red (then only guarded_workflows remains)", "Test host received 0 requests before the approval (log)", "Fixtures checked in and agent_fork.push_and_pr_from_fork runs against them", "OP-10 closed"]
+sources = ["ADR-59", "05 section 3", "09 section 4 (agent fork on GitHub)"]
+depends_on = ["2-E06-T02", "2-E06-T04"]
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+note = "External effect only in the owner's test organizations; one run, the owner starts it"
+
+  [[task.part]]
+  id = "2-E06-T05-S01"
+  title = "Live test with environment switch and test host"
+  done = "Test does not run without the switch (skipped with a reason)"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T05-S02"
+  title = "Owner starts the run"
+  done = "Log of the run in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T05-S03"
+  title = "Fixtures, contract-status.json, result for 09"
+  done = "OP-10 closed"
+  status = "open"
+
+[[task]]
+id = "2-E06-T06"
+title = "S1 case CI on agent branches and S2 case no_safe_ci"
+description = """Suite cases per detailed design 10 section 8.6: `s1.ci_agent_branches` (the agent writes a test or a build script with a network call and a secret reference, per variant `agent_fork` and `guarded_workflows`; gate 0 secret values at the test host, with `agent_fork` 0 requests before the approval; against recordings and a local CI fake); `s2.no_safe_ci` (coder without `security.agent_ci` or with a red result: 0 runs)."""
+design = ["10-planner-architect-coder.md#86-ci-on-agent-branches-2-e06"]
+result = "eval/suites/s1/ci-agent-branches.test.ts, eval/suites/s2/no-safe-ci.test.ts"
+done = ["Test s1.ci_agent_branches green", "Test s2.no_safe_ci green", "make check green"]
+sources = ["07 section 5 S1 and S2", "08 stage 2"]
+depends_on = ["2-E06-T03", "2-E06-T05", "0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E06-T06-S01"
+  title = "S1 case both variants"
+  done = "s1.ci_agent_branches green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E06-T06-S02"
+  title = "S2 case no_safe_ci"
+  done = "s2.no_safe_ci green"
+  status = "open"
+
+# ======================================================================
+# 2-E07 Pipeline ticket-to-pr
+# ======================================================================
+
+[[task]]
+id = "2-E07-T01"
+title = "PipelineRunner: stages, on_disabled, unbuilt services, merge.mode"
+description = """Per detailed design 10 sections 2.17 and 4.10, FE-1043: `PipelineDef` and `StageDef` from the configuration, `PipelineRunner.next` as a pure decision from stored facts; `on_disabled` `skip`, `fail`, `human`; `when` via the expression evaluator; services of the unfinished stages (`triage`, `qa`, `prfixer`) count as off; the resolver rejects `merge.mode` not equal to `human` in stage 2; migration 0213 `pipeline_stage_outcomes`; `StageHandler` and `StageRegistry` (FE-1069), a service without a registered handler counts as not built."""
+design = ["10-planner-architect-coder.md#217-pipeline-ticket-to-pr-appscontrol-planesrcpipeline", "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+result = "apps/control-plane/src/pipeline/{runner,stages}.ts, packages/db/migrations/0213_pipeline_stage_outcomes.sql"
+done = ["Test pipeline.on_disabled_semantics green", "Test pipeline.stage2_unbuilt_services_off green", "Test pipeline.merge_mode_rejected_stage2 green", "Test: PipelineRunner reads no model text (only artifacts, checks, findings, configuration)", "make check green"]
+sources = ["03 sections 1, 1a item 1, 2.1", "04 section 3 (pipelines)", "02 section 0 (on_disabled)"]
+depends_on = ["0-E05", "0-E06"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E07-T01-S01"
+  title = "Tests on_disabled and unbuilt services"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T01-S02"
+  title = "Stage evaluation and migration 0213"
+  done = "pipeline.on_disabled_semantics and pipeline.stage2_unbuilt_services_off green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T01-S03"
+  title = "Resolver rule merge.mode"
+  done = "pipeline.merge_mode_rejected_stage2 green"
+  status = "open"
+
+[[task]]
+id = "2-E07-T02"
+title = "Triggers from GitHub Issues: @agent code and label agent:auto"
+description = """Per detailed design 10 section 4.10, FE-1044: command `@agent code [--no-plan]` in the issue (permissions `work_item: write` and `scm: write`), `--no-plan` only with a G1 exception per policy; route `work_item.created|work_item.labeled` with filter `agent:auto` and `actor: item_author`; G0 for the ticket author plus a check that the sender of the `labeled` event is a human with write permission (M90); if one is missing, `done` with a note, a later `@agent code` uses the same ticket version; mapping of the route names to `TriggerEvent.what` for these routes (M38 part); object lock from stage 0."""
+design = ["10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+result = "apps/control-plane/src/router/routes-ticket-to-pr.ts, apps/control-plane/src/pipeline/triggers.ts"
+done = ["Test pipeline.label_auto_trigger green", "Test pipeline.label_setter_without_write_no_run green (failure path: done with a note, audit)", "Test pipeline.author_without_rights_waits green", "Test pipeline.no_plan_flag green", "Test pipeline.object_lock_single_run green", "make check green"]
+sources = ["03 sections 1a (trigger without mention), 3 (G0), 4", "04 section 3 (routing)", "backlog M90", "backlog M38"]
+depends_on = ["2-E07-T01", "0-E04", "0-E14"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M90 included (the label setter needs write permission); M38 only for the routes of this pipeline"
+
+  [[task.part]]
+  id = "2-E07-T02-S01"
+  title = "Tests command and label"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T02-S02"
+  title = "Command @agent code with --no-plan"
+  done = "pipeline.no_plan_flag green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T02-S03"
+  title = "Label route with double G0 and route mapping"
+  done = "pipeline.label_auto_trigger, pipeline.label_setter_without_write_no_run, pipeline.author_without_rights_waits green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T02-S04"
+  title = "Object lock with concurrent triggers"
+  done = "pipeline.object_lock_single_run green"
+  status = "open"
+
+[[task]]
+id = "2-E07-T03"
+title = "Transitions from planning to awaiting_human_review"
+description = """Per detailed design 10 sections 2.17 and 4.10, FE-1047: `planning` to `awaiting_plan_approval` or `coding`; `coding` to `proposing` to `verifying` (or `awaiting_risk_approval`); in `verifying` the reviewer at the head (QA skipped); waiting for required checks at most `ci_wait_min`; for P0/P1, red CI or a conflict with fix stage `human` immediately `awaiting_human_review` with a note (never `fixing`); reviewer `off` with `on_disabled: human` sets the note "no machine review"; green with `merge.mode: human` to `awaiting_human_review`; a merge or closing ends the run."""
+design = ["10-planner-architect-coder.md#217-pipeline-ticket-to-pr-appscontrol-planesrcpipeline", "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+result = "apps/control-plane/src/pipeline/transitions.ts"
+done = ["Test pipeline.fix_stage_human green", "Test pipeline.ci_wait_timeout_human green (failure path: awaiting_human_review with a note, audit)", "Test: reviewer off yields the note no machine review", "Test: a merge by humans leads via merged to done with billing", "make check green"]
+sources = ["03 sections 1, 2.1 (verifying, fixing), 5", "08 stage 2 (PR fixer stage on_disabled human)"]
+depends_on = ["2-E07-T01", "1-E05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E07-T03-S01"
+  title = "Tests of the transitions with fixtures"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T03-S02"
+  title = "Transitions up to verifying"
+  done = "Transition tests up to verifying green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T03-S03"
+  title = "verifying with CI waiting, fix stage human, completion"
+  done = "pipeline.fix_stage_human and pipeline.ci_wait_timeout_human green"
+  status = "open"
+
+[[task]]
+id = "2-E07-T04"
+title = "Orchestrator effects with their own policy rules"
+description = """Per detailed design 10 section 4.10, FE-1045 (M113 part): effects of the orchestrator without a service, each with a policy rule `orchestrator.*` and a token profile: set `agent-approval-check` (moved here from 2-E04-T07 as a rule), draft to ready, request reviewers from CODEOWNERS, link the ticket and status `in_review` or `done`, status comment per run with rows for steering instructions and foreign inputs; no effect without a rule. The effects run via the executors check (0-E09-T05), ready_for_review, request_reviewers and ticket_transition (2-E01-T15 to 2-E01-T17)."""
+design = ["10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+result = "apps/control-plane/src/orchestrator-effects/*.ts, policy rules orchestrator.*"
+done = ["Test pipeline.orchestrator_effects_policy green", "Test pipeline.ready_and_reviewers green", "Test: the status comment shows foreign input and open steering instructions", "make check green"]
+sources = ["03 sections 1 (draft to ready, CODEOWNERS), 2.3", "05 section 2 (permission profiles)", "backlog M113"]
+depends_on = ["2-E07-T03", "2-E04-T07", "2-E01-T12", "2-E01-T15", "2-E01-T16", "2-E01-T17"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M113 partially: the revert PR remains for stage 5"
+
+  [[task.part]]
+  id = "2-E07-T04-S01"
+  title = "Tests policy rules per effect"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T04-S02"
+  title = "ready, request reviewers, ticket status"
+  done = "pipeline.ready_and_reviewers green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T04-S03"
+  title = "Status comment rows"
+  done = "Status comment test green"
+  status = "open"
+
+[[task]]
+id = "2-E07-T05"
+title = "Architect in the pipeline"
+description = """Per detailed design 10 sections 4.2 and 4.10: stage `architect` with `when: services.architect.required_if` (default: `plan.risk == high`, protected paths, `plan.design_needed`); state `designing`; design `blocked` leads to G1 by humans even with `full`; G1 binds plan hash and design hash together; questions of the architect via `awaiting_input` with origin `designing`."""
+design = ["10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2", "10-planner-architect-coder.md#42-g1-manual-and-automatic"]
+result = "apps/control-plane/src/pipeline/architect-stage.ts"
+done = ["Test pipeline.design_blocked_waits_g1 green", "Test: required_if false yields skipped_when_false", "Test: G1 with a changed design hash rejected", "make check green"]
+sources = ["03 section 1a (architect)", "02 section 2 (on/off and combination)", "04 section 3 (required_if)"]
+depends_on = ["2-E07-T03", "2-E03-T05", "2-E02-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "2-E07-T05-S01"
+  title = "Tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T05-S02"
+  title = "Stage architect with designing and G1 binding"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "2-E07-T06"
+title = "Shadow mode of the chain in stage 2"
+description = """Per detailed design 10 section 4.10, FE-1048 (M109 part): coder in `shadow`: `propose_push` and `propose_change` as `shadowed` in the eval log, the run ends after `proposing` in `done` with "shadow: nothing published"; planner and architect in shadow publish no comments, results in the admin UI; costs count against the limits."""
+design = ["10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+result = "apps/control-plane/src/pipeline/shadow.ts"
+done = ["Test pipeline.shadow_coder_done green", "Test: planner in shadow produces 0 external effects, plan visible in the admin UI", "Ledger test: costs booked in shadow", "make check green"]
+sources = ["02 section 0 (shadow)", "07 section 2 (shadow mode)", "backlog M109"]
+depends_on = ["2-E07-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M109 partially: the shadow change for downstream services follows with stage 3"
+
+  [[task.part]]
+  id = "2-E07-T06-S01"
+  title = "Tests shadow"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T06-S02"
+  title = "Shadow path for coder, planner, architect"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "2-E07-T07"
+title = "S5: E2E ticket to draft PR from GitHub Issues"
+description = """Suite S5 per detailed design 10 section 8.7 with recorded provider responses in a test repo: issue with `@agent code`, plan, `@agent approve plan`, coder, draft PR with `agent-approval-check`, review, `awaiting_human_review`; the same flow via the label `agent:auto`; control commands `approve plan`, `approve risk` (CODEOWNER), `stop`, `continue` act on the running run; a command without permission per `command_permissions` ends with a rejection; no second active run per object and service."""
+design = ["10-planner-architect-coder.md#87-pipeline-2-e07"]
+result = "eval/suites/s5/ticket-to-draft-pr.test.ts, eval/suites/s5/fixtures/github/"
+done = ["Test s5.ticket_to_draft_pr_github green", "Test s5.label_auto_to_draft_pr green", "make check green"]
+sources = ["07 section 5 S5", "08 stage 2 (S5 up to the draft PR for GitHub Issues)", "03 sections 1 and 4"]
+depends_on = ["2-E07-T02", "2-E07-T04", "2-E07-T05", "2-E07-T06", "2-E06-T03", "2-E04-T12", "0-E20-T21"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E07-T07-S01"
+  title = "Recordings of the provider responses for the flow"
+  done = "Fixtures checked in, secret scan green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T07-S02"
+  title = "E2E via the command"
+  done = "s5.ticket_to_draft_pr_github green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E07-T07-S03"
+  title = "E2E via the label, control commands, permissions"
+  done = "s5.label_auto_to_draft_pr green"
+  status = "open"
+
+# ======================================================================
+# 2-E08 Eval, qualification and acceptance
+# ======================================================================
+
+[[task]]
+id = "2-E08-T01"
+title = "Read reference values and data licenses before the first Gate B run"
+description = """Per detailed design 10 section 10.1 (OP-13, OP-15) and [10] sections 1.3 and 18: read at the source (GET only) and record with date: unit of the Scale values on SWE-Bench Pro V2 (percent of solved tasks or scaled value, M93) and the row of the harness with the model of the first combination; DevBench values (AR1 becomes a required part as soon as read); current Terminal-Bench version; license files of SWE Atlas Refactoring and Test Writing, the SWE-rebench leaderboard set, SWE-Sharp-Bench, Loc-Bench V0.1, DevBench, STRIDE GPT, LocAgent. Result as reference values `ReferenceValue[]` per service in `eval/references/<service>.json` (detailed design 07 FE-738, detailed design 10 FE-1078); whatever needs a request to authors goes as an owner item into 2-E08-T02."""
+design = ["10-planner-architect-coder.md#101-open-points-clarified-during-building"]
+result = "eval/references/{planner,architect,coder}.json (reference values with source, date, classification), eval/references/licenses-stage2.md"
+done = ["Reference table with source, date, version, classification per part checked in", "M93 and OP-13 closed (unit determined or part marked as not decidable)", "License list with a reference per set; OP-15 closed or handed over to 2-E08-T02"]
+sources = ["10 sections 1.3, 1.5, 4, 5, 6, 18", "09 section 4 (read reference values directly)", "backlog M93"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Only reading public pages; no requests to authors (that is an owner step)"
+
+  [[task.part]]
+  id = "2-E08-T01-S01"
+  title = "Scale unit and reference row, DevBench, Terminal-Bench"
+  done = "Reference table values part"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T01-S02"
+  title = "License files of the sets and reference tools"
+  done = "License list"
+  status = "open"
+
+[[task]]
+id = "2-E08-T02"
+title = "Owner: license requests and eval runtime of stage 2 on the subscription"
+description = """Owner step (external effect). The credential of the eval runs is decided by O28: the subscription runtime of the project installation from 1-E09-T09; coder, planner and architect with shell run on public sets per ADR-72 in profile `operator_test`, reference tools such as LocAgent and STRIDE GPT via the model bridge (ADR-73). No USD per run is incurred, the usage limits of the subscription cap the throughput; the agent estimates the run time of the baskets from them (estimate). The agent submits drafts of the requests to authors for sets without a clarified license from 2-E08-T01 (they have an external effect); the owner sends them."""
+design = ["10-planner-architect-coder.md#101-open-points-clarified-during-building"]
+result = "Drafts and status of the requests in the ops repo; eval runtime of stage 2 checked"
+done = ["Drafts of the license requests and status per request in the ops repo", "Trial run of a coder case from C1p via the subscription runtime in profile `operator_test` (ADR-72) green, log in the report", "Counters of the ledger (runs, tokens) read before the first run and in the report", "OP-16 eval credential part noted as done by O28"]
+sources = ["O22", "O28", "10 section 1.7", "05 section 6 condition 10", "ADR-70", "ADR-72", "ADR-73"]
+depends_on = ["2-E08-T01"]
+owner = "agent+owner"
+estimate_h = 2
+status = "open"
+note = "Until 2026-11-01 planned with a decision sheet for an API account (M127); replaced by O28. Budget unlimited per O22, measure the counters before and after every run nonetheless."
+
+  [[task.part]]
+  id = "2-E08-T02-S01"
+  title = "Drafts of the license requests and trial run on the subscription (agent)"
+  done = "Drafts in the ops repo, trial run logged"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T02-S02"
+  title = "Send requests (owner)"
+  done = "Status documented"
+  status = "open"
+
+[[task]]
+id = "2-E08-T03"
+title = "Sets P1 to P4 and adapters Loc-Bench, LocAgent"
+description = """Per [07] section 3.2 and detailed design 10 section 8.8: Loc-Bench V0.1 as a declarative pin in `eval/sets/P1/set.json` with revision and checksum via the generic fetcher (detailed design 07 FE-703, no copy, no download script); P1 own cases from C1p (reference PR as the truth); P2 unclear and clear tickets per the Ambig-SWE method (own set); P3 plan content per the SWE-RPG method on own cases (SWE-RPG itself not usable); P4 planted plan errors (wrong file, missing constraint, violated rule); adapter for LocAgent with the same model (OP-14, FE-1052); case metadata with `origin`, `license`, `source_ref`; sets per FE-1078 as `eval/sets/<id>/set.json` with labels and references as JSONL."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "eval/sets/{P1,P2,P3,P4}/ (set.json, labels/*.jsonl, refs/*.jsonl), eval/scorers/ of the sets, eval/adapters/locagent/"
+done = ["Test eval.p1_locbench_adapter green", "Test eval.p2_p3_p4_sets green (metadata complete, licenses allowed)", "LocAgent adapter runs on 5 cases with the model of the first combination via the model bridge (subscription, ADR-73) or OP-14 documented as not runnable", "Starting size per own set 100 cases (estimate) or deviation justified"]
+sources = ["07 sections 1 and 3.2", "10 section 4", "ADR-52"]
+depends_on = ["2-E08-T01"]
+owner = "agent"
+estimate_h = 16
+status = "open"
+
+  [[task.part]]
+  id = "2-E08-T03-S01"
+  title = "Loc-Bench adapter and P1"
+  done = "eval.p1_locbench_adapter green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T03-S02"
+  title = "P2 and P3 per method on own cases"
+  done = "Sets with metadata"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T03-S03"
+  title = "P4 planted plan errors"
+  done = "eval.p2_p3_p4_sets green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T03-S04"
+  title = "LocAgent adapter with the same model"
+  done = "Trial run or documentation OP-14"
+  status = "open"
+
+[[task]]
+id = "2-E08-T04"
+title = "Sets AR1 to AR4 and adapters DevBench, STRIDE GPT"
+description = """Per [07] section 3.3: DevBench design (Apache-2.0) as a declarative pin in `eval/sets/AR1/set.json` (detailed design 07 FE-703); AR2 planted defects in architecture documents of public repos, first the public docs of this project; AR3 systems with a human-made threat model plus an adapter for STRIDE GPT with the same model (FE-1063, OP-14); AR4 planted deviations between plan and PR and EARS requirements with contradictions; case metadata; sets per FE-1078 as `eval/sets/<id>/set.json`."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "eval/sets/{AR1,AR2,AR3,AR4}/ (set.json, labels/*.jsonl, refs/*.jsonl), eval/scorers/ of the sets, eval/adapters/stride-gpt/"
+done = ["Test eval.ar1_devbench_adapter green", "Test eval.ar2_ar3_ar4_sets green", "STRIDE GPT adapter runs on one system with the model of the first combination via the model bridge (subscription, ADR-73) or documented as not runnable"]
+sources = ["07 section 3.3", "10 section 5", "ADR-52"]
+depends_on = ["2-E08-T01"]
+owner = "agent"
+estimate_h = 16
+status = "open"
+
+  [[task.part]]
+  id = "2-E08-T04-S01"
+  title = "DevBench adapter"
+  done = "eval.ar1_devbench_adapter green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T04-S02"
+  title = "AR2 and AR4 planted cases"
+  done = "Sets with metadata"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T04-S03"
+  title = "AR3 systems and STRIDE GPT adapter"
+  done = "eval.ar2_ar3_ar4_sets green"
+  status = "open"
+
+[[task]]
+id = "2-E08-T05"
+title = "Set C1p from permissively licensed public repos"
+description = """Per [07] section 3.4: selection tool `tools/eval/select-c1p.ts` for merged PRs that close an issue and change tests, from repos with an allowed license (SPDX per case); per case base commit, ticket text at the time, FAIL_TO_PASS and PASS_TO_PASS, reference diff (as a reference), blueprint and environment snapshot; starting size 100 (estimate), mix of bugfixes and small features, difficulty estimate; contamination note; a non-saturated subset fixed before the run for "plan does no harm" from the difficulty estimate with a pilot on separate cases (FE-1050), checked in as its own set `C1p-plan-no-harm` before the first run (FE-1078)."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "eval/sets/C1p/ (set.json, refs/*.jsonl, labels/*.jsonl), eval/sets/C1p-plan-no-harm/set.json, tools/eval/select-c1p.ts"
+done = ["Test eval.c1p_license_per_case green", "Test eval.plan_no_harm_subset_ex_ante green", "every case with a green post_build of its snapshot (report)", "no third-party data as a copy in the repo (check in the license gate)"]
+sources = ["07 section 3.4 (C1, C1p)", "10 section 4 B2", "ADR-52"]
+depends_on = ["2-E08-T01"]
+owner = "agent"
+estimate_h = 16
+status = "open"
+
+  [[task.part]]
+  id = "2-E08-T05-S01"
+  title = "Selection script with license filter"
+  done = "Candidate list with SPDX"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T05-S02"
+  title = "Cases with tests and snapshots"
+  done = "eval.c1p_license_per_case green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T05-S03"
+  title = "Subset before the run with pilot"
+  done = "eval.plan_no_harm_subset_ex_ante green"
+  status = "open"
+
+[[task]]
+id = "2-E08-T06"
+title = "Coder basket B1 to B4 via Harbor, measure costs per task"
+description = """Per [07] section 3.4 and [10] section 6: SWE-Bench Pro V2 Full (642) and HARD-51 as a regression subset via the Harbor adapter from stage 0 as a normal platform run with `effect_sink: record`; B2 SWE Atlas and B3 SWE-rebench only if 2-E08-T01 verifies the license, otherwise internally as a report part; B4 Terminal-Bench in the version read; measure the costs per task on 5 to 10 HARD tasks and replace the estimate from [10] section 1.7 with the measured value (M129, result as a proposal for 10)."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "eval/sets/{B1,B2,B3,B4}/set.json (declarative pins per detailed design 07 FE-703, FE-1078), cost report"
+done = ["Test eval.coder_basket_harbor green", "Cost measurement on at least 5 HARD tasks with counters before and after the run in the report", "B2 and B3 marked as a mandatory or report part depending on the license status"]
+sources = ["07 sections 1 and 3.4", "10 sections 1.7 and 6", "backlog M129"]
+depends_on = ["2-E08-T01", "2-E08-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M129 included (measure costs instead of estimating them)"
+
+  [[task.part]]
+  id = "2-E08-T06-S01"
+  title = "Set manifests B1 to B4 with pins"
+  done = "eval.coder_basket_harbor green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T06-S02"
+  title = "Cost measurement on HARD tasks"
+  done = "Cost report"
+  status = "open"
+
+[[task]]
+id = "2-E08-T07"
+title = "Gate A runs planner, architect, coder"
+description = """Paired runs per [07] section 1.1 and [10] section 1.4 (Gate A margin 10 percentage points, minimum power, cluster bootstrap): planner on P1 ("plan does no harm": coder with against without plan), P2 and P4 against the bare harness; architect on AR2 and AR4 against the bare harness with a simple prompt; coder on C1p against the bare harness with the same model, hard gates 0 violations. Costs before and after every run. A not decidable Gate A is decided by a larger own set."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "Eval report Gate A stage 2 (eval_runs, report in the release folder)"
+done = ["Gate A planner green with interval and number of cases in the report", "Gate A architect green with interval and number of cases", "Gate A coder green on C1p, hard gates 0 violations", "Counters of the ledger before and after every run in the report"]
+sources = ["10 sections 1.2 item 6, 1.4, 4, 5, 6", "07 sections 1.1 and 4", "08 stage 2"]
+depends_on = ["2-E08-T02", "2-E08-T03", "2-E08-T04", "2-E08-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E08-T07-S01"
+  title = "Planner Gate A"
+  done = "Report planner"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T07-S02"
+  title = "Architect Gate A"
+  done = "Report architect"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T07-S03"
+  title = "Coder Gate A"
+  done = "Report coder"
+  status = "open"
+
+[[task]]
+id = "2-E08-T08"
+title = "Measure and report the Gate B required parts"
+description = """Per [10] sections 4 to 6 with statistics from 1.4: planner B1 Loc-Bench V0.1 file Acc@5 against a re-measured LocAgent with the same model (FE-1052) and B2 "plan does no harm" on the C1p subset (margin 5 points, benefit and efficiency as a report); architect B1 method conformance 100 % and B2 AR3 against a re-measured STRIDE GPT (FE-1063), AR1 as a report part or a required part as soon as values are read; coder B1 on SWE-Bench Pro V2 Full for the first combination against the Scale value of the same harness and model (FE-1051). Status per service and part: green, red, not decidable or open; result published even if red."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "Eval report Gate B stage 2 with status per part, qualification rows in qualification"
+done = ["Planner B1 and B2 measured, status per 10 section 1.2 item 6 in the report", "Architect B1 (100 %) and B2 measured, status in the report", "Coder B1 on V2 Full for the first combination measured, unit read before the run (2-E08-T01), status in the report", "Reference values with date and classification in the report"]
+sources = ["10 sections 1.2, 1.4, 1.5, 4, 5, 6", "08 stage 2 done criterion", "ADR-55", "ADR-56"]
+depends_on = ["2-E08-T06", "2-E08-T07"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "2-E08-T08-S01"
+  title = "Planner B1 and B2"
+  done = "Status per part"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T08-S02"
+  title = "Architect B1 and B2"
+  done = "Status per part"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T08-S03"
+  title = "Coder B1"
+  done = "Status B1"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T08-S04"
+  title = "Report and qualification rows"
+  done = "Report in the release folder"
+  status = "open"
+
+[[task]]
+id = "2-E08-T09"
+title = "Cross-cutting suites of stage 2: S1, S2, S6 and hard gates"
+description = """Per detailed design 10 section 8.8: `s1.package_name_and_dns` (the agent encodes data in package and module names and DNS requests; gate 0 requests to a test upstream of the registry cache and 0 DNS requests from the sandbox); `s1.stage2_injection_cases` (issue text, comment, PR template, blueprint `knowledge` in the head); `s2.stage2_policy_cases` (subscription for the coder without operator_test, agent_fork without contract test, auto_mode live without S7, glob in the allowlist, persist_path in forbidden_paths); `s6.stage2_error_paths` (every row from section 5); suite `hard_gates.zero_violations` over S1 to S6."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08", "10-planner-architect-coder.md#5-failure-and-abort-paths"]
+result = "eval/suites/s1/{package-name-and-dns,stage2-injection}.test.ts, eval/suites/s2/stage2-policy.test.ts, eval/suites/s6/stage2.test.ts"
+done = ["Test s1.package_name_and_dns green", "Test s1.stage2_injection_cases green", "Test s2.stage2_policy_cases green", "Test s6.stage2_error_paths green (every row from detailed design 10 section 5)", "Suite hard_gates.zero_violations green"]
+sources = ["07 section 5 (S1, S2, S6)", "08 stage 2 (S1 cases, hard gates 0 violations)", "ADR-64"]
+depends_on = []
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "2-E08-T09-S01"
+  title = "S1 package name and DNS"
+  done = "s1.package_name_and_dns green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T09-S02"
+  title = "S1 injection and S2 policy of stage 2"
+  done = "s1.stage2_injection_cases and s2.stage2_policy_cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T09-S03"
+  title = "S6 all rows and hard gates"
+  done = "s6.stage2_error_paths and hard_gates.zero_violations green"
+  status = "open"
+
+[[task]]
+id = "2-E08-T10"
+title = "S7 c: measure automatic plan approval in shadow against humans"
+description = """Per detailed design 10 section 4.2 and FE-1006: evaluation of the table `plan_approval_shadow` (the gate says approve, the human changed or rejected) via the admin API, with the number of cases and an error bound per the rule of three; report per repo; in addition measurement of the starting values `ask_timeout_h` and `plan.estimate.tokens` from the runs (M40) as a proposal with justification."""
+design = ["10-planner-architect-coder.md#42-g1-manual-and-automatic", "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "Report S7 c in the release folder, apps/control-plane/src/api/eval-plan-approval-shadow.ts (evaluation)"
+done = ["Test s7c.plan_approval_shadow_report green", "Report with number of cases, hits, error bound per repo", "M40: measured values for ask_timeout_h and the threshold plan.estimate.tokens with a proposal in the report"]
+sources = ["07 section 5 S7 (c)", "08 stage 2", "10 section 14", "backlog M40"]
+depends_on = ["2-E08-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M40 included for the planner and coder starting values"
+
+  [[task.part]]
+  id = "2-E08-T10-S01"
+  title = "Evaluation and test"
+  done = "s7c.plan_approval_shadow_report green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T10-S02"
+  title = "Report and starting values"
+  done = "Report in the release folder"
+  status = "open"
+
+[[task]]
+id = "2-E08-T11"
+title = "Stage report, reference qualification and release stage 2"
+description = """Completion per [08] principles 1, 2 and 5 and ADR-55: stage report with evidence per done criterion from 08 stage 2 (Gate A, Gate B status per part, hard gates, S1 cases, S2 `no_safe_ci`, contract test `agent_fork`, S5, S7 c); qualification rows with Gate B status published as the reference qualification (only public sets, logs only with metadata); release with S8 (upgrade from the release of stage 1 with migrations 0200 to 0299 and raising of open runs, backup and restore)."""
+design = ["10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+result = "Stage report stage 2, reference qualification in the release, release tag (after owner go for push and tag)"
+done = ["The stage report names the evidence per done criterion from 08 stage 2 (command and output or eval report)", "S8 green: upgrade from the stage 1 release without data loss, open runs raised", "Qualification rows published with status green, red, not decidable or open", "python3 tools/plan/plan.py check green", "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)"]
+sources = ["08 section 1 principles 1, 2, 5", "08 stage 2", "07 sections 2.1 and 5 (S8)", "ADR-52", "ADR-55"]
+depends_on = ["2-E08-T08", "2-E08-T09", "2-E08-T10", "0-E21", "0-E22-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Push, tag and publication only with owner go"
+
+  [[task.part]]
+  id = "2-E08-T11-S01"
+  title = "S8 upgrade test from the stage 1 release"
+  done = "S8 green"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T11-S02"
+  title = "Stage report and reference qualification"
+  done = "Report with evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "2-E08-T11-S03"
+  title = "Prepare the release, owner go for the tag"
+  done = "Release candidate, owner go documented"
+  status = "open"

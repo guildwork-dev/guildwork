@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-repo-und-erster-push"
+title = "Owner steps for stage R: V0, repos, organization, V10, ruleset, Renovate app, probe PRs, stage report R"
+kind = "process"
+path = "-"
+stage = "R"
+purpose = "The steps at the hoster that only the owner carries out or approves: create repos and organization, push the root commit and make it public, set up ruleset, environments and Renovate app, probe PRs and stage report R. No code."
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10", "00-codebase-and-conventions.md#48-stage-r-before-the-first-push", "00-codebase-and-conventions.md#7-configuration", "00-codebase-and-conventions.md#6-security", "00-codebase-and-conventions.md#42-ci-run-and-ci-ok", "00-codebase-and-conventions.md#26-package-contracts-scaffold"]
+built_by = ["R-E01-T01", "R-E01-T02", "R-E05-T02", "R-E05-T03", "R-E05-T05", "R-E05-T07", "R-E05-T08", "R-E05-T09", "R-E05-T11"]
+
+[[provides]]
+name = "beleg-v0"
+kind = "file"
+title = "Evidence of private origin in the ops repo (V0)"
+defined_in = "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"
+from_task = "R-E01-T01"
+
+[[provides]]
+name = "repos"
+kind = "config"
+title = "Product repo (empty, private until V10) and ops repo (private)"
+defined_in = "00-codebase-and-conventions.md#48-stage-r-before-the-first-push"
+from_task = "R-E01-T02"
+
+[[provides]]
+name = "organisation-api-gruppe"
+kind = "config"
+title = "Organization whose Pages domain carries the API group guildwork-dev.github.io; since 2026-11-01 it also holds the product repo and the project"
+defined_in = "00-codebase-and-conventions.md#26-package-contracts-scaffold"
+from_task = "R-E05-T02"
+
+[[provides]]
+name = "produkt-repo-oeffentlich"
+kind = "config"
+title = "Product repo public with main equal to the root commit; environment denylist with secrets DENYLIST and ALLOW_AUTHORS, variable GUILDWORK_VISIBILITY"
+defined_in = "00-codebase-and-conventions.md#7-configuration"
+from_task = "R-E05-T03"
+
+[[provides]]
+name = "ruleset-und-release"
+kind = "config"
+title = "Ruleset for main (ci-ok required, squash, signed, no bypass; code owner approval only from the second maintainer), SHA pinning of the actions, environment release with required reviewer"
+defined_in = "00-codebase-and-conventions.md#6-security"
+from_task = "R-E05-T05"
+
+[[provides]]
+name = "renovate-blatt"
+kind = "file"
+title = "publish/renovate-sheet.md: conditions, permissions, costs, recommendation"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E05-T07"
+
+[[provides]]
+name = "renovate-app"
+kind = "config"
+title = "Renovate app on the product repo, bot address for bots.txt"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E05-T08"
+
+[[provides]]
+name = "probe-belege-r9"
+kind = "file"
+title = "publish/evidence/R9.txt: probe PRs from the repo, from a fork and without sign-off"
+defined_in = "00-codebase-and-conventions.md#42-ci-run-and-ci-ok"
+from_task = "R-E05-T09"
+
+[[provides]]
+name = "stufenbericht-r"
+kind = "file"
+title = "docs/quality/stage-r-report.md with evidence per done criterion of stage R"
+defined_in = "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"
+from_task = "R-E05-T11"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/go-blatt-v10"
+from_task = "R-E05-T03"
+purpose = "V10 only after a green go sheet"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/wurzel-commit"
+from_task = "R-E05-T03"
+purpose = "Push the root commit as main"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/private-listen"
+from_task = "R-E05-T03"
+purpose = "Content of the secrets DENYLIST and ALLOW_AUTHORS"
+
+[[uses]]
+interface = "repo-einstellungen-pruefung/settings-expected"
+from_task = "R-E05-T03"
+purpose = "Order and target values from the sheet"
+
+[[uses]]
+interface = "denylist-scanner/deny-jobs"
+from_task = "R-E05-T03"
+purpose = "Environment denylist with the secrets that the deny jobs expect"
+
+[[uses]]
+interface = "ci-workflows/ci-ok"
+from_task = "R-E05-T05"
+purpose = "ci-ok as the only required check in the ruleset"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/community-dateien"
+from_task = "R-E05-T05"
+purpose = "CODEOWNERS requests the maintainers as reviewers (code owner approval in the ruleset only from the second maintainer)"
+
+[[uses]]
+interface = "ci-workflows/renovate-json"
+from_task = "R-E05-T08"
+purpose = "App reads renovate.json from the repo"
+
+[[uses]]
+interface = "hooks-und-textpruefung/commit-konvention"
+from_task = "R-E05-T09"
+purpose = "Bot address in quality/commits/bots.txt; a PR without sign-off must fail"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "R-E05-T09"
+purpose = "Probe PRs trigger ci.yml"
+
+[[uses]]
+interface = "ci-workflows/ci-ok"
+from_task = "R-E05-T09"
+purpose = "Prove the result of ci-ok per probe PR"
+
+[[uses]]
+interface = "ci-workflows/beleg-erste-laeufe"
+from_task = "R-E05-T11"
+purpose = "Done criteria 1, 3 and 5 of stage R"
+
+[[uses]]
+interface = "ci-workflows/measure-queue"
+from_task = "R-E05-T11"
+purpose = "measured waiting time and concurrency"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/belege-v2-bis-v7"
+from_task = "R-E05-T11"
+purpose = "Evidence of the checklist"
+
+[[uses]]
+interface = "plan-werkzeug/plan-cli"
+from_task = "R-E05-T11"
+purpose = "make plan after the status change"

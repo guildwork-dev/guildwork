@@ -1,0 +1,399 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-standards"
+title = "Standards service: rule metrics with UI page, miner, rule PR, compilation, decay"
+kind = "service"
+path = "services/standards/"
+package = "@guildwork/service-standards"
+stage = "7"
+purpose = "Measures per rule (rule_id) findings, acceptance and addressed rate, derives rule candidates from accepted feedback, proposes them as a PR on .agents/rules/, compiles confirmed model findings into ast-grep or Opengrep rules with test cases and proposes the withdrawal of weak rules. The only write request is propose_change on .agents/rules/; the service activates no rule itself (merge by CODEOWNERS, auto_activate only at installation level) and loads no guidelines (that is done by @guildwork/guidelines)."
+design = [
+  "12-expansion.md#25-standards-service-7-e03",
+  "12-expansion.md#31-tables-of-stage-7",
+  "12-expansion.md#34-envelopes-and-file-formats",
+  "12-expansion.md#35-endpoints",
+  "12-expansion.md#43-standards-run-and-rule-pr",
+  "12-expansion.md#5-failure-and-abort-paths",
+  "12-expansion.md#7-configuration",
+]
+built_by = [
+  "7-E03-T01",
+  "7-E03-T02",
+  "7-E03-T03",
+  "7-E03-T04",
+  "7-E03-T05",
+  "7-E03-T06",
+]
+
+[[provides]]
+name = "spike-regeltests"
+kind = "file"
+title = "eval/reports/spike-regeltests.md: test formats, images, licenses and pinned versions of ast-grep and Opengrep"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T01"
+
+[[provides]]
+name = "tabellen-standards"
+kind = "table"
+title = "rule_stats (daily rows), rule_decay, standard_candidates, compiled_rules (migration 0752, FE-1266)"
+defined_in = "12-expansion.md#31-tables-of-stage-7"
+from_task = "7-E03-T02"
+
+[[provides]]
+name = "kennzahlen-erfassung"
+kind = "ts-api"
+title = "StandardsController.updateStats: metrics per rule_id and window from findings and finding_feedback"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T02"
+
+[[provides]]
+name = "rule-stats-abfrage"
+kind = "contract"
+title = "KnowledgeStore capability RULE_STATS: query.ruleStats in plugins/pg-kb over rule_stats (FE-1215)"
+defined_in = "12-expansion.md#23-mcp-tools-kb-and-ask-7-e02"
+from_task = "7-E03-T02"
+
+[[provides]]
+name = "http-regel-kennzahlen"
+kind = "http"
+title = "GET /admin/api/v1/rules/stats: metrics per rule and window (B1 parity)"
+defined_in = "12-expansion.md#35-endpoints"
+from_task = "7-E03-T02"
+
+[[provides]]
+name = "ui-regeln"
+kind = "ui"
+title = "Admin UI page rules: metrics per rule with window and decay state (read-only)"
+defined_in = "12-expansion.md#35-endpoints"
+from_task = "7-E03-T02"
+
+[[provides]]
+name = "kandidaten"
+kind = "ts-api"
+title = "RuleCandidate and CandidateStatus; miner run per repo on schedule with weight by CODEOWNERS and limit per run (FE-1213)"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T03"
+
+[[provides]]
+name = "work-item-miner"
+kind = "queue"
+title = "Work item standards.miner (kind model_call, FE-1264): output RuleCandidate[]"
+defined_in = "12-expansion.md#34-envelopes-and-file-formats"
+from_task = "7-E03-T03"
+
+[[provides]]
+name = "miner-prompt"
+kind = "prompt"
+title = "services/standards/prompts/miner.md: cluster, rule text, glob, quotes"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T03"
+
+[[provides]]
+name = "konfig-miner"
+kind = "config"
+title = "services.standards.schedule, first_run_max_rules, max_new_rules, window_prs"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E03-T03"
+
+[[provides]]
+name = "metrik-miner"
+kind = "metric"
+title = "guildwork.standards.miner_empty (run without candidates)"
+defined_in = "12-expansion.md#51-metrics-alarms-and-audit-actions-of-stage-7"
+from_task = "7-E03-T03"
+
+[[provides]]
+name = "regel-datei"
+kind = "file"
+title = ".agents/rules/<slug>.md, AGENTS.md compatible, front matter id (std-nnnn), glob, origin, quotes, generated_by"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T04"
+
+[[provides]]
+name = "regel-pr"
+kind = "ts-api"
+title = "RulePrPlan (artifact type RulePrPlan) and rule PR via propose_change on branch agent/standards-<date>; states per table 4.3"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T04"
+
+[[provides]]
+name = "manifest-standards"
+kind = "contract"
+title = "Service manifest standards: subscriptions pr.merged and pr.stop (change.closed), write request propose_change, jobs miner and compile, kb.standards"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T04"
+
+[[provides]]
+name = "policy-regel-propose-change"
+kind = "contract"
+title = "Policy rule standards.propose_change: every path outside .agents/rules/ is rejected"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T04"
+
+[[provides]]
+name = "konfig-aktivierung"
+kind = "config"
+title = "services.standards.auto_activate, effective only at installation level (O10)"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E03-T04"
+
+[[provides]]
+name = "metrik-regel-pr"
+kind = "metric"
+title = "guildwork.standards.policy_rejected (rule PR rejected by policy)"
+defined_in = "12-expansion.md#51-metrics-alarms-and-audit-actions-of-stage-7"
+from_task = "7-E03-T04"
+
+[[provides]]
+name = "kompilierte-regel"
+kind = "ts-api"
+title = "CompiledRule with engine, rule file, positive and negative test cases and test run (FE-1214)"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "kompilierte-regel-datei"
+kind = "file"
+title = ".agents/rules/ast-grep/<id>.yml or .agents/rules/opengrep/<id>.yaml including test folder, engine_version in the header comment"
+defined_in = "12-expansion.md#34-envelopes-and-file-formats"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "work-item-compile"
+kind = "queue"
+title = "Work item standards.compile (kind agent, nativeTools edit+shell, engine image): output CompiledRule plus test output"
+defined_in = "12-expansion.md#34-envelopes-and-file-formats"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "work-item-rule-test"
+kind = "queue"
+title = "Work item standards.rule_test (kind check, worker step rule-test, image engines): output CompiledRule.testRun plus test output (FE-1214)"
+defined_in = "12-expansion.md#34-envelopes-and-file-formats"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "engine-image"
+kind = "file"
+title = "Sandbox image engines with pinned ast-grep and Opengrep, signed, by digest in the work item"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "compile-prompt"
+kind = "prompt"
+title = "services/standards/prompts/compile.md: rule and test cases from a confirmed finding"
+defined_in = "12-expansion.md#25-standards-service-7-e03"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "konfig-kompilierung"
+kind = "config"
+title = "services.standards.compile.engines"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "metrik-kompilierung"
+kind = "metric"
+title = "guildwork.standards.compile_failed (engine)"
+defined_in = "12-expansion.md#51-metrics-alarms-and-audit-actions-of-stage-7"
+from_task = "7-E03-T05"
+
+[[provides]]
+name = "konfig-decay"
+kind = "config"
+title = "services.standards.decay.threshold_addressed_rate and min_findings (weak, then withdrawal PR)"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E03-T06"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "7-E03-T01"
+purpose = "Record license, location and version of ast-grep and Opengrep"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "7-E03-T02"
+purpose = "Create service standards with defineService"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "7-E03-T02"
+purpose = "StandardsController with onRun and onStepCompleted"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "7-E03-T02"
+purpose = "Hook in the controller via registerControllers"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "7-E03-T02"
+purpose = "Count findings with rule_id per day"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.finding-feedback"
+from_task = "7-E03-T02"
+purpose = "accepted, addressed, rejected per finding from the feedback"
+
+[[uses]]
+interface = "review-analytics/address-rate-und-recall"
+from_task = "7-E03-T02"
+purpose = "Addressed rate per rule by the same pinned definition (09 FE-925)"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "7-E03-T02"
+purpose = "Migration 0752_standards.sql"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "7-E03-T02"
+purpose = "tenant_isolation on rule_stats, rule_decay, standard_candidates, compiled_rules"
+
+[[uses]]
+interface = "db/repos"
+from_task = "7-E03-T02"
+purpose = "Repositories of the standards tables"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "7-E03-T02"
+purpose = "Access only with withTenant"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "7-E03-T02"
+purpose = "Metric tests against real Postgres"
+
+[[uses]]
+interface = "kb/rule-stats-typen"
+from_task = "7-E03-T02"
+purpose = "RuleStats and RuleStatsQuery"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "7-E03-T02"
+purpose = "GET /admin/api/v1/rules/stats with role viewer"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "7-E03-T02"
+purpose = "Page rules under apps/admin-ui/src/pages/rules/"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "7-E03-T02"
+purpose = "Fetch metrics typed"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "7-E03-T03"
+purpose = "Keys services.standards.* from section 7"
+
+[[uses]]
+interface = "guidelines/lader"
+from_task = "7-E03-T03"
+purpose = "Dedupe of the candidates against applicable rules at the base SHA"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "7-E03-T03"
+purpose = "getThreads, compare and codeowners for input and weight of the miner"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "7-E03-T03"
+purpose = "GitHub implementation of getThreads, compare and codeowners"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "7-E03-T03"
+purpose = "Comment texts as Untrusted into the miner prompt"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "7-E03-T03"
+purpose = "Create work items standards.miner, standards.compile and standards.rule_test"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "7-E03-T03"
+purpose = "Envelopes of the miner, compile and test jobs"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "7-E03-T03"
+purpose = "Miner as kind model_call with outputSchema RuleCandidate[] (FE-1264)"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "7-E03-T03"
+purpose = "Metrics guildwork.standards.* in the catalog (section 5.1)"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "7-E03-T04"
+purpose = "ResolvedEvent pr.merged and pr.stop (change.closed) for state changes per table 4.3"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "7-E03-T04"
+purpose = "propose_change for rule PR and withdrawal PR"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "7-E03-T04"
+purpose = "Open the rule PR via EffectGateway.submit"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "7-E03-T04"
+purpose = "Executor change opens the rule PR as draft with marker"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "7-E03-T04"
+purpose = "Policy rule standards.propose_change"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "7-E03-T04"
+purpose = "auto_activate effective only at installation level"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "7-E03-T04"
+purpose = "RulePrPlan as artifact"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "7-E03-T04"
+purpose = "Audit actions standards.* from section 5.1"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "7-E03-T05"
+purpose = "Compile job as kind agent with nativeTools edit+shell"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "7-E03-T05"
+purpose = "Worker step rule-test runs the test run of the engine deterministically (FE-1214)"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "7-E03-T05"
+purpose = "Rule file, test cases and test output as BlobStore references"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "7-E03-T05"
+purpose = "Build sandbox image engines with pinned ast-grep and Opengrep"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "7-E03-T05"
+purpose = "License gate over the SBOM of the image engines"

@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-github-trigger"
+title = "GitHub TriggerSource: verify, parse, isSelf, ack, reconcile, poll"
+kind = "plugin"
+path = "plugins/github/src/trigger/"
+package = "@guildwork/plugin-github"
+stage = "0"
+purpose = "Turns GitHub webhooks and reconcile or poll runs into normalized TriggerEvents with a stable dedupeKey and writes the acknowledgment as an effect. Not here: accepting the HTTP call, inbox, dedupe and routing (ingress and router of the control plane) and storing the cursor (caller)."
+design = [
+  "05-plugins-and-contracts.md#2143-webhook-verify-parse-ack-isself",
+  "05-plugins-and-contracts.md#2144-reconcile-and-poll-ruling-fe-518",
+  "05-plugins-and-contracts.md#42-webhook-to-inbox",
+  "05-plugins-and-contracts.md#34-fixtures-of-the-github-plugin-pluginsgithubcontractfixtures",
+]
+built_by = ["0-E14-T04", "0-E14-T05"]
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource github: describe (ackDeadlineMs 10000), verify (HMAC-SHA-256 before every parse), parse (event table, untrusted texts, commands, where.commit on push and red CI without PR), isSelf"
+defined_in = "05-plugins-and-contracts.md#2143-webhook-verify-parse-ack-isself"
+from_task = "0-E14-T04"
+
+[[provides]]
+name = "ack"
+kind = "contract"
+title = "TriggerSource.ack with ScopedToken: reaction eyes on the triggering comment, only via the Effect Gateway (effect type ack, FE-510)"
+defined_in = "05-plugins-and-contracts.md#2143-webhook-verify-parse-ack-isself"
+from_task = "0-E14-T04"
+
+[[provides]]
+name = "reconcile-poll"
+kind = "contract"
+title = "TriggerSource.reconcile(since) and poll(cursor): events with mode poll, same dedupeKey as the webhook, cursor with overlap, upper bound max_pages (FE-518)"
+defined_in = "05-plugins-and-contracts.md#2144-reconcile-and-poll-ruling-fe-518"
+from_task = "0-E14-T05"
+
+[[provides]]
+name = "trigger-werte"
+kind = "config"
+title = "Named value trigger.reconcile_overlap_s (overlap of the cursor); trigger.reconcile_interval and trigger.poll_interval belong to control-plane-ingress/konfig-trigger"
+defined_in = "05-plugins-and-contracts.md#7-configuration"
+from_task = "0-E14-T05"
+
+[[provides]]
+name = "audit-trigger"
+kind = "event"
+title = "Audit actions github.installation_changed (installation events, otherwise Skipped) and github.reconcile_truncated"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "0-E14-T05"
+
+[[provides]]
+name = "webhook-fixtures"
+kind = "file"
+title = "Webhook fixtures with headers and golden events under plugins/github/contract/fixtures/webhooks/ and golden/, signed with the test secret (also for E2E tests of the ingress)"
+defined_in = "05-plugins-and-contracts.md#34-fixtures-of-the-github-plugin-pluginsgithubcontractfixtures"
+from_task = "0-E14-T04"
+
+[[uses]]
+interface = "plugin-github/client"
+from_task = "0-E14-T04"
+purpose = "REST call of the reaction eyes in ack"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "0-E14-T04"
+purpose = "mention_handle, ack and webhook_secret_ref"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "0-E14-T04"
+purpose = "TriggerEvent and Skipped as the result of parse"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "0-E14-T04"
+purpose = "Recognize commands from comment texts"
+
+[[uses]]
+interface = "event-schema/dedupe-key"
+from_task = "0-E14-T04"
+purpose = "dedupeKey per event"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E14-T04"
+purpose = "Comment texts as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "0-E14-T04"
+purpose = "Implement the TriggerSource contract, ack with ScopedToken"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E14-T04"
+purpose = "TriggerSource suite against webhook fixtures"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "0-E14-T04"
+purpose = "Webhook fixtures re-signed with the test secret"
+
+[[uses]]
+interface = "plugin-github/mint-token"
+from_task = "0-E14-T05"
+purpose = "Installation token for reconcile and poll"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E14-T05"
+purpose = "Audit github.reconcile_truncated via ctx.audit"
+
+[[uses]]
+interface = "control-plane-ingress/konfig-trigger"
+from_task = "0-E14-T05"
+purpose = "The control plane determines the cadence of reconcile and poll (trigger.reconcile_interval, trigger.poll_interval)"

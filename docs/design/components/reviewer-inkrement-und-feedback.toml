@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-inkrement-und-feedback"
+title = "Increment, finding lifecycle and feedback harvesting"
+kind = "service"
+path = "services/reviewer/src/controller/increment/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Carries findings across pushes (line mapping, recheck, addressed, outdated, withdrawn) and harvests feedback from the threads at run start and at merge into finding_feedback; from stage 6 on it verifies findings marked as fixed. No posting (that is done by reviewer-ausgabe)."
+design = [
+  "08-reviewer.md#411-finding-lifecycle-and-increment",
+  "08-reviewer.md#412-feedback",
+  "08-reviewer.md#29-building-blocks-of-the-controller",
+  "09-reviewer-companion-features-and-learnings.md#45-mark-as-fixed",
+]
+built_by = ["1-E04-T05", "1-E04-T06", "6-E04-T06"]
+
+[[provides]]
+name = "inkrement"
+kind = "ts-api"
+title = "planIncrement(open, LineMap[], fullRun): IncrementPlan with unchanged, outdated, recheck"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E04-T05"
+
+[[provides]]
+name = "befund-lebenszyklus"
+kind = "contract"
+title = "States and transitions of FindingState, addressed_sha according to FE-834, review_pr_state after the run"
+defined_in = "08-reviewer.md#411-finding-lifecycle-and-increment"
+from_task = "1-E04-T05"
+
+[[provides]]
+name = "feedback-ernte"
+kind = "ts-api"
+title = "harvestFeedback(): read threads, signals into finding_feedback with freshly read permission, merged_open"
+defined_in = "08-reviewer.md#412-feedback"
+from_task = "1-E04-T06"
+
+[[provides]]
+name = "verifikation-dev-claim"
+kind = "ts-api"
+title = "Incremental run checks dev_claim_state claimed: verified with addressed or refuted with a line in the thread"
+defined_in = "09-reviewer-companion-features-and-learnings.md#45-mark-as-fixed"
+from_task = "6-E04-T06"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-diff"
+from_task = "1-E04-T05"
+purpose = "Line mapping since..head and ancestor check"
+
+[[uses]]
+interface = "reviewer-verifier/reviewer.verify"
+from_task = "1-E04-T05"
+purpose = "Recheck batch and verdicts still_present, fixed, unclear"
+
+[[uses]]
+interface = "reviewer-befunde/befund-repositories"
+from_task = "1-E04-T05"
+purpose = "read open findings, set states, write finding_feedback"
+
+[[uses]]
+interface = "reviewer-befunde/fingerprint-v1"
+from_task = "1-E04-T05"
+purpose = "same fingerprint only updates last_seen"
+
+[[uses]]
+interface = "reviewer-befunde/filterkette"
+from_task = "1-E04-T05"
+purpose = "Dedupe with open findings"
+
+[[uses]]
+interface = "reviewer-router-und-budget/kontextpaket"
+from_task = "1-E04-T05"
+purpose = "open findings as part 7 of the context package"
+
+[[uses]]
+interface = "service-reviewer/review-pr-state"
+from_task = "1-E04-T05"
+purpose = "last_reviewed_sha, commits_since_full, last_full_review_sha"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "1-E04-T06"
+purpose = "getThreads with resolver, getPermission, getChange"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "1-E04-T06"
+purpose = "Read methods of the GitHub plugin with recordings in the test"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E04-T06"
+purpose = "ReadonlySCM and blobs (reply texts)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "1-E04-T06"
+purpose = "actor_identity_id of the signals"
+
+[[uses]]
+interface = "entwickler-mcp/findings-dev-claim"
+from_task = "6-E04-T06"
+purpose = "Read dev_claim_state claimed and set it to verified or refuted"
+
+[[uses]]
+interface = "effekt-executoren/reply"
+from_task = "6-E04-T06"
+purpose = "Line in the thread on refuted"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/finding-feedback-actor-role"
+from_task = "6-E04-T06"
+purpose = "kind values of stage 6 in finding_feedback"

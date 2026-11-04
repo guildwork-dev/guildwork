@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "ui-learnings"
+title = "Admin UI Learnings with approval view and metrics"
+kind = "ui"
+path = "apps/admin-ui/src/pages/learnings/"
+package = "@guildwork/admin-ui"
+stage = "7a"
+purpose = "Page of the admin UI for Learnings: list with filters and metrics, approval view for pending_approval, actions approve, reject, confirm, invalidate by role and export button. Not here: the endpoints /admin/api/v1/learnings (learnings-lebenszyklus)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle",
+  "09-reviewer-companion-features-and-learnings.md#82-sub-stage-7a-per-module",
+]
+built_by = ["7a-E01-T09"]
+
+[[provides]]
+name = "seite-learnings"
+kind = "ui"
+title = "Page Learnings with filters (repo, status, kind, path, never used), metrics, approval view and actions by role"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T09"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "7a-E01-T09"
+purpose = "Register page Learnings"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "7a-E01-T09"
+purpose = "typed client of the Learnings endpoints"
+
+[[uses]]
+interface = "admin-ui/ui-e2e-grundlage"
+from_task = "7a-E01-T09"
+purpose = "E2E tests with test IdP"
+
+[[uses]]
+interface = "learnings-lebenszyklus/http-liste-und-invalidate"
+from_task = "7a-E01-T09"
+purpose = "List and invalidate"
+
+[[uses]]
+interface = "learnings-lebenszyklus/http-freigabe"
+from_task = "7a-E01-T09"
+purpose = "approve and reject"
+
+[[uses]]
+interface = "learnings-lebenszyklus/http-confirm"
+from_task = "7a-E01-T09"
+purpose = "confirm"
+
+[[uses]]
+interface = "learnings-lebenszyklus/http-import-export"
+from_task = "7a-E01-T09"
+purpose = "Export button"

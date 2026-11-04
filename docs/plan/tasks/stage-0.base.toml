@@ -1,0 +1,648 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area base of stage 0. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/00-codebase-and-conventions.md
+stage = "0"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E01"
+title = "Codebase foundations"
+goal = "Shared packages `core` (result and error types, IDs, time, hash, secrets, logging with redaction, metrics and trace facade with catalog), `contracts` skeleton, `testkit` and the installation configuration loader in `config` with a published schema"
+sources = ["06 sections 1, 3", "detailed design 00"]
+depends_on = ["R-E01", "R-E05"]
+
+[[task]]
+id = "0-E01-T01"
+title = "core: Result, AppError, problem+json, exit codes"
+description = """`packages/core/src/{result.ts,errors.ts,assert.ts,json.ts}` per detailed design 00 section 2.5 (FE-010, FE-011): `Result<T, E = AppError>` with `ok`, `err`, `isOk`, `map`, `andThen`, `unwrapOr`, `fromPromise`; `ErrorCode` (eight codes from 01 plus `limit_exceeded`, `config`, `internal`), `AppError` with required field `event`, `RETRYABLE`, `appError`, `GuildworkError`; `toProblem` per the table in section 3.2; `exitCodeFor` (0, 1, 2 per 11 section 2.2); `assertNever`, `invariant`; `JsonValue`."""
+design = ["00-codebase-and-conventions.md#25-package-core", "00-codebase-and-conventions.md#32-errors-as-an-http-response"]
+result = "packages/core/src/{result.ts,errors.ts,assert.ts,json.ts} with tests"
+done = [
+  "Test `core/result > map and andThen keep the error` green",
+  "Test `core/errors > toProblem maps every ErrorCode to the documented status` green",
+  "Test `core/errors > internal errors never expose cause in problem detail` green",
+  "Test `core/errors > RETRYABLE contains exactly rate_limited and transient` green",
+  "`make check` green",
+]
+sources = ["01 section 1.1 rule 3", "11 section 2.2", "ADR-03"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "0-E01-T01-S01"
+  title = "Tests for Result and error mapping"
+  done = "Tests red because modules are missing"
+
+  [[task.part]]
+  id = "0-E01-T01-S02"
+  title = "result.ts, json.ts, assert.ts"
+  done = "Result tests green"
+
+  [[task.part]]
+  id = "0-E01-T01-S03"
+  title = "errors.ts with toProblem and exitCodeFor"
+  done = "all tests green"
+
+[[task]]
+id = "0-E01-T02"
+title = "core: IDs (UUIDv7), slugs, hash, canonical JSON"
+description = """`packages/core/src/{ids.ts,hash.ts}` (FE-012): `Id<B>` as a branded type, `newId` (UUIDv7 per RFC 9562 from `Clock` and `Random`), `parseId`, `Slug` with `parseSlug`, `sha256Hex`, `canonicalJson` per RFC 8785 with the test vectors of the RFC."""
+design = ["00-codebase-and-conventions.md#25-package-core"]
+result = "packages/core/src/{ids.ts,hash.ts} with tests"
+done = [
+  "Test `core/ids > newId returns a version 7 uuid ordered by time` green",
+  "Test `core/ids > parseId rejects uuid v4 and malformed input` green",
+  "Test `core/hash > canonicalJson matches RFC 8785 vectors` green",
+]
+sources = ["detailed design 00 FE-012", "03 section 2.2 (idempotency key)"]
+depends_on = ["0-E01-T01", "0-E01-T03"]
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "0-E01-T02-S01"
+  title = "Tests with RFC vectors and ordering by time"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T02-S02"
+  title = "ids.ts and hash.ts"
+  done = "Tests green"
+
+[[task]]
+id = "0-E01-T03"
+title = "core: Clock, timestamps, durations, Random, SecretValue"
+description = """`packages/core/src/{time.ts,random.ts,secret.ts}` (FE-013): `Clock` with `systemClock`, `Timestamp` (UTC with milliseconds), `toTimestamp`, `parseTimestamp` (normalized to `Z`), `parseDuration` (`ms`, `s`, `m`, `h`, `d`), `formatDuration`, `Random` with `cryptoRandom`, `SecretValue` (`reveal`, `toString`, `toJSON`, `util.inspect.custom` without plaintext). The Opengrep rule `gw-no-direct-clock` allows `Date.now()` only in `time.ts`."""
+design = ["00-codebase-and-conventions.md#25-package-core"]
+result = "packages/core/src/{time.ts,random.ts,secret.ts} with tests"
+done = [
+  "Test `core/time > parseTimestamp normalizes offsets to Z` green",
+  "Test `core/time > parseDuration rejects unknown units` green",
+  "Test `core/secret > SecretValue never serializes its value` green",
+  "`make opengrep` green (no direct clock outside time.ts)",
+]
+sources = ["01 section 13 (SecretValue)", "detailed design 00 FE-013"]
+depends_on = []
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "0-E01-T03-S01"
+  title = "Tests time and secret"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T03-S02"
+  title = "time.ts and random.ts"
+  done = "Time tests green"
+
+  [[task.part]]
+  id = "0-E01-T03-S03"
+  title = "secret.ts"
+  done = "Secret test green"
+
+[[task]]
+id = "0-E01-T04"
+title = "core: logger with redaction"
+description = """`packages/core/src/log/{logger.ts,redact.ts,secret-patterns.ts}` (FE-014, FE-015): `Logger` interface with the event name as first argument, `createLogger` on pino with the format from detailed design 00 section 3.1, redaction by key and by `SECRET_PATTERNS` (test values from `quality/secrets/samples.txt`, same file as gitleaks; column 1 names the pattern ID from detailed design 00 section 2.5, format section 3.5; since R-E02-T03 the file also contains the stateless GitHub App token `ghs_<App-ID>_<JWT>`, which `gh[opsur]_` does not match), `LOG_LIMITS`, `untrustedSummary`, correlation with `trace_id`/`span_id` via `traceContext`, registered plaintexts redacted exactly via `extraRedactions` (FE-059; the user is the Credential Broker from 0-E10-T01, which therefore needs no wrapper of its own around the logger). `AppError` is written as `err: { code, event, message }`, stack only for `internal`."""
+design = ["00-codebase-and-conventions.md#25-package-core", "00-codebase-and-conventions.md#31-log-record", "00-codebase-and-conventions.md#6-security"]
+result = "packages/core/src/log/{logger.ts,redact.ts,secret-patterns.ts} with tests"
+done = [
+  "Test `core/log > redacts values under secret-like keys at any depth` green",
+  "Test `core/log > redacts every sample in quality/secrets/samples.txt` green",
+  "Test `core/log > truncates beyond LOG_LIMITS and still writes the line` green",
+  "Test `core/log > untrustedSummary logs only origin hash and length` green",
+  "Test `core/log > adds trace_id and span_id when a span is active` green",
+  "Test `core/log > writes AppError without stack unless internal` green",
+  "Test `core/log > redacts registered values from extraRedactions` green",
+  "Test `core/log > failing extraRedactions writes log.redaction_failed without fields` green",
+]
+sources = ["06 section 3 observability", "ADR-21", "05 section 5", "detailed design README section 2 logging"]
+depends_on = ["0-E01-T01", "0-E01-T03"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "0-E01-T04-S01"
+  title = "Tests redaction by key and pattern"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T04-S02"
+  title = "redact.ts and secret-patterns.ts"
+  done = "Redaction tests green"
+
+  [[task.part]]
+  id = "0-E01-T04-S03"
+  title = "Tests format, limits, untrusted, errors"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T04-S04"
+  title = "logger.ts on pino with format 3.1"
+  done = "all tests green"
+
+[[task]]
+id = "0-E01-T05"
+title = "core: metrics and trace facade with catalog"
+description = """`packages/core/src/telemetry/{facade.ts,catalog.ts}` (FE-009, FE-044): `Metrics` (`count`, `record`, `gauge`) and `Tracer` (`span`, `traceparent`, `withTraceparent`) only on `@opentelemetry/api`; without an SDK they have no effect. `METRICS` catalog with all entries from detailed design 00 section 3.3 (name, kind, unit, allowed attributes); attributes outside the catalog are a type error. Other epics measure through this facade and therefore depend only on `0-E01`."""
+design = ["00-codebase-and-conventions.md#25-package-core", "00-codebase-and-conventions.md#33-metrics-catalog"]
+result = "packages/core/src/telemetry/{facade.ts,catalog.ts} with tests"
+done = [
+  "Test `core/telemetry > facade calls are no-ops without an SDK` green",
+  "Test `core/telemetry > metric attributes outside the catalog fail typecheck` green (type test)",
+  "Test `core/telemetry > withTraceparent continues a remote trace` green",
+]
+sources = ["06 section 4", "ADR-21", "01 section 1.1 PluginContext"]
+depends_on = ["0-E01-T01"]
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "0-E01-T05-S01"
+  title = "Type test and behavior tests without SDK"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T05-S02"
+  title = "facade.ts and catalog.ts"
+  done = "Tests green"
+
+[[task]]
+id = "0-E01-T06"
+title = "contracts: skeleton with schema factory and API version"
+description = """Create `packages/contracts` (via `pnpm new:package`) with `API_GROUP`, `API_VERSIONS`, `ApiVersion`, `PluginError`, `PluginResult<T>`, `Validator<T>`, `compileSchema` (TypeBox and Ajv with the fixed options from detailed design 00 section 2.6, `ajv-formats`), `toJsonSchema` (draft 2020-12 with `$id`). The contracts themselves come with epic `0-E13` (detailed design 05)."""
+design = ["00-codebase-and-conventions.md#26-package-contracts-scaffold"]
+result = "packages/contracts/{package.json,tsconfig.json,src/index.ts,src/schema.ts,src/version.ts} with tests"
+done = [
+  "Test `contracts/schema > compileSchema rejects additional properties` green",
+  "Test `contracts/schema > validation errors carry JSON pointer paths` green",
+  "Test `contracts/schema > toJsonSchema emits draft 2020-12 with $id` green",
+  "Test `contracts/version > API_VERSIONS contains only guildwork-dev.github.io/v1alpha1` green",
+  "`make layers` green (contracts imports only core)",
+]
+sources = ["01 section 1.1", "O17", "detailed design README section 2 schemas"]
+depends_on = ["0-E01-T01"]
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "0-E01-T06-S01"
+  title = "Create package, tests of the schema factory"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T06-S02"
+  title = "schema.ts and version.ts"
+  done = "Tests green"
+
+[[task]]
+id = "0-E01-T07"
+title = "testkit: Postgres, fixtures, clock, logs, secrets, network lock"
+description = """`packages/testkit` per detailed design 00 section 2.7: `startPostgres` (Testcontainers, image `pgvector/pgvector` by digest from `quality/test/images.toml`, or `GUILDWORK_TEST_PG_URL`), `freshDatabase` from template `gw_template` with a migration callback, refusal of any database without prefix `gw_test_` (FE-039), `FakeClock`, `seededRandom`, `captureLogs` with `expectEvent`, `expectNoSecrets`, `replayFixtures` (undici `MockAgent`, strict mode) with `manifest.json` hash, `guardNetwork`, `tmpDir`. Global setup for the Vitest project `integration`."""
+design = ["00-codebase-and-conventions.md#27-package-testkit", "00-codebase-and-conventions.md#82-containers-fixtures-determinism"]
+result = "packages/testkit/src/{postgres.ts,clock.ts,random.ts,logs.ts,secrets.ts,fixtures.ts,network.ts,tmp.ts,global-setup.ts}, quality/test/images.toml, tests"
+done = [
+  "Test `testkit/postgres > freshDatabase isolates two test files` green",
+  "Test `testkit/postgres > refuses databases without gw_test_ prefix` green",
+  "Test `testkit/postgres > fails with testkit.postgres_unavailable without docker and url` green",
+  "Test `testkit/fixtures > strict replay fails on unused fixture` green",
+  "Test `testkit/fixtures > manifest hash changes when a fixture changes` green",
+  "Test `testkit/network > guardNetwork blocks non-local hosts` green",
+  "Test `testkit/secrets > expectNoSecrets finds each sample` green",
+  "Test `testkit/clock > FakeClock advance drives sleep` green",
+  "`make layers` green (testkit used only in test files)",
+]
+sources = ["detailed design README section 2 tests", "01 section 1.1 rule 1 (fixtures with hash)"]
+depends_on = ["0-E01-T03", "0-E01-T04", "0-E01-T06"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "0-E01-T07-S01"
+  title = "Tests Postgres helpers including failure paths"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T07-S02"
+  title = "postgres.ts, global-setup.ts, images.toml"
+  done = "Postgres tests green"
+
+  [[task.part]]
+  id = "0-E01-T07-S03"
+  title = "FakeClock, seededRandom, captureLogs, expectNoSecrets"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "0-E01-T07-S04"
+  title = "replayFixtures with manifest, guardNetwork, tmpDir"
+  done = "all tests green"
+
+[[task]]
+id = "0-E01-T08"
+title = "config: installation configuration loader"
+description = """`packages/config/src/installation/` and `src/env.ts` per detailed design 00 section 2.8 (FE-016, FE-017): TypeBox schema of all keys from 04 section 7 plus `observability` and `alerts` (section 7 of the detailed design), `loadInstallation` with the seven check steps in order (size, YAML 1.2 without tags and merge keys, duplicate keys, `version`, schema with unknown keys as errors, driver keys via `driverSchemas`, static cross-checks), `ConfigIssue` with path, line, column and event, deep freezing, `configHash`. Secrets are never resolved. `env.ts` reads only `GUILDWORK_CONFIG`, `GUILDWORK_LOG_LEVEL` and `GW_TEST_MODE` (FE-016, FE-063). A helper `startupConfig()` for `apps/*/main.ts` logs `config.loaded` or `config.invalid` and exits with exit code 1 on error."""
+design = ["00-codebase-and-conventions.md#28-configuration-loader-of-the-installation", "00-codebase-and-conventions.md#43-loading-the-configuration", "00-codebase-and-conventions.md#7-configuration", "00-codebase-and-conventions.md#5-failure-and-abort-paths"]
+result = "packages/config/{package.json,src/env.ts,src/installation/{schema.ts,load.ts,startup.ts,index.ts}} with tests and fixtures"
+done = [
+  "Test `config/installation > loads the example from 04 section 7` green",
+  "Test `config/installation > rejects unknown key with path and line` green",
+  "Test `config/installation > rejects duplicate keys and merge keys` green",
+  "Test `config/installation > rejects unsupported version` green",
+  "Test `config/installation > rejects personal_modes entry without acknowledge_terms` green",
+  "Test `config/installation > rejects allow_unproven_live entry without reason` green",
+  "Test `config/installation > validates driver keys against the driver schema` green",
+  "Test `config/installation > rejects unknown driver name` green",
+  "Test `config/installation > never resolves secret refs` green",
+  "Test `config/installation > configHash is stable across key order` green",
+  "Test `config/installation > returned config is deeply frozen` green",
+  "Test `config/installation > logs config.invalid with every issue and exits 1` green",
+  "Test `config/env > GW_TEST_MODE accepts only 0 and 1` green",
+]
+sources = ["04 sections 1 rule 4, 7", "ADR-22, ADR-41, ADR-47, ADR-51, ADR-65"]
+depends_on = ["0-E01-T02", "0-E01-T04", "0-E01-T06", "0-E01-T07"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "0-E01-T08-S01"
+  title = "Fixtures (example from 04, faulty variants) and tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T08-S02"
+  title = "TypeBox schema of all keys from 04 section 7 and detailed design 00 section 7"
+  done = "Example from 04 is accepted"
+
+  [[task.part]]
+  id = "0-E01-T08-S03"
+  title = "YAML parsing with positions, duplicate keys, merge keys"
+  done = "YAML tests green"
+
+  [[task.part]]
+  id = "0-E01-T08-S04"
+  title = "Driver registry and cross-checks"
+  done = "Driver and cross-check tests green"
+
+  [[task.part]]
+  id = "0-E01-T08-S05"
+  title = "Freezing, configHash, env.ts, startupConfig with failure path"
+  done = "all tests green"
+
+[[task]]
+id = "0-E01-T09"
+title = "config: publish schema and generate reference"
+description = """`pnpm --filter @guildwork/config gen:schema` generates `packages/config/schema/installation.schema.json` (draft 2020-12) and `docs/reference/installation.md` (key, type, default value, description) from the TypeBox schema; both are checked in and kept current by a test. The reference is the authoritative list of default values (detailed design 00 section 7). Follow-up list: check references in 04 section 7 and 11 to the default values."""
+design = ["00-codebase-and-conventions.md#28-configuration-loader-of-the-installation", "00-codebase-and-conventions.md#7-configuration"]
+result = "packages/config/schema/installation.schema.json, packages/config/scripts/gen-schema.ts, docs/reference/installation.md"
+done = [
+  "Test `config/schema > committed installation.schema.json equals generated schema` green",
+  "Test `config/schema > installation reference doc is up to date` green",
+  "`make links text-rules` green for docs/reference",
+]
+sources = ["04 section 7 (published JSON Schema)"]
+depends_on = ["0-E01-T08"]
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "0-E01-T09-S01"
+  title = "Tests for being up to date"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E01-T09-S02"
+  title = "Generator and generated files"
+  done = "Tests green"
+
+# =====================================================================================================
+[[epic]]
+id = "0-E19"
+title = "Observability and required alerts"
+goal = "OTel SDK in all roles via `@guildwork/telemetry` with a trace from event to harness, collector in the Compose bundle, required alerts from 06 section 4 (plus driver health and worker version) computed by the control plane and delivered via log, webhook and admin UI"
+sources = ["06 section 4", "ADR-21"]
+depends_on = ["0-E01"]
+
+[[task]]
+id = "0-E19-T01"
+title = "telemetry: SDK start per role and harness environment"
+description = """Package `@guildwork/telemetry` (FE-008) with `startTelemetry` (resource attributes, OTLP `http/protobuf`, sampling, export interval from `observability`, no effect without an endpoint, counter `guildwork.telemetry.dropped`, `shutdown` with a time limit) and `harnessOtelEnv` (only `TRACEPARENT`, endpoint, service name and the variables verified for Claude Code). Verify the variable names beyond 06 section 4 against [cc-monitoring] and list them with their source in the package README. GenAI conventions via the pinned package `@opentelemetry/semantic-conventions`. Integration into the roles happens with the epics that build the roles; the harness integration in `0-E15`."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#44-trace-from-event-to-harness"]
+result = "packages/telemetry/{package.json,src/start.ts,src/harness.ts,src/index.ts,README.md} with tests"
+done = [
+  "Test `telemetry/start > exports spans and metrics to a collector container` green",
+  "Test `telemetry/start > keeps running and counts drops when the collector is down` green",
+  "Test `telemetry/start > sets resource attributes for each role` green",
+  "Test `telemetry/harness > harnessOtelEnv passes traceparent and endpoint only` green",
+  "Variable names for Claude Code with source in the package README",
+]
+sources = ["06 section 4", "ADR-21", "[cc-monitoring]", "[otel-genai]"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "0-E19-T01-S01"
+  title = "Integration test with collector container, outage test"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T01-S02"
+  title = "start.ts with resources, export, shutdown, drop counter"
+  done = "Start tests green"
+
+  [[task.part]]
+  id = "0-E19-T01-S03"
+  title = "Verify variables for Claude Code, harness.ts with test"
+  done = "Harness test green, sources in README"
+
+[[task]]
+id = "0-E19-T02"
+title = "telemetry: instruments from the catalog and cardinality protection"
+description = """The facade from `core` (catalog detailed design 00 section 3.3) is registered in the SDK with unit and kind; attribute values outside the allowed sets are set to `other` at runtime and counted (FE-044); histogram boundaries per metric as named values."""
+design = ["00-codebase-and-conventions.md#33-metrics-catalog"]
+result = "packages/telemetry/src/instruments.ts with tests"
+done = [
+  "Test `telemetry/catalog > every catalog metric is registered with its unit` green",
+  "Test `telemetry/catalog > unknown attribute values are bucketed as other` green",
+]
+sources = ["06 section 4 metrics"]
+depends_on = ["0-E19-T01"]
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "0-E19-T02-S01"
+  title = "Tests registration and cardinality"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T02-S02"
+  title = "instruments.ts"
+  done = "Tests green"
+
+[[task]]
+id = "0-E19-T03"
+title = "Collector configuration and Compose fragment"
+description = """`deploy/compose/observability/otel-collector.yaml` and `deploy/compose/observability.compose.yaml` (FE-045): contrib distribution by digest, OTLP HTTP receiver internal only, `memory_limiter`, `batch`, `transform` (GenAI content attributes removed by default, renaming per pinned convention), Prometheus exporter internal, file exporter for traces with rotation, optional `otlphttp` for `observability.forward`. An integration test starts the fragment alone and sends OTLP. The bundle includes the fragment in `0-E18` via `include`."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#6-security"]
+result = "deploy/compose/observability/otel-collector.yaml, deploy/compose/observability.compose.yaml, deploy/compose/test/observability.int.test.ts"
+done = [
+  "Test `telemetry/collector > collector removes genai content attributes by default` green",
+  "Test `telemetry/collector > prometheus endpoint shows guildwork_queue_wait` green",
+  "Collector license and image digest in docs/quality/toolchain.md",
+]
+sources = ["06 section 3 observability", "11 section 2.4", "ADR-21, ADR-44"]
+depends_on = ["0-E19-T01"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "0-E19-T03-S01"
+  title = "Integration tests against the fragment"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T03-S02"
+  title = "Collector configuration and fragment"
+  done = "Tests green"
+
+[[task]]
+id = "0-E19-T04"
+title = "Alert state machine: rules, state, evaluation, meta alert"
+description = """`apps/control-plane/src/alerts/{engine.ts,types.ts,store.ts,heartbeat.ts}` per detailed design 00 sections 2.9 and 4.5 (FE-018): `AlertRule`, `AlertSignal`, state table pending, firing, resolved with mandatory acknowledgment for `break_glass_login`, storage in `alerts`, heartbeat in `alerting_heartbeat`, pg-boss job `alerts-evaluate` as a singleton, time limit per rule, an error in a rule never resolves an alert, meta rule `alerting_stalled` and `/readyz` "degraded". Migration 0011_alerts.sql for `alerts`, `alert_deliveries`, `alerting_heartbeat` with the columns from section 3.4 (detailed design 01 section 3.1a). Metrics `guildwork.alert.active`, `guildwork.alert.rule_failures`."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#45-alert-state-machine", "00-codebase-and-conventions.md#34-tables-for-alerts-and-backups"]
+result = "apps/control-plane/src/alerts/{engine.ts,types.ts,store.ts,heartbeat.ts}, packages/db/migrations/0011_alerts.sql, tests"
+done = [
+  "Test `alerts/engine > pending alert fires after pendingFor` green",
+  "Test `alerts/engine > pending alert disappears when the signal stops` green",
+  "Test `alerts/engine > failing rule keeps open alerts and logs alert.rule_failed` green",
+  "Test `alerts/engine > only one evaluator runs at a time` green",
+  "Test `alerts/engine > stalled evaluation fires alerting_stalled and degrades readyz` green",
+]
+sources = ["06 section 4 alerts", "ADR-21", "ADR-04 (pg-boss)"]
+depends_on = ["0-E19-T02", "0-E02-T11", "0-E02-T13", "0-E05-T05", "0-E05-T10"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "0-E19-T04-S01"
+  title = "Tests of the automaton with FakeClock and a real database"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T04-S02"
+  title = "Migration 0011 and store.ts"
+  done = "Store tests green"
+
+  [[task.part]]
+  id = "0-E19-T04-S03"
+  title = "engine.ts with state table and time limit per rule"
+  done = "Automaton tests green"
+
+  [[task.part]]
+  id = "0-E19-T04-S04"
+  title = "Singleton job, heartbeat, alerting_stalled, readyz"
+  done = "all tests green"
+
+[[task]]
+id = "0-E19-T05"
+title = "Alert sinks log, webhook, notifier"
+description = """`apps/control-plane/src/alerts/sinks/{log.ts,webhook.ts,notifier.ts}` (FE-019): `log` always (events `alert.fired`, `alert.resolved`), `webhook` signed per Standard Webhooks (HMAC-SHA256, secret via `secret://` through the SecretStore), only HTTPS targets from `alerts.sinks`, text without secrets and without foreign content; `notifier` as an adapter to a configured notifier plugin via the Effect Gateway (becomes active as soon as a notifier plugin exists). Delivery via `alert_deliveries` with growing backoff up to `alerts.delivery.max_attempts`, never blocking."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#6-security", "00-codebase-and-conventions.md#5-failure-and-abort-paths"]
+result = "apps/control-plane/src/alerts/sinks/{log.ts,webhook.ts,notifier.ts,delivery.ts} with tests"
+done = [
+  "Test `alerts/sinks > webhook payload is signed and contains no secrets` green",
+  "Test `alerts/sinks > delivery failure retries with backoff and never blocks evaluation` green",
+  "Test `alerts/sinks > log sink writes alert.fired and alert.resolved` green",
+]
+sources = ["06 section 4", "01 section 10 (notifier via the Effect Gateway)", "ADR-21"]
+depends_on = ["0-E19-T04", "0-E03-T04", "0-E03-T05", "0-E09-T02"]   # 0-E09-T02: notifier sink via EffectGateway.submitPlatform
+owner = "agent"
+estimate_h = 7
+note = "The notifier sink uses the contract from 0-E13 as soon as it is binding; until then only log and webhook (open point in detailed design 00 section 10)."
+
+  [[task.part]]
+  id = "0-E19-T05-S01"
+  title = "Tests signature, content and retry"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T05-S02"
+  title = "log.ts and webhook.ts"
+  done = "Sink tests green"
+
+  [[task.part]]
+  id = "0-E19-T05-S03"
+  title = "delivery.ts with backoff and notifier.ts as adapter"
+  done = "all tests green"
+
+[[task]]
+id = "0-E19-T06"
+title = "Alert rules from queue, leases, provider errors and budget"
+description = """Rules `queue_age`, `lease_expiries` (data of the Work API, epic `0-E11`), `provider_error_rate` and `budget_threshold` (ledger and consumption, epic `0-E07`; threshold `budget_threshold.ratio` with starting value 0.8 from 06 section 4) per the table in detailed design 00 section 2.9; tests with data rows in a real test database."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#7-configuration"]
+result = "apps/control-plane/src/alerts/rules/{queue-age.ts,lease-expiries.ts,provider-error-rate.ts,budget-threshold.ts} with tests"
+done = [
+  "Test `alerts/rules > queue_age warns and escalates per pool` green",
+  "Test `alerts/rules > lease_expiries counts expiries in the window` green",
+  "Test `alerts/rules > provider_error_rate needs min_calls` green",
+  "Test `alerts/rules > budget_threshold fires at ratio and is critical at full` green",
+]
+sources = ["06 section 4 alerts", "04 section 6"]
+depends_on = ["0-E19-T04", "0-E07-T04", "0-E11-T04"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "0-E19-T06-S01"
+  title = "Tests of the four rules"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T06-S02"
+  title = "queue_age and lease_expiries"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "0-E19-T06-S03"
+  title = "provider_error_rate and budget_threshold"
+  done = "all tests green"
+
+[[task]]
+id = "0-E19-T07"
+title = "Alert rules for audit chain, emergency admin and backup"
+description = """Rules `audit_chain` (result of the daily anchor job from epic `0-E08`, 04 FE-440: latest audit entry `audit.verify_failed` after the last anchor and age of the last row in `audit_anchors`, the same facts as `guildwork.audit.chain_ok` and `guildwork.audit.anchor_age`), `break_glass_login` (audit entry of the login from epic `0-E17`, fires immediately, ends only by acknowledgment) and `backup_failed` (table `backup_runs`, section 3.4; the writer is `guildwork backup` from `0-E18`, the tests insert rows directly)."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#34-tables-for-alerts-and-backups"]
+result = "apps/control-plane/src/alerts/rules/{audit-chain.ts,break-glass-login.ts,backup-failed.ts}, migration backup_runs if needed, tests"
+done = [
+  "Test `alerts/rules > audit_chain fires on broken chain and on old anchor` green",
+  "Test `alerts/rules > break_glass_login stays firing until acknowledged` green",
+  "Test `alerts/rules > backup_failed fires on failed run and on old success` green",
+]
+sources = ["06 section 4 alerts", "05 sections 7, 8", "ADR-29"]
+depends_on = ["0-E19-T04", "0-E08-T04", "0-E17-T03"]
+owner = "agent"
+estimate_h = 7
+
+  [[task.part]]
+  id = "0-E19-T07-S01"
+  title = "Tests of the three rules"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T07-S02"
+  title = "audit_chain and backup_failed (with migration, if needed)"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "0-E19-T07-S03"
+  title = "break_glass_login with mandatory acknowledgment"
+  done = "all tests green"
+
+[[task]]
+id = "0-E19-T08"
+title = "Health query and alert rules for webhooks, tokens, drivers, worker version"
+description = """`apps/control-plane/src/alerts/health-source.ts`: queries `health()` of all loaded plugins (epic `0-E13`) and drivers (epic `0-E03`) at a named interval, writes `guildwork.health.ok` and `guildwork.health.expires_in`, provides `HealthSource`. Rules `webhook_unhealthy`, `token_expiry` (plugins; pools via the claim report from `0-E11`, only `expiresAt`, never the token), `driver_unhealthy` (M37) and `worker_outdated` (version at claim, warning at N-1, critical at N-2; M96)."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#33-metrics-catalog"]
+result = "apps/control-plane/src/alerts/{health-source.ts,rules/webhook-unhealthy.ts,rules/token-expiry.ts,rules/driver-unhealthy.ts,rules/worker-outdated.ts} with tests"
+done = [
+  "Test `alerts/rules > webhook_unhealthy fires on disabledByProvider` green",
+  "Test `alerts/rules > token_expiry warns before expiresAt` green",
+  "Test `alerts/rules > driver_unhealthy fires for an unhealthy driver` green",
+  "Test `alerts/rules > worker_outdated warns at N-1 and is critical at N-2` green",
+  "Test `alerts/health > health source records ok and expires_in metrics` green",
+]
+sources = ["06 sections 4, 6 (health checks)", "01 sections 1.1 (HealthReport), 13", "11 section 6"]
+depends_on = ["0-E19-T04", "0-E03-T01", "0-E11-T03", "0-E13"]
+owner = "agent"
+estimate_h = 9
+note = "M37 (health report for drivers) and M96 (worker older than N-1) are resolved here."
+
+  [[task.part]]
+  id = "0-E19-T08-S01"
+  title = "Tests health query and four rules"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T08-S02"
+  title = "health-source.ts with metrics"
+  done = "Health test green"
+
+  [[task.part]]
+  id = "0-E19-T08-S03"
+  title = "webhook_unhealthy, token_expiry, driver_unhealthy"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "0-E19-T08-S04"
+  title = "worker_outdated"
+  done = "all tests green"
+
+[[task]]
+id = "0-E19-T09"
+title = "Alert API and display in the admin UI"
+description = """Endpoints `GET /admin/api/v1/alerts` and `POST /admin/api/v1/alerts/{id}/ack` of the role `web` (roles `viewer` read, `admin` acknowledge) per detailed design 00 section 2.9, errors as `problem+json`; every acknowledgment writes audit `alert.acknowledged`. Page "Alerts" in the admin UI with open and resolved alerts, rule status from the heartbeat and an acknowledge button."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#32-errors-as-an-http-response"]
+result = "apps/control-plane/src/web/routes/alerts.ts, apps/admin-ui/src/pages/alerts/*, tests"
+done = [
+  "Test `alerts/api > ack writes audit alert.acknowledged` green",
+  "Test `alerts/api > ack on resolved alert returns 409` green",
+  "Test `alerts/api > viewer cannot acknowledge` green",
+  "E2E case in the admin UI: emergency login creates an alert, acknowledgment resolves it (test name in the PR)",
+]
+sources = ["06 section 4", "05 sections 7, 8", "11 section 2.3"]
+depends_on = ["0-E19-T04", "0-E19-T07", "0-E17-T01", "0-E17-T03", "0-E17-T04", "0-E08-T02", "0-E19-T05"]   # 0-E19-T05 added: delivery status from alert_deliveries (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "0-E19-T09-S01"
+  title = "API tests including permissions and 409"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T09-S02"
+  title = "Routes with audit"
+  done = "API tests green"
+
+  [[task.part]]
+  id = "0-E19-T09-S03"
+  title = "Admin UI page and E2E case"
+  done = "E2E green"
+
+[[task]]
+id = "0-E19-T10"
+title = "Alert rules from database signals and app_too_old"
+description = """Rules `partition_missing`, `retention_stuck`, `audit_anchor_gap` via `dbAlertSignals` from `@guildwork/db` (detailed design 01 section 2.2, FE-134) and `app_too_old` via `schema_state.min_app_release` against the release of the orchestrator per the table in detailed design 00 section 2.9. In the `app_too_old` state from `startCheck`, the `orchestrator` role runs only `alerts-evaluate` with this rule and the sinks `log` and `webhook` (FE-061). Per rule an entry in `ALERT_RULE_IDS` and `ALERT_RULES`; tests with data rows in a real test database."""
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "01-data-model.md#22-maintenance-jobs", "01-data-model.md#42-schema-check-at-startup"]
+result = "apps/control-plane/src/alerts/rules/{partition-missing.ts,retention-stuck.ts,audit-anchor-gap.ts,app-too-old.ts} with tests"
+done = [
+  "Test `alerts/rules > partition_missing fires when the lead drops below two months` green",
+  "Test `alerts/rules > retention_stuck fires for stuck blob deletes` green",
+  "Test `alerts/rules > audit_anchor_gap fires per partition without anchors` green",
+  "Test `alerts/rules > app_too_old fires and only alerts-evaluate keeps running` green",
+]
+sources = ["01 FE-134", "06 section 4 alerts", "ADR-67"]
+depends_on = ["0-E19-T04", "0-E19-T05", "0-E02-T03", "0-E02-T10"]
+owner = "agent"
+estimate_h = 6
+note = "New in the reconciliation of 2026-11-01: 01 FE-134 moves these rules from 0-E02 into epic 0-E19, because otherwise a cycle arises."
+
+  [[task.part]]
+  id = "0-E19-T10-S01"
+  title = "Tests of the four rules and the app_too_old state"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E19-T10-S02"
+  title = "Rules from dbAlertSignals"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "0-E19-T10-S03"
+  title = "app_too_old and restricted evaluation"
+  done = "all tests green"

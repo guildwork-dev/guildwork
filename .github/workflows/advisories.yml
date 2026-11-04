@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Daily scans of main that do not depend on a change (architecture 12
+# section 5.2). Scheduled workflows run only on the default branch.
+#
+#   osv-full  every known vulnerability in pnpm-lock.yaml and uv.lock (make osv
+#             without OSV_BASE); a finding makes the run red. Pull requests
+#             fail only on what they add (job security of ci.yml).
+#   scancode  ScanCode Toolkit over the committed files of HEAD, checked
+#             against the license policy (make scancode, V6), in the Python
+#             image pinned by digest in tools/bootstrap/tools.toml
+#             (SCANCODE_RUNNER=container, Docker of the runner). Not part of
+#             make check, so not in ci.yml. It lives here and not in a
+#             workflow of its own, because quality/ci/policy.toml lists every
+#             workflow file (known_workflows) and both jobs are full scans of
+#             main on the same schedule.
+#
+# Neither job needs make bootstrap: osv needs only the pinned osv-scanner,
+# scancode only python3 3.11+ (stdlib), git and Docker of the runner image.
+#
+# Actions are pinned to the commit of a release tag, read from the GitHub API
+# of the vendor on 2026-11-01 (GET repos/<owner>/<repo>/git/ref/tags/<tag>):
+#   actions/checkout         v7.0.1  3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/upload-artifact  v7.0.2  cf430e030ddbb5b0abf93d22962f4752f3646cd9
+
+name: advisories
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  osv-full:
+    name: osv-full
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Fetch osv-scanner
+        run: python3 tools/bootstrap/fetch.py --only osv-scanner
+      - name: Scan the lockfiles of main
+        run: make osv
+
+  scancode:
+    name: scancode
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan the committed files
+        run: make scancode SCANCODE_RUNNER=container
+      - name: Upload the ScanCode reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scancode
+          path: |
+            .reports/scancode_policy.json
+            .reports/scancode-scan.json
+          include-hidden-files: true
+          if-no-files-found: warn

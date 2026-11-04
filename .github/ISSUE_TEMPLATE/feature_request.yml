@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+name: Feature request
+description: Propose new behavior or an extension.
+title: "feat: "
+labels: ["status: triage", "type: feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Larger proposals (a new plugin kind, a new service, a change to an interface) need an ADR; see GOVERNANCE.md.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do and why the current behavior is not enough.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The behavior you want, as concrete as possible.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core or control plane
+        - Service
+        - Plugin
+        - Driver
+        - CLI or installer
+        - Admin UI
+        - Documentation
+        - Repository tooling
+        - Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and discussions for this proposal.
+          required: true

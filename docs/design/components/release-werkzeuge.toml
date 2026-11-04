@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "release-werkzeuge"
+title = "Release manifest, bundle, image license gate, release workflow"
+kind = "tool"
+path = "tools/release/"
+stage = "0"
+purpose = "Tools and workflow of the release: release.json according to ReleaseManifest, bundle and SHA256SUMS, image license gate with counter-test and THIRD_PARTY_NOTICES, list of third-party components and release.yml with digest, Trivy, SBOM, signature, attestation and tag; does not trigger a release itself (owner go in prozess-abnahme-stufe-0)."
+design = ["06-installation-operations-ui.md#212-supply-chain-and-release", "06-installation-operations-ui.md#210-upgrade-and-way-back", "06-installation-operations-ui.md#32-file-formats", "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"]
+built_by = ["0-E21-T01", "0-E21-T02", "0-E21-T03", "0-E21-T11"]
+
+[[provides]]
+name = "release-json"
+kind = "file"
+title = "release.json according to ReleaseManifest, JSON Schema tools/release/release.schema.json exported from the TypeBox schema of the CLI (FE-644)"
+defined_in = "06-installation-operations-ui.md#210-upgrade-and-way-back"
+from_task = "0-E21-T01"
+
+[[provides]]
+name = "buendel"
+kind = "file"
+title = "Bundle guildwork-bundle-<version>.tar.gz and SHA256SUMS; bundle checksum in the CLI build of the same version (FE-605)"
+defined_in = "06-installation-operations-ui.md#32-file-formats"
+from_task = "0-E21-T01"
+
+[[provides]]
+name = "release-toml"
+kind = "config"
+title = "tools/release/release.toml: stage and halt_point (version, reason); build_manifest.py fills upgrade.haltPoints and upgrade.fromMinor from it (FE-656)"
+defined_in = "06-installation-operations-ui.md#210-upgrade-and-way-back"
+from_task = "0-E21-T01"
+
+[[provides]]
+name = "release-build"
+kind = "cli"
+title = "build_manifest.py and build_bundle.py"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E21-T01"
+
+[[provides]]
+name = "image-lizenz-gate"
+kind = "cli"
+title = "image_license_gate.py against the Syft SBOM per image, with counter-test (placeholder per PR, real package in the release run, FE-621)"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E21-T02"
+
+[[provides]]
+name = "release-notices"
+kind = "file"
+title = "Release asset THIRD_PARTY_NOTICES: unchanged repo version from lizenz-gate/third-party-notices plus the section Container images from the SBOMs; never writes into the repo root (FE-650)"
+defined_in = "06-installation-operations-ui.md#32-file-formats"
+from_task = "0-E21-T02"
+
+[[provides]]
+name = "release-workflow"
+kind = "file"
+title = "release.yml: tag vX.Y.Z or vX.Y.Z-rc.N, environment release with required reviewer, order digest, Trivy, SBOM, gate, signature, portability, tag, GitHub Release"
+defined_in = "06-installation-operations-ui.md#212-supply-chain-and-release"
+from_task = "0-E21-T03"
+
+[[provides]]
+name = "s8-bericht"
+kind = "file"
+title = "Release assets s8-report-<version>.json and .md from the portability test (FE-657)"
+defined_in = "06-installation-operations-ui.md#212-supply-chain-and-release"
+from_task = "0-E21-T03"
+
+[[provides]]
+name = "referenz-signatur"
+kind = "file"
+title = "reference-qualification-<version>.json with .md, .json.sig, .json.pem (cosign sign-blob keyless, identity as for SHA256SUMS), only if present in the tagged commit; source of the SignatureBundle from 07 (FE-657)"
+defined_in = "06-installation-operations-ui.md#212-supply-chain-and-release"
+from_task = "0-E21-T03"
+
+[[provides]]
+name = "release-konfig"
+kind = "config"
+title = "release.trivy_severity (only in the release workflow)"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E21-T03"
+
+[[provides]]
+name = "third-party-components"
+kind = "file"
+title = "tools/release/third_party_components.toml: SPDX, source, retrieval date and decision per component (FE-636)"
+defined_in = "06-installation-operations-ui.md#32-file-formats"
+from_task = "0-E21-T11"
+
+[[uses]]
+interface = "cli/release-manifest-typ"
+from_task = "0-E21-T01"
+purpose = "Export JSON Schema release.schema.json from the TypeBox schema"
+
+[[uses]]
+interface = "cli/sea-binary"
+from_task = "0-E21-T01"
+purpose = "Bundle checksum into the CLI build of the same version"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "0-E21-T01"
+purpose = "Digests of the build"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "0-E21-T01"
+purpose = "Content of deploy/compose into the bundle"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "0-E21-T01"
+purpose = "ruff and mypy for tools/release"
+
+[[uses]]
+interface = "lizenz-gate/lizenz-listen"
+from_task = "0-E21-T02"
+purpose = "License allowlist"
+
+[[uses]]
+interface = "lizenz-gate/third-party-notices"
+from_task = "0-E21-T02"
+purpose = "Repo version as the first part of the release asset"
+
+[[uses]]
+interface = "container-images/image.control-plane"
+from_task = "0-E21-T02"
+purpose = "Counter-test image FROM control-plane"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/ruleset-und-release"
+from_task = "0-E21-T03"
+purpose = "Environment release with required reviewer"
+
+[[uses]]
+interface = "portabilitaetstest/portability-workflow"
+from_task = "0-E21-T03"
+purpose = "Portability test against exactly these digests"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "0-E21-T03"
+purpose = "release.yml with policy, actionlint and zizmor"
+
+[[uses]]
+interface = "compose-buendel/profil-pitr"
+from_task = "0-E21-T11"
+purpose = "pgBackRest as a component with license"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "0-E21-T03"
+purpose = "S8 report in the portability test of the release run"
+
+[[uses]]
+interface = "eval-runner/cli-export-reference"
+from_task = "0-E21-T03"
+purpose = "Check and sign the schema guildwork.reference-qualification/v1 of the reference file"

@@ -1,0 +1,302 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-host"
+title = "Plugin host: trust level, signature, subprocess transport gRPC, distribution as an OCI artifact"
+kind = "package"
+path = "packages/plugin-host/"
+package = "@guildwork/plugin-host"
+stage = "9"
+purpose = "Loads plugins and services from signed OCI artifacts with the trust level that the installation assigns, and talks to them via gRPC in a subprocess or in their own container; in addition intake via admin API, CLI and admin UI. Not: starting containers from the control plane (FE-1430), running third-party code in Z0, DB access in the package (intake writes apps/control-plane/src/plugins/third-party.ts)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#20-directories-and-packages",
+  "14-stage-9-breadth-and-hardening.md#251-trust-level-and-signature",
+  "14-stage-9-breadth-and-hardening.md#252-subprocess-transport-grpc",
+  "14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact",
+  "14-stage-9-breadth-and-hardening.md#31-tables-block-0900",
+  "14-stage-9-breadth-and-hardening.md#46-taking-in-loading-and-crashing-a-plugin",
+  "14-stage-9-breadth-and-hardening.md#412-states",
+  "14-stage-9-breadth-and-hardening.md#6-security",
+  "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05",
+]
+built_by = ["9-E05-T01", "9-E05-T02", "9-E05-T04"]
+
+[[provides]]
+name = "trust"
+kind = "ts-api"
+title = "TrustLevel, TrustAssignment, TrustPolicy, assignTrust, effectiveTrust: trust level by signature identity (FE-1427)"
+defined_in = "14-stage-9-breadth-and-hardening.md#251-trust-level-and-signature"
+from_task = "9-E05-T01"
+
+[[provides]]
+name = "signatur"
+kind = "ts-api"
+title = "SignatureVerifier and SignatureVerification: signature check per artifact digest"
+defined_in = "14-stage-9-breadth-and-hardening.md#251-trust-level-and-signature"
+from_task = "9-E05-T01"
+
+[[provides]]
+name = "plugin-artifacts"
+kind = "table"
+title = "Table plugin_artifacts (migration 0901): verified artifacts with trust level and state"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E05-T01"
+
+[[provides]]
+name = "konfig-trust"
+kind = "config"
+title = "plugins.trust.vetted_signers: signing identities of the level vetted"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E05-T01"
+
+[[provides]]
+name = "subprozess-host"
+kind = "ts-api"
+title = "SubprocessPluginHost, PluginHandle and PluginTransport subprocess_grpc: loading, calls with time limit, crash without core crash"
+defined_in = "14-stage-9-breadth-and-hardening.md#252-subprocess-transport-grpc"
+from_task = "9-E05-T02"
+
+[[provides]]
+name = "grpc-protokoll"
+kind = "file"
+title = "proto/guildwork/plugin/v1alpha1/plugin.proto (services Plugin and Host) and HandshakeLine following the go-plugin pattern"
+defined_in = "14-stage-9-breadth-and-hardening.md#252-subprocess-transport-grpc"
+from_task = "9-E05-T02"
+
+[[provides]]
+name = "container-spec"
+kind = "ts-api"
+title = "PluginContainerSpec, containerSpec, renderCompose, renderHelmValues: container specification for third_party, applied by the installer or the deployment"
+defined_in = "14-stage-9-breadth-and-hardening.md#252-subprocess-transport-grpc"
+from_task = "9-E05-T02"
+
+[[provides]]
+name = "plugin-subprocess-reconnect"
+kind = "queue"
+title = "Queue plugin-subprocess-reconnect per instance (singletonKey): reconnect after a crash"
+defined_in = "14-stage-9-breadth-and-hardening.md#32-envelopes-events-and-file-formats"
+from_task = "9-E05-T02"
+
+[[provides]]
+name = "konfig-subprocess"
+kind = "config"
+title = "plugins.subprocess.reconnect_base_ms and reconnect_max_ms"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E05-T02"
+
+[[provides]]
+name = "artefakt-pruefung"
+kind = "ts-api"
+title = "ArtifactIntake.inspect and InspectedArtifact: digest, signature, manifest, attestation, transport per trust level; rejection codes ArtifactRejectCode"
+defined_in = "14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact"
+from_task = "9-E05-T04"
+
+[[provides]]
+name = "artefakt-format"
+kind = "file"
+title = "Plugin artifact as an OCI image with /guildwork/manifest.json, /guildwork/contract-attestation.json and /guildwork/fixtures/ (FE-1432)"
+defined_in = "14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact"
+from_task = "9-E05-T04"
+
+[[provides]]
+name = "admin-api-artefakte"
+kind = "http"
+title = "POST and GET /admin/api/v1/plugins/artifacts, POST /admin/api/v1/plugins/artifacts/{id}/disable (PluginAddResult, PluginArtifactView)"
+defined_in = "14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact"
+from_task = "9-E05-T04"
+
+[[provides]]
+name = "cli-plugin-add"
+kind = "cli"
+title = "guildwork plugin add <ref>@<digest> (apps/cli/src/commands/plugin-add.ts) with configSnippet"
+defined_in = "14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact"
+from_task = "9-E05-T04"
+
+[[provides]]
+name = "konfig-extra"
+kind = "config"
+title = "plugins.extra[] and services.extra[]: activation of accepted artifacts in the installation configuration"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E05-T04"
+
+[[provides]]
+name = "ui-plugins"
+kind = "ui"
+title = "Admin UI page Plugins (apps/admin-ui/src/pages/plugins/): artifacts, trust level, state, activation"
+defined_in = "14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact"
+from_task = "9-E05-T04"
+
+[[uses]]
+interface = "core/result"
+from_task = "9-E05-T01"
+purpose = "Result in all functions"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E05-T01"
+purpose = "PluginManifest with trust and transport"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E05-T01"
+purpose = "InstallationPolicy.trustGrants and load condition 5"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E05-T01"
+purpose = "Migration 0901 plugin_artifacts"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "9-E05-T01"
+purpose = "Policy tenant_isolation for plugin_artifacts"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.tenants"
+from_task = "9-E05-T01"
+purpose = "Installation tenant"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "9-E05-T01"
+purpose = "Audit plugin.trust_assigned and plugin.artifact_rejected"
+
+[[uses]]
+interface = "container-images/image.control-plane"
+from_task = "9-E05-T01"
+purpose = "cosign as a pinned binary in the image"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "9-E05-T01"
+purpose = "Signing identity of the project for first_party"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "9-E05-T01"
+purpose = "Keys plugins.trust.vetted_signers, plugins.subprocess.*, plugins.extra"
+
+[[uses]]
+interface = "plugin-rahmen/transport"
+from_task = "9-E05-T02"
+purpose = "Second implementation of PluginTransport with subprocess_grpc"
+
+[[uses]]
+interface = "plugin-rahmen/plugins-werte"
+from_task = "9-E05-T02"
+purpose = "plugins.call_timeout_ms and health_interval_s"
+
+[[uses]]
+interface = "plugin-rahmen/audit-plugin"
+from_task = "9-E05-T02"
+purpose = "Instance degraded and audit on a crash"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E05-T02"
+purpose = "PluginContext via the back channel Host"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "9-E05-T02"
+purpose = "Methods of the kinds as Invoke calls"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "9-E05-T02"
+purpose = "InvokeStream for AgentRuntime.run"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E05-T02"
+purpose = "Host.ResolveSecret only for declared names"
+
+[[uses]]
+interface = "core/logger"
+from_task = "9-E05-T02"
+purpose = "Host.Log"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "9-E05-T02"
+purpose = "Host.Metric"
+
+[[uses]]
+interface = "egress-proxy/egress-yaml"
+from_task = "9-E05-T02"
+purpose = "Allowlist of the plugin container from manifest.egress"
+
+[[uses]]
+interface = "compose-buendel/compose-fragmente"
+from_task = "9-E05-T02"
+purpose = "Compose profile plugins from renderCompose"
+
+[[uses]]
+interface = "helm-chart/werte"
+from_task = "9-E05-T02"
+purpose = "Helm values from renderHelmValues"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "9-E05-T02"
+purpose = "Queue plugin-subprocess-reconnect"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "9-E05-T02"
+purpose = "Register the queue"
+
+[[uses]]
+interface = "plugin-rahmen/attestation-pruefung"
+from_task = "9-E05-T04"
+purpose = "Check 6 of the intake"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E05-T04"
+purpose = "ContractAttestation in the artifact"
+
+[[uses]]
+interface = "contracts/veroeffentlichte-schemas"
+from_task = "9-E05-T04"
+purpose = "Check the manifest against the published schema"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "9-E05-T04"
+purpose = "Built-in CommandName for the collision check"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.plugin-instances"
+from_task = "9-E05-T04"
+purpose = "Instances of active artifacts"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "9-E05-T04"
+purpose = "Endpoints /admin/api/v1/plugins/artifacts"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "9-E05-T04"
+purpose = "Roles, Problem and error codes"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "9-E05-T04"
+purpose = "Page Plugins"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "9-E05-T04"
+purpose = "Typed client of the page"
+
+[[uses]]
+interface = "ui-setup-assistent/settings-overlay"
+from_task = "9-E05-T04"
+purpose = "Activation via installation_settings if not locked"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "9-E05-T04"
+purpose = "Command plugin add with ExitCode and StepEvent"

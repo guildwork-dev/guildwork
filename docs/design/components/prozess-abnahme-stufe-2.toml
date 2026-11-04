@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-2"
+title = "Interface reconciliation, owner steps, gate runs, release and stage report for stage 2"
+kind = "process"
+path = "-"
+stage = "2"
+purpose = "Work without own product code for stage 2: reconciliation of the assumed names with the detailed designs 01 to 08, baseline values and data licenses, owner steps (eval credential, test organizations, architect shadow in the project installation), Gate A and Gate B runs, stage report and release with S8. Not: the eval sets and adapters themselves (eval-saetze-stufe-2)."
+design = ["10-planner-architect-coder.md#101-open-points-clarified-during-building", "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"]
+built_by = ["2-E01-T01", "2-E03-T10", "2-E06-T04", "2-E08-T01", "2-E08-T02", "2-E08-T07", "2-E08-T08", "2-E08-T11"]
+
+[[provides]]
+name = "bezugswerte-stufe-2"
+kind = "file"
+title = "Baseline table eval/references/stage2.yaml and license list eval/references/licenses-stage2.md with source, date, classification"
+defined_in = "10-planner-architect-coder.md#101-open-points-clarified-during-building"
+from_task = "2-E08-T01"
+
+[[provides]]
+name = "gate-a-bericht"
+kind = "file"
+title = "Eval report Gate A stage 2 (planner, architect, coder) with interval, case count and ledger counters"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T07"
+
+[[provides]]
+name = "gate-b-bericht"
+kind = "file"
+title = "Eval report Gate B stage 2 with status per part and qualification rows in qualification"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T08"
+
+[[provides]]
+name = "stufenbericht"
+kind = "file"
+title = "Stage report for stage 2 with evidence per done criterion from 08 stage 2 and reference qualification in the release"
+defined_in = "10-planner-architect-coder.md#88-eval-and-cross-cutting-2-e08"
+from_task = "2-E08-T11"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "2-E08-T07"
+purpose = "Start Gate A runs and fetch the report"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "2-E08-T07"
+purpose = "Decision per part with interval and case count"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "2-E08-T07"
+purpose = "Gate files planner, architect, coder"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "2-E08-T07"
+purpose = "Ledger counters before and after each run"
+
+[[uses]]
+interface = "prozess-eval-konten-und-lizenzen/eval-credentials-projekt"
+from_task = "2-E08-T02"
+purpose = "Eval credentials of the project installation"
+
+[[uses]]
+interface = "eval-dienst/qualification-api"
+from_task = "2-E08-T08"
+purpose = "Qualification rows with Gate B status"
+
+[[uses]]
+interface = "eval-runner/cli-export-reference"
+from_task = "2-E08-T11"
+purpose = "Reference qualification for the release"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "2-E08-T11"
+purpose = "Release of stage 2"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "2-E08-T11"
+purpose = "S8 upgrade from the release of stage 1, backup and restore"
+
+[[uses]]
+interface = "abnahme-werkzeug/abnahme-matrix"
+from_task = "2-E08-T11"
+purpose = "Acceptance matrix of stage 2 with evidence per criterion"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "2-E08-T11"
+purpose = "BUILT_STAGES extended by stage 2"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-1/projekt-installation"
+from_task = "2-E03-T10"
+purpose = "Architect in shadow mode in the project installation"

@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-exec-docker"
+title = "ExecutionBackend docker-sysbox and docker-gvisor"
+kind = "plugin"
+path = "plugins/exec-docker/"
+package = "@guildwork/plugin-exec-docker"
+stage = "0"
+area = "03"
+purpose = "Implements the ExecutionBackend contract for Docker with sysbox or gvisor isolation: item network, volumes, hardened container without resolver, exec, copyIn, copyOut, exportBundle and complete destroy, all via the socket proxy. No snapshot, no dispatch and no weaker isolation as a fallback."
+design = [
+  "03-execution.md#27-sandbox-executionbackend-docker-sysbox-and-docker-gvisor",
+  "03-execution.md#293-dns-without-a-back-channel-adr-64",
+  "03-execution.md#8-tests",
+]
+built_by = ["0-E12-T03", "0-E12-T06"]
+
+[[provides]]
+name = "execution-backend"
+kind = "contract"
+title = "DockerExecutionBackend (ExecutionBackend v1alpha1) and SandboxHandle with exec, spawn, copyIn, copyOut, exportBundle, destroy; manifest.json"
+defined_in = "03-execution.md#27-sandbox-executionbackend-docker-sysbox-and-docker-gvisor"
+from_task = "0-E12-T03"
+
+[[provides]]
+name = "konfig-sandbox"
+kind = "config"
+title = "Keys sandbox.pids_limit, sandbox.copy_out_max_bytes, sandbox.destroy_retry (via worker.yaml in Z1)"
+defined_in = "03-execution.md#7-configuration"
+from_task = "0-E12-T03"
+
+[[provides]]
+name = "sandbox-ohne-dns"
+kind = "contract"
+title = "Sandbox without a usable resolver: Dns set to 192.0.2.1, resolv.conf without nameserver, proxy by IP"
+defined_in = "03-execution.md#293-dns-without-a-back-channel-adr-64"
+from_task = "0-E12-T06"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E12-T03"
+purpose = "ExecutionBackend, SandboxSpec, SandboxHandle, SandboxProcess"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E12-T03"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E12-T03"
+purpose = "manifest.json of the plugin"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E12-T03"
+purpose = "Result, PluginError, CapabilitySet"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E12-T03"
+purpose = "Contract suite ExecutionBackend per isolation"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "0-E12-T03"
+purpose = "runContractSuite"
+
+[[uses]]
+interface = "socket-proxy/docker-api"
+from_task = "0-E12-T03"
+purpose = "All Docker calls only via the socket proxy"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E12-T03"
+purpose = "Output of exec into the worker's log file, errors of destroy"

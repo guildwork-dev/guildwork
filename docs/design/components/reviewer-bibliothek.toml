@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-bibliothek"
+title = "Library reviewChange and ReviewExecutor"
+kind = "service"
+path = "services/reviewer/src/library/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "The review pipeline once as the library reviewChange() with the port ReviewExecutor, so that PR review, the coder's self-review and local review compute the same fingerprints and filters. Never produces effects; output on GitHub is done only by the controller."
+design = [
+  "08-reviewer.md#26-library",
+  "08-reviewer.md#29-building-blocks-of-the-controller",
+]
+built_by = ["1-E04-T08"]
+
+[[provides]]
+name = "review-change"
+kind = "ts-api"
+title = "Export ./library: reviewChange(LibraryReviewInput, ReviewExecutor): LibraryReviewResult"
+defined_in = "08-reviewer.md#26-library"
+from_task = "1-E04-T08"
+
+[[provides]]
+name = "review-executor"
+kind = "ts-api"
+title = "Port ReviewExecutor (prepare, find, verify, blobs, clock) with implementation WorkItemExecutor; further implementations ItemExecutor (services/coder, stage 2, 10 FE-1073) and LocalExecutor (stage 6, 09 FE-959)"
+defined_in = "08-reviewer.md#26-library"
+from_task = "1-E04-T08"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "1-E04-T08"
+purpose = "Envelopes of the ports prepare, find, verify"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "1-E04-T08"
+purpose = "ReviewRequest and ReviewArtifact"
+
+[[uses]]
+interface = "reviewer-router-und-budget/router"
+from_task = "1-E04-T08"
+purpose = "Router and context package in reviewChange"
+
+[[uses]]
+interface = "reviewer-verifier/kandidaten"
+from_task = "1-E04-T08"
+purpose = "prepareCandidates in reviewChange"
+
+[[uses]]
+interface = "reviewer-befunde/filterkette"
+from_task = "1-E04-T08"
+purpose = "Filter chain in reviewChange"
+
+[[uses]]
+interface = "reviewer-befunde/fingerprint-v1"
+from_task = "1-E04-T08"
+purpose = "same fingerprints in the library path"
+
+[[uses]]
+interface = "reviewer-befunde/review-artefakt"
+from_task = "1-E04-T08"
+purpose = "LibraryReviewResult.artifact"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "1-E04-T08"
+purpose = "WorkItemExecutor creates items and waits for complete"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E04-T08"
+purpose = "Blobs and steps of the calling run"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "1-E04-T08"
+purpose = "Profile of the caller with callerService"

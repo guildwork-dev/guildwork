@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Git hooks of the repository (detailed design 00 section 4.1, FE-040),
+# installed by `make bootstrap` for the hook types pre-commit, commit-msg and
+# pre-push. Every hook is local and runs a tool that `make bootstrap` already
+# pinned (.venv, .tools/bin, node_modules): pre-commit downloads nothing.
+# Background and the push rules: docs/quality/push-discipline.md.
+
+minimum_pre_commit_version: "4.7.0"
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      # pre-commit: the staged files (pre-commit stashes unstaged changes).
+      - id: text-rules
+        name: text rules (dashes, English, glossary, instance data)
+        entry: python3 tools/hooks/text_rules.py
+        language: system
+        types: [text]
+      # File hygiene from the pre-commit-hooks package of the dev group.
+      # The fixers change the file and fail; stage the result and commit again.
+      # Verbatim license texts are never rewritten.
+      - id: check-merge-conflict
+        name: no merge conflict markers
+        entry: .venv/bin/check-merge-conflict
+        language: system
+        types: [text]
+      - id: check-added-large-files
+        name: no large files (500 KB)
+        entry: .venv/bin/check-added-large-files --maxkb=500
+        language: system
+      - id: check-case-conflict
+        name: no file names that differ only in case
+        entry: .venv/bin/check-case-conflict
+        language: system
+      - id: check-toml
+        name: TOML files parse
+        entry: .venv/bin/check-toml
+        language: system
+        types: [toml]
+      - id: check-yaml
+        name: YAML files parse
+        entry: .venv/bin/check-yaml --allow-multiple-documents
+        language: system
+        types: [yaml]
+      - id: end-of-file-fixer
+        name: files end with one newline
+        entry: .venv/bin/end-of-file-fixer
+        language: system
+        types: [text]
+        exclude: ^(LICENSE|LICENSES/.*)$
+      - id: trailing-whitespace
+        name: no trailing whitespace
+        entry: .venv/bin/trailing-whitespace-fixer --markdown-linebreak-ext=md
+        language: system
+        types: [text]
+        exclude: ^(LICENSE|LICENSES/.*)$
+      - id: mixed-line-ending
+        name: LF line endings
+        entry: .venv/bin/mixed-line-ending --fix=lf
+        language: system
+        types: [text]
+        exclude: ^(LICENSE|LICENSES/.*)$
+      # gitleaks 8.30.1 lists only the subcommands git, dir and stdin; the
+      # staged changes are scanned with `git --staged` (docs/quality/toolchain.md).
+      - id: gitleaks
+        name: gitleaks on the staged changes
+        entry: .tools/bin/gitleaks git --staged --no-banner --redact --verbose --config .gitleaks.toml .
+        language: system
+        pass_filenames: false
+      - id: biome
+        name: biome check on the changed files
+        entry: node_modules/.bin/biome check --assist-enabled=false --no-errors-on-unmatched --files-ignore-unknown=true
+        language: system
+        types_or: [javascript, ts, json]
+
+      # commit-msg: the message file that git passes.
+      - id: commit-msg
+        name: commit message (Conventional Commits, DCO, Plan-Task, no dashes)
+        entry: python3 tools/hooks/commit_msg.py
+        language: system
+        stages: [commit-msg]
+
+      # pre-push: the red team report of HEAD, then the full make check (FE-040).
+      # verbose shows the line review_gate.skipped when REVIEW_SKIP=1 is set.
+      - id: review-gate
+        name: red team report .review/<HEAD sha>.md with Urteil JA
+        entry: python3 tools/hooks/review_gate.py
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      # The full make check, failing closed: without the private deny list
+      # (DENYLIST_FILE, ALLOW_AUTHORS_FILE) the deny-list scan ends with exit 2.
+      # Pushing with the generic rules only is an explicit choice through the
+      # environment, DENYLIST_FLAGS=--allow-missing (fork contributors). On such
+      # a failure the hook prints that hint. verbose shows the make check output.
+      - id: make-check
+        name: make check
+        entry: >-
+          sh -c 'make check && exit 0; status=$?;
+          if [ -z "${DENYLIST_FILE:-}${ALLOW_AUTHORS_FILE:-}${DENYLIST_FLAGS:-}" ]; then
+          echo "pre-push: no private deny list is set; without it, push with
+          DENYLIST_FLAGS=--allow-missing (docs/quality/push-discipline.md)" >&2; fi;
+          exit $status'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
+        verbose: true

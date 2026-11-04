@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "produkt-doku"
+title = "English architecture, ADRs as MADR and detailed design in the product repo"
+kind = "delivery"
+path = "docs/"
+stage = "R"
+purpose = "The public English documentation in the product repo: architecture, ADRs as MADR, owner decisions without quotes, detailed design, plan and untranslated research with a header. After V10 the only source; the German files in the ops repo are frozen."
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation", "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+built_by = ["R-E04-T04", "R-E04-T05", "R-E04-T06"]
+
+[[provides]]
+name = "architecture"
+kind = "file"
+title = "docs/architecture/*.md (English file names per linkmap)"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T04"
+
+[[provides]]
+name = "adr"
+kind = "file"
+title = "docs/adr/NNNN-<title>.md in MADR form, index docs/architecture/09-decisions.md, docs/DECISIONS.md"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T04"
+
+[[provides]]
+name = "research"
+kind = "file"
+title = "docs/research/*.md untranslated with header dated, not binding"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T04"
+
+[[provides]]
+name = "design"
+kind = "file"
+title = "docs/design/*.md: translated detailed design, rulings FE-nnn with the same numbers"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T05"
+
+[[provides]]
+name = "plan-docs"
+kind = "file"
+title = "docs/plan/: translated work plan with overview"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T06"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/export-werkzeuge"
+from_task = "R-E04-T04"
+purpose = "Export according to manifest, glossary, linkmap and structure_diff.py"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/neutrale-planung"
+from_task = "R-E04-T04"
+purpose = "only the neutralized German text is translated"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-text-rules"
+from_task = "R-E04-T04"
+purpose = "english-only and no-dash across docs/"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-links"
+from_task = "R-E04-T04"
+purpose = "Links and anchors of the translated files"
+
+[[uses]]
+interface = "denylist-scanner/scan"
+from_task = "R-E04-T04"
+purpose = "Deny scan with the private list across docs/"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/private-listen"
+from_task = "R-E04-T04"
+purpose = "private deny list as input of the scan"

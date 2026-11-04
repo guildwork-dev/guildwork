@@ -1,0 +1,137 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-opencode"
+title = "Harness opencode"
+kind = "plugin"
+path = "plugins/opencode/"
+package = "@guildwork/plugin-opencode"
+stage = "9"
+purpose = "AgentRuntime for OpenCode: opencode serve only on the sandbox loopback, controlled via the bridge gw-opencode-bridge, only if the spike verifies the license. Not: port exposure to the worker (FE-1418), subscription logins."
+design = [
+  "14-stage-9-breadth-and-hardening.md#231-spike-and-common-harness-framework",
+  "14-stage-9-breadth-and-hardening.md#233-harness-opencode",
+  "14-stage-9-breadth-and-hardening.md#83-harnesses-9-e03",
+]
+built_by = ["9-E03-T01", "9-E03-T03"]
+
+[[provides]]
+name = "agent-runtime"
+kind = "contract"
+title = "AgentRuntime opencode: serve plus bridge in the sandbox, output as OhBridgeOut, credential only api_key via the relay, STRUCTURED_OUTPUT per spike"
+defined_in = "14-stage-9-breadth-and-hardening.md#233-harness-opencode"
+from_task = "9-E03-T03"
+
+[[provides]]
+name = "konfig-harness"
+kind = "config"
+title = "runtimes[].harness = opencode and harness.opencode.port (port of opencode serve in the sandbox)"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E03-T03"
+
+[[provides]]
+name = "oc-bridge-protokoll"
+kind = "file"
+title = "Protocol guildwork.oc-bridge/v1: OcBridgeIn on stdin, OcBridgeOut as JSON lines on stdout (FE-1450)"
+defined_in = "14-stage-9-breadth-and-hardening.md#233-harness-opencode"
+from_task = "9-E03-T03"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "9-E03-T03"
+purpose = "Implement AgentRuntime"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "9-E03-T03"
+purpose = "sb.spawn and copyIn in the sandbox"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E03-T03"
+purpose = "Result, PluginError"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E03-T03"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E03-T03"
+purpose = "Manifest with distribution and license"
+
+[[uses]]
+interface = "config-resolver-regeln/harness-pins"
+from_task = "9-E03-T03"
+purpose = "install only with PinnedVersion from harness_pins"
+
+[[uses]]
+interface = "worker-harness-umgebung/build-harness-env"
+from_task = "9-E03-T03"
+purpose = "Empty environment plus allowlist of the credential kind"
+
+[[uses]]
+interface = "worker-harness-umgebung/harness-cache"
+from_task = "9-E03-T03"
+purpose = "Harness cache of the worker host, copied in via copyIn to /opt/guildwork/harness/<id>/<version>/, no mount (03 FE-333, FE-1452)"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "9-E03-T03"
+purpose = "Real key only in the relay, placeholder in the sandbox"
+
+[[uses]]
+interface = "credential-broker/llm-grants"
+from_task = "9-E03-T03"
+purpose = "Grant api_key in the claim response"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "9-E03-T03"
+purpose = "Platform MCP as the only MCP server"
+
+[[uses]]
+interface = "pricing/price-lookup"
+from_task = "9-E03-T03"
+purpose = "Cost from the price table if the harness does not deliver any"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E03-T03"
+purpose = "Register as a built-in package"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E03-T03"
+purpose = "Contract suite with recorded transcripts"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E03-T03"
+purpose = "Abstract AgentRuntime suite"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E03-T03"
+purpose = "contract-attestation.json"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "9-E03-T03"
+purpose = "No real credential in the sandbox"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E03-T03"
+purpose = "E2E review run on the test repo"
+
+[[uses]]
+interface = "lizenz-gate/lizenz-listen"
+from_task = "9-E03-T03"
+purpose = "distribution bundled only with a license on the list"
+
+[[uses]]
+interface = "plugin-openhands-sdk/spike-bericht-harnesses"
+from_task = "9-E03-T03"
+purpose = "Build only if the spike verifies the license"

@@ -1,0 +1,173 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "helm-chart"
+title = "Helm chart with S8 on kind and k3d"
+kind = "delivery"
+path = "deploy/helm/guildwork/"
+stage = "8"
+purpose = "Helm chart for operation on Kubernetes: separate deployments for web, orchestrator, worker pools and egress proxy from signed images by digest, migrate as a hook before the rollout, sandbox namespace with NetworkPolicy, values schema; plus the S8 run on kind and k3d (FE-1231). No database in the chart, no ingress; the ExecutionBackend k8s is the separate component plugin-exec-k8s."
+design = [
+  "13-stage-8-providers-and-bases.md#244-helm-chart",
+  "13-stage-8-providers-and-bases.md#47-helm-install-upgrade-and-s8",
+  "13-stage-8-providers-and-bases.md#84-bases-8-e04",
+]
+built_by = ["8-E04-T04", "8-E04-T05"]
+
+[[provides]]
+name = "chart"
+kind = "file"
+title = "Chart deploy/helm/guildwork (templates for web, orchestrator, migrate job, worker and egress proxy per pool, sandbox namespace, NetworkPolicies, init container verify with cosign, PDB, optional embedder); helm install and upgrade"
+defined_in = "13-stage-8-providers-and-bases.md#244-helm-chart"
+from_task = "8-E04-T04"
+
+[[provides]]
+name = "werte"
+kind = "config"
+title = "values.yaml with values.schema.json (additionalProperties false): image, verify, installation.existingSecret, database.urlSecretRef, web, orchestrator, migrate, pools[], networkPolicy, ingress"
+defined_in = "13-stage-8-providers-and-bases.md#244-helm-chart"
+from_task = "8-E04-T04"
+
+[[provides]]
+name = "workflow-s8-helm"
+kind = "file"
+title = ".github/workflows/s8-helm.yml: matrix kind and k3d with RuntimeClass runsc, install, smoke in shadow, upgrade N-1 to N with data"
+defined_in = "13-stage-8-providers-and-bases.md#47-helm-install-upgrade-and-s8"
+from_task = "8-E04-T05"
+
+[[provides]]
+name = "suite-s8-helm"
+kind = "file"
+title = "eval/suites/s8/helm with the cases S8-helm-kind and S8-helm-k3d"
+defined_in = "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8"
+from_task = "8-E04-T05"
+
+[[uses]]
+interface = "container-images/image.control-plane"
+from_task = "8-E04-T04"
+purpose = "Image of the roles web, orchestrator and migrate by digest"
+
+[[uses]]
+interface = "container-images/image.agent-worker"
+from_task = "8-E04-T04"
+purpose = "Image of the worker pods by digest"
+
+[[uses]]
+interface = "container-images/image.egress-proxy"
+from_task = "8-E04-T04"
+purpose = "Image of the egress proxy per pool by digest"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "8-E04-T04"
+purpose = "Sandbox image by digest"
+
+[[uses]]
+interface = "release-werkzeuge/release-json"
+from_task = "8-E04-T04"
+purpose = "Digests, signature identity and issuer for verify"
+
+[[uses]]
+interface = "control-plane/aufruf"
+from_task = "8-E04-T04"
+purpose = "Roles by argument web, orchestrator, migrate"
+
+[[uses]]
+interface = "control-plane/health"
+from_task = "8-E04-T04"
+purpose = "Liveness /healthz and readiness /readyz"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "8-E04-T04"
+purpose = "migrate as a hook job before the rollout"
+
+[[uses]]
+interface = "db/konfig.database"
+from_task = "8-E04-T04"
+purpose = "database.url_ref and migrate_url_ref from Kubernetes secrets"
+
+[[uses]]
+interface = "driver-secret-env/konfig"
+from_task = "8-E04-T04"
+purpose = "Mapping of the Kubernetes secrets onto GW_SECRET_* with secrets.driver env"
+
+[[uses]]
+interface = "config-installation/plattform-env"
+from_task = "8-E04-T04"
+purpose = "GUILDWORK_CONFIG points to the mounted installation.yaml"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "8-E04-T04"
+purpose = "installation.yaml as a secret, never as a value"
+
+[[uses]]
+interface = "worker/cli"
+from_task = "8-E04-T04"
+purpose = "Worker command in the pod"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "8-E04-T04"
+purpose = "worker.yaml per pool as a ConfigMap"
+
+[[uses]]
+interface = "worker/healthz"
+from_task = "8-E04-T04"
+purpose = "Liveness of the worker pod"
+
+[[uses]]
+interface = "egress-proxy/cli"
+from_task = "8-E04-T04"
+purpose = "Egress proxy command in the pod"
+
+[[uses]]
+interface = "egress-proxy/egress-yaml"
+from_task = "8-E04-T04"
+purpose = "egress.yaml per pool"
+
+[[uses]]
+interface = "plugin-exec-k8s/executionbackend"
+from_task = "8-E04-T04"
+purpose = "Worker pods create sandbox pods via the backend k8s"
+
+[[uses]]
+interface = "plugin-exec-k8s/konfig-pool"
+from_task = "8-E04-T04"
+purpose = "pools[] with plugin k8s from the values"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "8-E04-T04"
+purpose = "License gate for the template test tool"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "8-E04-T05"
+purpose = "Cases S8-helm-kind and S8-helm-k3d"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "8-E04-T05"
+purpose = "Cases with from_stage 8 in the catalog s8.yaml"
+
+[[uses]]
+interface = "portabilitaetstest/smoke"
+from_task = "8-E04-T05"
+purpose = "Smoke run with a signed webhook and review in shadow"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "8-E04-T05"
+purpose = "seed_runs.py and compare.py for the upgrade N-1 to N"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server-container"
+from_task = "8-E04-T05"
+purpose = "Fixture server as GitHub in the cluster"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "8-E04-T05"
+purpose = "s8-helm.yml passes the workflow policy"

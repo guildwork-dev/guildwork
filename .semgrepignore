@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Files that `opengrep scan` in `make opengrep` leaves out. Without this file the
+# engine uses a built-in list that also skips test/ and tests/ directories; this
+# file replaces that list, so rules without a test exemption see test code too
+# (docs/quality/toolchain.md, "Opengrep rule tests"). Files ignored by git are
+# skipped anyway.
+
+# Rule test cases: they contain the violations on purpose; tools/ci/opengrep_test.py
+# runs them.
+.opengrep/tests/

@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "workflow-guard"
+title = "Analysis of the workflow files for security.agent_ci"
+kind = "package"
+path = "packages/workflow-guard/"
+package = "@guildwork/workflow-guard"
+stage = "2"
+purpose = "Pure analysis of the workflow files of a repo at the base SHA and decision safe or no_safe_ci for agent_fork and guarded_workflows; anything unknown counts as unguarded. Not: reading at the provider, storing and the check per claim (agent-ci)."
+design = ["10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"]
+built_by = ["2-E06-T01"]
+
+[[provides]]
+name = "workflow-guard-api"
+kind = "ts-api"
+title = "analyzeWorkflows, decideAgentCi, AgentCiConfig, WorkflowFile, EnvironmentProtection, WorkflowVerdict, GuardReason, AgentCiCheck"
+defined_in = "10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"
+from_task = "2-E06-T01"
+
+[[provides]]
+name = "agent-ci-check-schema"
+kind = "file"
+title = "JSON Schema AgentCiCheck under packages/contracts/schemas/artifacts/v1alpha1/"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E06-T01"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "2-E06-T01"
+purpose = "RepoRef and Result"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "2-E06-T01"
+purpose = "JSON Schema AgentCiCheck"
+
+[[uses]]
+interface = "plugin-github-scm/environment-protection"
+from_task = "2-E06-T01"
+purpose = "Required reviewers of the environments or unreadable (OP-9)"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E06-T01"
+purpose = "Workflow files at the base SHA as fixture source"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E06-T01"
+purpose = "sha256Hex for cacheKey"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E06-T01"
+purpose = "Result, ok and err as return of the public functions"

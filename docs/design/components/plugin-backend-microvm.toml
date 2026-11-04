@@ -1,0 +1,211 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-backend-microvm"
+title = "ExecutionBackend microvm with routing external_code"
+kind = "plugin"
+path = "plugins/backend-microvm/"
+package = "@guildwork/plugin-backend-microvm"
+stage = "9"
+purpose = "ExecutionBackend with isolation microvm via Kata as a Docker runtime, reported only after a probe, plus the evidence that repo code of the class external_code never falls back to weaker isolation, and the block until the pen test. Not: an own copy of the Docker code (FE-1421), fallback to gVisor (FE-1424)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#241-spike-kata-and-kvm",
+  "14-stage-9-breadth-and-hardening.md#242-backend-microvm",
+  "14-stage-9-breadth-and-hardening.md#243-routing-external_code-and-suites-under-microvm",
+  "14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval",
+  "14-stage-9-breadth-and-hardening.md#45-microvm-probe-and-routing",
+  "14-stage-9-breadth-and-hardening.md#84-microvm-and-pen-test-9-e04",
+]
+built_by = ["9-E04-T01", "9-E04-T02", "9-E04-T03"]
+
+[[provides]]
+name = "spike-bericht-microvm"
+kind = "file"
+title = "Spike report eval/reports/spike-microvm.md: Kata as a Docker runtime, runtime name, KVM on runners, comparison with Firecracker (FE-1244)"
+defined_in = "14-stage-9-breadth-and-hardening.md#241-spike-kata-and-kvm"
+from_task = "9-E04-T01"
+
+[[provides]]
+name = "execution-backend"
+kind = "contract"
+title = "ExecutionBackend microvm (MicrovmExecutionBackend): create only with isolation microvm, pools, maxConcurrency; sandbox core from plugin-exec-docker"
+defined_in = "14-stage-9-breadth-and-hardening.md#242-backend-microvm"
+from_task = "9-E04-T02"
+
+[[provides]]
+name = "microvm-probe"
+kind = "ts-api"
+title = "Worker probe: WorkerCaps.verified.isolation contains microvm only after KVM, runtime, probe container and own kernel (FE-1422); the socket proxy allows the Kata runtime only after a positive probe (FE-1423)"
+defined_in = "14-stage-9-breadth-and-hardening.md#242-backend-microvm"
+from_task = "9-E04-T02"
+
+[[provides]]
+name = "konfig-microvm"
+kind = "config"
+title = "worker.yaml microvm.runtime and pools[].isolation with microvm"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E04-T02"
+
+[[provides]]
+name = "release-gate-external-code"
+kind = "ts-api"
+title = "Release constant EXTERNAL_CODE_EXECUTION_RELEASED in apps/control-plane/src/policy/release-gates.ts with policy rule POL-062 (pen_test_pending)"
+defined_in = "14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval"
+from_task = "9-E04-T03"
+
+[[provides]]
+name = "suites-microvm"
+kind = "file"
+title = "Suite eval/suites/isolation-microvm/, catalog rows with isolation microvm from from_stage 9 and CI job suites-microvm, S8 matrix with microvm"
+defined_in = "14-stage-9-breadth-and-hardening.md#243-routing-external_code-and-suites-under-microvm"
+from_task = "9-E04-T03"
+
+[[uses]]
+interface = "compose-buendel/host-prepare"
+from_task = "9-E04-T01"
+purpose = "host-prepare --kvm for Kata and /dev/kvm"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "9-E04-T01"
+purpose = "Probe container under Kata"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "9-E04-T02"
+purpose = "Sandbox core via @guildwork/plugin-exec-docker/sandbox"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "9-E04-T02"
+purpose = "ExecutionBackend with isolation microvm"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E04-T02"
+purpose = "Manifest of the backend"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E04-T02"
+purpose = "PluginContext"
+
+[[uses]]
+interface = "socket-proxy/check-request"
+from_task = "9-E04-T02"
+purpose = "allowedRuntimes extended by the Kata runtime after a positive probe"
+
+[[uses]]
+interface = "socket-proxy/policy-json"
+from_task = "9-E04-T02"
+purpose = "Policy file with the verified runtime"
+
+[[uses]]
+interface = "socket-proxy/docker-api"
+from_task = "9-E04-T02"
+purpose = "GET /info and container creation via the socket proxy"
+
+[[uses]]
+interface = "worker/probe"
+from_task = "9-E04-T02"
+purpose = "WorkerCaps.verified.isolation contains microvm only after the probe"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "9-E04-T02"
+purpose = "worker.yaml microvm.runtime"
+
+[[uses]]
+interface = "worker/item-lebenszyklus"
+from_task = "9-E04-T02"
+purpose = "destroy in finally also under Kata"
+
+[[uses]]
+interface = "egress-proxy/connect-proxy"
+from_task = "9-E04-T02"
+purpose = "Egress proxy on the item network"
+
+[[uses]]
+interface = "worker-harness-umgebung/harness-cache"
+from_task = "9-E04-T02"
+purpose = "Harness cache read only in the VM"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E04-T02"
+purpose = "abstract ExecutionBackend suite under Kata"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E04-T02"
+purpose = "Contract suite backend-microvm"
+
+[[uses]]
+interface = "testkit/docker-topologie"
+from_task = "9-E04-T02"
+purpose = "Test topology with socket proxy"
+
+[[uses]]
+interface = "reviewer-verifier/verifier-modus"
+from_task = "9-E04-T02"
+purpose = "effective verifier mode build on external_code in the E2E"
+
+[[uses]]
+interface = "reviewer-verifier/verify-build"
+from_task = "9-E04-T02"
+purpose = "Verifier build in the E2E under microvm"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E04-T02"
+purpose = "E2E review with build verifier"
+
+[[uses]]
+interface = "ui-betrieb/pools-services-audit-api"
+from_task = "9-E04-T02"
+purpose = "Deviation from the pool configuration on the page Pools"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "9-E04-T03"
+purpose = "POL-060 unchanged, POL-062 new"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "9-E04-T03"
+purpose = "Rule ID POL-062"
+
+[[uses]]
+interface = "work-api/http-claim"
+from_task = "9-E04-T03"
+purpose = "The claim compares requirements.isolation with WorkerCaps.verified"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.work-items"
+from_task = "9-E04-T03"
+purpose = "blocked_reason no_qualified_pool"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "9-E04-T03"
+purpose = "Audit policy.external_code_blocked"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "9-E04-T03"
+purpose = "Catalog rows with isolation microvm from from_stage 9"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "9-E04-T03"
+purpose = "Suite isolation-microvm"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "9-E04-T03"
+purpose = "S1 to S6 in the job suites-microvm"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "9-E04-T03"
+purpose = "CI job suites-microvm on a runner with KVM"

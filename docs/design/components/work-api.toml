@@ -1,0 +1,388 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "work-api"
+title = "Work API: work items, claim, lease, drain, results and artifact upload"
+kind = "role"
+path = "apps/control-plane/src/work/"
+package = "@guildwork/control-plane"
+stage = "0"
+area = "03"
+purpose = "The only way work gets from the control plane to workers and results come back: create and revoke work items, claim with capability matching, leases with heartbeat, results, artifact upload and drain. Does not decide on run states (orchestrator), budgets (ledger) or write requests (Effect Gateway)."
+design = [
+  "03-execution.md#24-work-api",
+  "03-execution.md#241-service-in-the-control-plane",
+  "03-execution.md#242-endpoints",
+  "03-execution.md#243-extensions-of-later-stages",
+  "03-execution.md#3-data",
+  "03-execution.md#41-claim-run-and-completion",
+  "03-execution.md#42-states-of-work-item-and-lease",
+  "03-execution.md#43-artifact-upload",
+  "03-execution.md#5-failure-and-abort-paths",
+  "03-execution.md#212-inputs-from-the-blobstore-clone-from-a-bundle-remote-work-state-fe-334-fe-335",
+]
+built_by = [
+  "0-E11-T02",
+  "0-E11-T03",
+  "0-E11-T04",
+  "0-E11-T05",
+  "1-E08-T04",
+  "2-E01-T07",
+  "8-E05-T03",
+  "0-E20-T28",
+  "1-E07-T02",
+  "1-E07-T03",
+  "2-E01-T05",
+  "3-E03-T01",
+  "8-E05-T05",
+  "8-E06-T01",
+  "2-E04-T10",
+]
+
+[[provides]]
+name = "work-item-service"
+kind = "ts-api"
+title = "WorkItemService: enqueue and revoke in the transaction of the caller, get, listBlocked"
+defined_in = "03-execution.md#241-service-in-the-control-plane"
+from_task = "0-E11-T02"
+
+[[provides]]
+name = "step-events"
+kind = "event"
+title = "StepEvent (item.leased, item.completed, item.failed, item.exhausted, item.blocked, item.revoked) via the queue orchestrator-event"
+defined_in = "03-execution.md#241-service-in-the-control-plane"
+from_task = "0-E11-T02"
+
+[[provides]]
+name = "drain"
+kind = "ts-api"
+title = "DrainControl: drain on and off with audit, status with number of active leases"
+defined_in = "03-execution.md#241-service-in-the-control-plane"
+from_task = "0-E11-T03"
+
+[[provides]]
+name = "http-claim"
+kind = "http"
+title = "POST /work/v1/claim: long poll with pool key, version and drain check, grants via grantsForClaim only in the response; extended by kill switch (1-E08-T04), operatorClaimGuard (1-E07-T02), browser (3-E03-T01), pool_alt (8-E05-T05)"
+defined_in = "03-execution.md#242-endpoints"
+from_task = "0-E11-T03"
+
+[[provides]]
+name = "http-heartbeat"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/heartbeat: extension, usage, cancel; from 2-E01-T05 phase with check and phaseSince, audit sandbox.phase_switched (FE-338)"
+defined_in = "03-execution.md#242-endpoints"
+from_task = "0-E11-T04"
+
+[[provides]]
+name = "http-results"
+kind = "http"
+title = "POST .../complete, .../fail, .../upload-url and PUT .../artifacts/{artifactId} (fallback level without PRESIGN); audits from StepDetailV1 from 1-E07; costs from the price table from 8-E06-T01"
+defined_in = "03-execution.md#242-endpoints"
+from_task = "0-E11-T05"
+
+[[provides]]
+name = "konfig-work"
+kind = "config"
+title = "Keys work.* in installation.yaml (lease, heartbeat, attempts, long poll, claim rate, sizes, upload mode)"
+defined_in = "03-execution.md#7-configuration"
+from_task = "0-E11-T02"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "Counters guildwork.work.*, guildwork.worker.version_rejected, guildwork.claim.*, guildwork.lease.expired with catalog names per FE-342 (short names work_auth_failed, claims_without_isolation etc.)"
+defined_in = "03-execution.md#5-failure-and-abort-paths"
+from_task = "0-E11-T05"
+
+[[provides]]
+name = "http-egress-log"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/egress-log: reference to the connection log per phase"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T07"
+
+[[provides]]
+name = "auth-ci-oidc"
+kind = "http"
+title = "Login of the one-shot worker via CI OIDC token instead of pool key, one claim per dispatch with itemHint, then lease token (FE-344, 13 FE-1352)"
+defined_in = "03-execution.md#243-extensions-of-later-stages"
+from_task = "8-E05-T03"
+
+
+[[provides]]
+name = "heartbeat-steer"
+kind = "http"
+title = "Heartbeat response with tasks[] kind steer { messageId, text } for messages in run_steer_messages with delivery live_steer"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E04-T10"
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "0-E11-T02"
+purpose = "Check envelope on enqueue and store it in work_items.envelope"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "0-E11-T02"
+purpose = "StepResultV1 and StepErrorV1 as payload of the StepEvents and in complete and fail"
+
+[[uses]]
+interface = "work-item-umschlag/worker-api-schemas"
+from_task = "0-E11-T03"
+purpose = "Check requests and responses of the endpoints"
+
+[[uses]]
+interface = "work-item-umschlag/grants-v1"
+from_task = "0-E11-T03"
+purpose = "Grants only in the claim response"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E11-T03"
+purpose = "Match WorkerCaps of the claim against requires"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E11-T02"
+purpose = "Result for expected errors"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E11-T02"
+purpose = "ErrorCode and AppError of the error responses"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E11-T02"
+purpose = "itemId and leaseId as UUIDv7, sha256Hex for artifacts"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E11-T02"
+purpose = "Clock for deadlines, lease expiry and blocked check"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E11-T02"
+purpose = "Log events work.* without secrets"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E11-T03"
+purpose = "Counters and histograms of the Work API"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E11-T03"
+purpose = "Metric names guildwork.queue.wait, guildwork.lease.expired and the counters from section 5"
+
+[[uses]]
+interface = "core/problem-json"
+from_task = "0-E11-T03"
+purpose = "Error form problem+json with reason (FE-330)"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E11-T05"
+purpose = "Rule source of the rescan of stored artifacts"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E11-T02"
+purpose = "Db and Tx; enqueue and revoke in the transaction of the caller"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E11-T02"
+purpose = "withTenant for accesses with RLS, installation scope for the claim across tenants"
+
+[[uses]]
+interface = "db/schema-typen"
+from_task = "0-E11-T02"
+purpose = "Kysely types of the tables work_items, leases, artifacts, usage"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E11-T02"
+purpose = "Repositories per table group with transaction as the first parameter"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.work-items"
+from_task = "0-E11-T02"
+purpose = "Write work items, claim index, blocked_reason"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.leases"
+from_task = "0-E11-T03"
+purpose = "Create, extend, end lease"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.workers"
+from_task = "0-E11-T03"
+purpose = "worker_id of the lease from the row of the pool key"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.pools"
+from_task = "0-E11-T03"
+purpose = "max_concurrency per pool for the concurrency limit"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.tenants"
+from_task = "0-E11-T03"
+purpose = "Drain switch tenants.drain_since of the installation row"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.steps"
+from_task = "0-E11-T03"
+purpose = "Check abort state of the step before the assignment"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "0-E11-T03"
+purpose = "Run ID and state for audit and abort check"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "0-E11-T04"
+purpose = "Write usage differences per heartbeat and completion"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "0-E11-T05"
+purpose = "Artifact rows pending, stored, quarantined, deleted"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E11-T02"
+purpose = "Start jobs work-blocked-scan, work-reaper and work-artifact-rescan"
+
+[[uses]]
+interface = "db-queue/send-in-tx"
+from_task = "0-E11-T02"
+purpose = "StepEvents visible only with the commit"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "0-E11-T02"
+purpose = "StepEvents to the orchestrator"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E11-T02"
+purpose = "Register handlers and schedules of the Work API in the list of queues"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "0-E11-T03"
+purpose = "Mount Fastify plugin /work/v1 in the role web"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E11-T02"
+purpose = "Read values work.* and blob.worker_endpoint from installation.yaml"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E11-T02"
+purpose = "Audit work.leased, work.revoked, work.lease_expired, work.auth_failed, work.drain_on and work.drain_off in the same transaction"
+
+[[uses]]
+interface = "credential-broker/pool-keys"
+from_task = "0-E11-T03"
+purpose = "Check pool key (verifyPoolKey)"
+
+[[uses]]
+interface = "credential-broker/llm-grants"
+from_task = "0-E11-T03"
+purpose = "grantsForClaim: item token, clone token and LLM grant for the claim response"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "0-E11-T04"
+purpose = "Ledger.recordUsage per heartbeat, answer cancel when exceeded"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E11-T05"
+purpose = "BlobStore for upload, check and quarantine"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E11-T05"
+purpose = "presignPut and capability PRESIGN for the upload mode"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E11-T02"
+purpose = "real database in the tests of the Work API"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "0-E11-T04"
+purpose = "FakeClock for lease expiry and deadline"
+
+[[uses]]
+interface = "not-aus/kill-switch-gate"
+from_task = "1-E08-T04"
+purpose = "Condition killed in the claim"
+
+[[uses]]
+interface = "not-aus/kill-switches"
+from_task = "1-E08-T04"
+purpose = "active rows with lifted_at IS NULL in the claim selection"
+
+[[uses]]
+interface = "worker-sandbox-phasen/verbindungsprotokoll"
+from_task = "2-E01-T07"
+purpose = "Accept reference to the connection log per phase"
+
+[[uses]]
+interface = "plugin-backend-ci-dispatch-github/tabelle-dispatch-records"
+from_task = "8-E05-T03"
+purpose = "Transition dispatched to claimed on the OIDC claim (FE-329)"
+
+[[uses]]
+interface = "plugin-backend-ci-dispatch-github/konfig-pool"
+from_task = "8-E05-T03"
+purpose = "oidc.* of the pool for checking the CI token"
+
+[[provides]]
+name = "lease-revoker"
+kind = "ts-api"
+title = "createLeaseRevoker: implementation of the port LeaseRevoker.revokeLeasesOfPoolKey(keyId, kill_switch, tx) from 04 section 2.3.1 via WorkItemService.revoke"
+defined_in = "03-execution.md#241-service-in-the-control-plane"
+from_task = "0-E11-T02"
+
+[[provides]]
+name = "http-inputs"
+kind = "http"
+title = "Input grants on claim (presignGet or fallback URL with input token) and GET /work/v1/inputs/{grantId} without pool key (FE-334)"
+defined_in = "03-execution.md#212-inputs-from-the-blobstore-clone-from-a-bundle-remote-work-state-fe-334-fe-335"
+from_task = "0-E20-T28"
+
+[[provides]]
+name = "event-operator-rejected"
+kind = "event"
+title = "StepEvent item.operator_rejected with OperatorClaimDecision and checks, then item.revoked with operator_check (05 section 2.19)"
+defined_in = "03-execution.md#241-service-in-the-control-plane"
+from_task = "1-E07-T02"
+
+[[uses]]
+interface = "config-resolver-regeln/operator-claim"
+from_task = "1-E07-T02"
+purpose = "operatorClaimGuard on the candidate in the claim"
+
+[[uses]]
+interface = "pricing/price-lookup"
+from_task = "8-E06-T01"
+purpose = "Costs from the price table in results.ts with cost.source price_table without usd"
+
+[[uses]]
+interface = "work-item-umschlag/blob-inputs"
+from_task = "0-E20-T28"
+purpose = "Read blobInputs and output InputGrantV1"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-steer-messages"
+from_task = "2-E04-T10"
+purpose = "Read open steering instructions of a run for the heartbeat task steer and mark them as delivered"

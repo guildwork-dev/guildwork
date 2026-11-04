@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "db-queue"
+title = "pg-boss foundation: start in the schema pgboss, sending within the transaction"
+kind = "package"
+path = "packages/db/src/queue/"
+package = "@guildwork/db"
+stage = "0"
+purpose = "Encapsulates pg-boss behind QueueRuntime and sendInTx, so that jobs are created in the same transaction as their DB change and the unverified option names stay in one place. Knows no queue names and no handlers; the list of queues and the registration live in the orchestrator."
+design = [
+  "02-control-plane.md#49-queues-pg-boss",
+  "02-control-plane.md#491-foundation-in-guildworkdb",
+  "01-data-model.md#31a-migration-blocks-and-table-directory",
+]
+built_by = ["0-E02-T13"]
+
+[[provides]]
+name = "queue-runtime"
+kind = "ts-api"
+title = "QueueRuntime, createQueueRuntime, queueName, QueueOptions, SendOptions, Job: start, queues, handlers, schedules"
+defined_in = "02-control-plane.md#491-foundation-in-guildworkdb"
+from_task = "0-E02-T13"
+
+[[provides]]
+name = "send-in-tx"
+kind = "ts-api"
+title = "sendInTx(tx, queue, payload, opts): job visible only with the commit (FE-271)"
+defined_in = "02-control-plane.md#491-foundation-in-guildworkdb"
+from_task = "0-E02-T13"
+
+[[provides]]
+name = "job-outbox"
+kind = "table"
+title = "Table job_outbox with forwarder, only if pg-boss cannot send within a foreign transaction (migration 0017)"
+defined_in = "02-control-plane.md#491-foundation-in-guildworkdb"
+from_task = "0-E02-T13"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E02-T13"
+purpose = "Db for starting pg-boss and Tx of the triggering change for sendInTx"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E02-T13"
+purpose = "Expand migration 0017_job_outbox, if the pinned pg-boss version does not send within a foreign transaction"
+
+[[uses]]
+interface = "db-schema-kern/sql-mandanten-funktionen"
+from_task = "0-E02-T13"
+purpose = "Roles guildwork_owner and guildwork_app from migration 0001; privileges of the app role on schema pgboss (FE-276)"
+
+[[uses]]
+interface = "db-migrator/migrator"
+from_task = "0-E02-T13"
+purpose = "apply() calls installQueueSchema with the owner connection after the last migration (FE-276), then guildwork.grant_ops_role() (01 FE-141)"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E02-T13"
+purpose = "queueName throws AppError for names outside [a-z0-9-]"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E02-T13"
+purpose = "UUIDv7 for job_outbox.id"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E02-T13"
+purpose = "Log events queue.started, queue.outbox_forwarded and errors of the forwarder"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E02-T13"
+purpose = "Spike tests and queues.send_is_transactional against real Postgres"

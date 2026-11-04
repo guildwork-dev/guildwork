@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-adapter-harbor"
+title = "Adapter Harbor with locked protocol"
+kind = "eval"
+path = "eval/adapters/harbor/"
+package = "@guildwork/eval-adapter-harbor"
+stage = "0"
+purpose = "Maps tasks in the Harbor format to a ticket fixture with image by digest, fetches the patch from the eval log and checks it in the locked protocol in a fresh sandbox with the task's verifier. Not for the selection of the coder sets (stage 2) and not for scoring across several tasks."
+design = [
+  "07-eval-and-qualification.md#25-adapter-harbor",
+  "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values",
+  "07-eval-and-qualification.md#2173-internal-services-eval-bare-and-eval-judge-worker-steps"
+]
+built_by = ["0-E20-T15"]
+
+[[provides]]
+name = "adapter"
+kind = "ts-api"
+title = "HarborAdapter (prepare, collect, verifyArgs), worker step HARBOR_VERIFY_STEP and verifyInSandbox with HarborTaskRef, HarborVerifyArgs, VerifyResult"
+defined_in = "07-eval-and-qualification.md#25-adapter-harbor"
+from_task = "0-E20-T15"
+
+[[provides]]
+name = "harbor-aufgabe"
+kind = "file"
+title = "Task directory in the Harbor format (instruction, image digest, verifier; file names unverified until 0-E20-T27) including mini tasks as fixtures"
+defined_in = "07-eval-and-qualification.md#25-adapter-harbor"
+from_task = "0-E20-T15"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "0-E20-T15"
+purpose = "EvalAdapter, PrepareCtx and RecordedEffect"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T15"
+purpose = "EvalCase and CaseInput task"
+
+[[uses]]
+interface = "eval-fixture-provider/ticket-fixture"
+from_task = "0-E20-T15"
+purpose = "Instruction as ticket fixture"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "0-E20-T15"
+purpose = "Read the push or change effect with bundle in collect"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E20-T15"
+purpose = "SandboxHandle for verifyInSandbox"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "0-E20-T15"
+purpose = "Worker step harbor-verify (kind check, needsSandbox)"
+
+[[uses]]
+interface = "dummy-service/manifest"
+from_task = "0-E20-T15"
+purpose = "Integration test of the mini tasks with the dummy service"

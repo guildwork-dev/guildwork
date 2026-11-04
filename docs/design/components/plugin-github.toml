@@ -1,0 +1,182 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-github"
+title = "GitHub plugin: manifests, client, auth, contract fixtures"
+kind = "plugin"
+path = "plugins/github/"
+package = "@guildwork/plugin-github"
+stage = "0"
+purpose = "Shared part of the two GitHub packages github (TriggerSource, SCMProvider) and github-issues (WorkItemProvider): manifests, instance configuration, own REST and GraphQL client on ctx.http, app JWT, token per permission profile, app creation via manifest flow and the recorded contract fixtures. Runs only in the control plane (FE-515); trigger, SCM methods and issues are in separate components."
+design = [
+  "05-plugins-and-contracts.md#214-github-plugin",
+  "05-plugins-and-contracts.md#2141-manifests-and-configuration-ruling-fe-513",
+  "05-plugins-and-contracts.md#2142-client-and-error-mapping-ruling-fe-514",
+  "05-plugins-and-contracts.md#2145-auth-app-jwt-minttoken-permission-profiles-clonespec",
+  "05-plugins-and-contracts.md#2149-github-app-via-manifest-flow-adr-45-ruling-fe-517",
+  "05-plugins-and-contracts.md#21410-diagnostic-reads-for-doctor-ruling-fe-557",
+  "05-plugins-and-contracts.md#34-fixtures-of-the-github-plugin-pluginsgithubcontractfixtures",
+  "05-plugins-and-contracts.md#43-token-per-effect",
+  "05-plugins-and-contracts.md#47-github-app-via-manifest-flow",
+]
+built_by = [
+  "0-E14-T01",
+  "0-E14-T02",
+  "0-E14-T03",
+  "0-E14-T06",
+  "0-E14-T11",
+  "0-E14-T12",
+  "0-E14-T13",
+  "0-E18-T08",
+  "0-E18-T09",
+]
+
+[[provides]]
+name = "eingebaute-pakete"
+kind = "ts-api"
+title = "createGithubPlugin(), createGithubIssuesPlugin() as BuiltinPluginPackage with manifest, attestation and fixtures directory for registry.register()"
+defined_in = "05-plugins-and-contracts.md#2141-manifests-and-configuration-ruling-fe-513"
+from_task = "0-E14-T03"
+
+[[provides]]
+name = "manifeste"
+kind = "file"
+title = "plugins/github/manifest.github.json (TriggerSource, SCMProvider) and manifest.github-issues.json (WorkItemProvider)"
+defined_in = "05-plugins-and-contracts.md#2141-manifests-and-configuration-ruling-fe-513"
+from_task = "0-E14-T03"
+
+[[provides]]
+name = "instanz-konfiguration"
+kind = "config"
+title = "Instance configuration github (instance, app_id_ref, key_ref, webhook_secret_ref, client_id_ref, api_url, web_url, mention_handle, mode, reconcile.max_pages, ack, audit_anchor_branch) and github-issues ({ scm }); the cadence of reconcile and poll comes from trigger.* of the control plane"
+defined_in = "05-plugins-and-contracts.md#2141-manifests-and-configuration-ruling-fe-513"
+from_task = "0-E14-T03"
+
+[[provides]]
+name = "mint-token"
+kind = "contract"
+title = "SCMProvider.mintToken per permission profile (read, review, comment_issue, labels, rerun, write_branch, merge, audit_anchor, from stage 9 code_scanning) and cloneSpec with x-access-token and askpass"
+defined_in = "05-plugins-and-contracts.md#2145-auth-app-jwt-minttoken-permission-profiles-clonespec"
+from_task = "0-E14-T06"
+
+[[provides]]
+name = "app-manifest-flow"
+kind = "ts-api"
+title = "buildAppManifest, exchangeManifestCode, storeAppCredentials (GitHub App via manifest flow, state with expiry, stored only in the SecretStore, also client-id for the device flow)"
+defined_in = "05-plugins-and-contracts.md#2149-github-app-via-manifest-flow-adr-45-ruling-fe-517"
+from_task = "0-E14-T11"
+
+[[provides]]
+name = "audit-app-anlage"
+kind = "event"
+title = "Audit actions github.app_created (id, slug) and github.app_create_state_mismatch"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "0-E14-T11"
+
+[[provides]]
+name = "contract-attestation"
+kind = "file"
+title = "Real, redacted cassettes and webhook fixtures under plugins/github/contract/fixtures/ with contract-attestation.json and fixturesHash in both manifests"
+defined_in = "05-plugins-and-contracts.md#34-fixtures-of-the-github-plugin-pluginsgithubcontractfixtures"
+from_task = "0-E14-T13"
+
+[[provides]]
+name = "client"
+kind = "ts-api"
+title = "Shared GitHub client in plugins/github/src/client/ (REST with pinned API version, GraphQL, pagination, error mapping per 2.7, RateLimitSnapshot) on ctx.http for trigger, SCM and issues"
+defined_in = "05-plugins-and-contracts.md#2142-client-and-error-mapping-ruling-fe-514"
+from_task = "0-E14-T02"
+
+[[provides]]
+name = "diagnose-hook-deliveries"
+kind = "ts-api"
+title = "readHookDeliveries(deps, limit) in the export @guildwork/plugin-github/diagnostics: last webhook delivery with app JWT or readable false, for doctor D13 (FE-557)"
+defined_in = "05-plugins-and-contracts.md#21410-diagnostic-reads-for-doctor-ruling-fe-557"
+from_task = "0-E18-T08"
+
+[[provides]]
+name = "diagnose-workflow-permissions"
+kind = "ts-api"
+title = "readWorkflowPermissions(deps, orgs) in the export @guildwork/plugin-github/diagnostics: default_workflow_permissions per org or unreadable, without additional app permission, for doctor D21 (FE-557)"
+defined_in = "05-plugins-and-contracts.md#21410-diagnostic-reads-for-doctor-ruling-fe-557"
+from_task = "0-E18-T09"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E14-T02"
+purpose = "Client only via ctx.http (FE-508)"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E14-T02"
+purpose = "Result, PluginError, RateLimitSnapshot"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "0-E14-T02"
+purpose = "Test error mapping against cassettes with ReplayHttp"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "0-E14-T02"
+purpose = "Cassettes of the error cases"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E14-T03"
+purpose = "Manifests github and github-issues against the schema"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "0-E14-T03"
+purpose = "capabilities() with the capability enums"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "0-E14-T03"
+purpose = "Kind TriggerSource in the package github"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E14-T03"
+purpose = "Kind SCMProvider in the package github, ScopedToken and TokenProfile"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "0-E14-T03"
+purpose = "Kind WorkItemProvider in the package github-issues"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E14-T03"
+purpose = "BuiltinPluginPackage for registry.register"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "0-E14-T11"
+purpose = "storeAppCredentials stores the app secrets in the SecretStore"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E14-T11"
+purpose = "cryptoRandom for state and Clock for the expiry"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "0-E14-T12"
+purpose = "Check in the target profile test-org.yaml"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "0-E14-T13"
+purpose = "make contract-record and make contract for the real recording"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E14-T13"
+purpose = "Suites TriggerSource and SCMProvider against real cassettes"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "0-E14-T13"
+purpose = "contract-attestation.json and fixturesHash in both manifests"

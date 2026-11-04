@@ -1,0 +1,267 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Every gate of `make check`, split into CI jobs by the column ci_job of
+# quality/gates.toml (FE-026); tools/ci/gates.py checks this file against it.
+# ci-ok is the only required check (FE-027): it runs always and decides with
+# tools/ci/ci_ok.py, so a skipped job never counts as passed.
+#
+# Exactly one of the deny jobs runs (docs/quality/push-discipline.md):
+# denylist with the private list from the environment denylist for pull
+# requests from this repository by a person, pushes and manual runs;
+# denylist-fork with the generic rules alone and without secrets for pull
+# requests from forks and bots. They run make with the system python3 only
+# (the scanner uses the standard library), without cache and dependencies.
+#
+# Actions are pinned to the commit of a release tag, read from the GitHub API
+# of the vendor on 2026-11-01 (GET repos/<owner>/<repo>/git/ref/tags/<tag>):
+#   actions/checkout         v7.0.1  3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/setup-node       v7.1.0  949feb2413d6458794dcd2491c4babbbce0c15c1
+#   actions/cache            v6.1.0  55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+#   actions/upload-artifact  v7.0.2  cf430e030ddbb5b0abf93d22962f4752f3646cd9
+#
+# Caches: the pnpm store (.tools/pnpm-store, storeDir in pnpm-workspace.yaml)
+# and the uv cache (.tools/uv-cache, UV_CACHE_DIR in the Makefile). The lockfile
+# hashes are checked when a package is downloaded, not when it is restored
+# from the cache: a changed cache entry is used as it is. GitHub restores only
+# caches of the same branch, of the base branch and of the default branch; a
+# pull request run writes to the scope of its merge ref only. So only a run on
+# main can write a cache that other runs restore: the remaining risk lies with
+# whoever can run a workflow on main. Tool binaries in .tools/bin are not
+# cached: tools/bootstrap/fetch.py checks their checksums when it downloads
+# them.
+#
+# Values from the event reach run steps only through env (FE-024).
+
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ts:
+    name: ts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/pnpm-store
+            .tools/uv-cache
+          key: deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'uv.lock', '.python-version') }}
+      - name: Bootstrap
+        run: make bootstrap
+      - name: Gates of the job ts
+        run: make check-ts
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-ts
+          path: .reports/junit-ts.xml
+          include-hidden-files: true
+          if-no-files-found: error
+
+  tools:
+    name: tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # Full history: commitlint checks the commits of the pull request or push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/pnpm-store
+            .tools/uv-cache
+          key: deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'uv.lock', '.python-version') }}
+      - name: Bootstrap
+        run: make bootstrap
+      # There is no local branch main in CI, so the default main..HEAD of
+      # COMMIT_RANGE cannot be used; commit_range.py prints the commits of
+      # the pull request or push.
+      - name: Gates of the job tools
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          range="$(python3 tools/ci/commit_range.py)"
+          make check-tools COMMIT_RANGE="$range"
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-tools
+          path: .reports/junit-tools.xml
+          include-hidden-files: true
+          if-no-files-found: error
+
+  security:
+    name: security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # Full history: gitleaks scans the commits of the pull request or push,
+      # osv compares against the base commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/pnpm-store
+            .tools/uv-cache
+          key: deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'uv.lock', '.python-version') }}
+      - name: Bootstrap
+        run: make bootstrap
+      # Pull request: secrets in the commits of the PR, only vulnerabilities
+      # the PR adds. Push: the pushed commits (all on the first push), every
+      # vulnerability. Manual run: the whole history, every vulnerability.
+      - name: Gates of the job security
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          osv_base=""
+          case "$EVENT_NAME" in
+            pull_request)
+              log_opts="$PR_BASE_SHA..$PR_HEAD_SHA"
+              osv_base="$PR_BASE_SHA"
+              ;;
+            push)
+              if [ "$PUSH_BEFORE" = 0000000000000000000000000000000000000000 ]; then
+                log_opts="--all"
+              else
+                log_opts="$PUSH_BEFORE..$PUSH_AFTER"
+              fi
+              ;;
+            *) log_opts="--all" ;;
+          esac
+          make check-security GITLEAKS_LOG_OPTS="$log_opts" OSV_BASE="$osv_base"
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-security
+          path: .reports/junit-security.xml
+          include-hidden-files: true
+          if-no-files-found: error
+
+  denylist:
+    name: denylist
+    # Pull requests from this repository by a person, pushes and manual runs.
+    if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: denylist
+    steps:
+      # Full history: the scanner checks the commits of the pull request or push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The secrets go into files readable by the job user only and never
+      # into an argument; only this step sees them.
+      - name: Write the private list and the allowed identities
+        env:
+          DENYLIST: ${{ secrets.DENYLIST }}
+          ALLOW_AUTHORS: ${{ secrets.ALLOW_AUTHORS }}
+        run: |
+          if [ -z "$DENYLIST" ] || [ -z "$ALLOW_AUTHORS" ]; then
+            echo "denylist.secret_missing: the environment denylist needs the secrets DENYLIST and ALLOW_AUTHORS" >&2
+            exit 2
+          fi
+          umask 077
+          mkdir -p "$RUNNER_TEMP/denylist"
+          printf '%s\n' "$DENYLIST" > "$RUNNER_TEMP/denylist/list"
+          printf '%s\n' "$ALLOW_AUTHORS" > "$RUNNER_TEMP/denylist/authors"
+      # The mode pr runs only when PR_TITLE is set, so a push unsets it.
+      - name: Gate of the job denylist
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ "$EVENT_NAME" != pull_request ]; then unset PR_TITLE PR_BODY; fi
+          range="$(python3 tools/ci/commit_range.py)"
+          export DENYLIST_FILE="$RUNNER_TEMP/denylist/list"
+          export ALLOW_AUTHORS_FILE="$RUNNER_TEMP/denylist/authors"
+          make denylist COMMIT_RANGE="$range"
+
+  denylist-fork:
+    name: denylist-fork
+    # Pull requests from forks and bots: generic rules only, no secrets.
+    if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Gate of the job denylist with the generic rules
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          range="$(python3 tools/ci/commit_range.py)"
+          make denylist DENYLIST_FLAGS=--allow-missing COMMIT_RANGE="$range"
+
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [ts, tools, security, denylist, denylist-fork]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Decide from the results of the needed jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 tools/ci/ci_ok.py

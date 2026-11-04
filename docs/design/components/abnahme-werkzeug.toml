@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "abnahme-werkzeug"
+title = "Acceptance matrix and collective run of the contract suites"
+kind = "tool"
+path = "tools/acceptance/"
+stage = "0"
+purpose = "Acceptance matrix per stage as TOML with the check tool check.py, which proves each named test and its green state on main, and a collective run of the contract suites with a report (FE-635); builds no suite and no test itself."
+design = ["06-installation-operations-ui.md#810-acceptance-matrix", "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"]
+built_by = ["0-E22-T02", "0-E22-T05"]
+
+[[provides]]
+name = "abnahme-matrix"
+kind = "file"
+title = "tools/acceptance/stage-<stage>.toml with [[kriterium]] id, text, tests, aufgabe (stages 0 and 0b; later stages in the same format)"
+defined_in = "06-installation-operations-ui.md#810-acceptance-matrix"
+from_task = "0-E22-T02"
+
+[[provides]]
+name = "acceptance-check"
+kind = "cli"
+title = "tools/acceptance/check.py --stage <s> --junit <dir>"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E22-T02"
+
+[[provides]]
+name = "contracts-report"
+kind = "cli"
+title = "acceptance.yml job acceptance-contracts and contracts_report.py with suite version and fixture hash per plugin and driver"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E22-T05"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "0-E22-T02"
+purpose = "JUnit reports of the jobs on main"
+
+[[uses]]
+interface = "ci-workflows/junit-artefakte"
+from_task = "0-E22-T02"
+purpose = "check.py loads the artifacts junit-<job> of the latest run on main (00 FE-062)"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "0-E22-T02"
+purpose = "Required cases S1 to S8 as test names of the matrix"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "0-E22-T02"
+purpose = "ruff and mypy for tools/acceptance"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E22-T05"
+purpose = "Contract suites of the five plugin kinds"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "0-E22-T05"
+purpose = "Contract suites of the drivers"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "0-E22-T05"
+purpose = "Suite version and fixture hash per plugin"

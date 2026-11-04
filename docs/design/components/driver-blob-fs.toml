@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "driver-blob-fs"
+title = "BlobStore fs"
+kind = "driver"
+path = "drivers/blob-fs/"
+package = "@guildwork/driver-blob-fs"
+stage = "0"
+purpose = "BlobStore on a local directory for single-host and tests: atomic writes, etag as SHA-256, list with cursor. Without PRESIGN, VERSIONING, OBJECT_LOCK and SSE_KMS; retainUntil is rejected so that nobody assumes Object Lock (FE-416), therefore no sink for the daily anchor."
+design = [
+  "04-effects-audit-credentials.md#242-blobstore-fs",
+  "04-effects-audit-credentials.md#241-loading-and-capabilities",
+]
+built_by = ["0-E03-T02"]
+
+[[provides]]
+name = "blob-store"
+kind = "contract"
+title = "BlobStore contract (05 section 2.11.7) as driver fs with manifest and passed contract suite"
+defined_in = "04-effects-audit-credentials.md#242-blobstore-fs"
+from_task = "0-E03-T02"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "installation.yaml: blob: { driver: fs, path }"
+defined_in = "04-effects-audit-credentials.md#242-blobstore-fs"
+from_task = "0-E03-T02"
+
+[[provides]]
+name = "ablage"
+kind = "file"
+title = "Storage in the directory: key as path, metadata in <key>.meta.json"
+defined_in = "04-effects-audit-credentials.md#242-blobstore-fs"
+from_task = "0-E03-T02"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E03-T02"
+purpose = "Implement BlobStore"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E03-T02"
+purpose = "DriverManifest with license and contractSuite"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E03-T02"
+purpose = "Result and PluginError"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E03-T02"
+purpose = "etag as SHA-256"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "0-E03-T02"
+purpose = "Suite blob-store against fs"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "0-E03-T02"
+purpose = "runContractSuite and attestation"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E03-T02"
+purpose = "blob.driver fs and blob.path in the schema"

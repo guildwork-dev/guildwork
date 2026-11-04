@@ -1,0 +1,295 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "cli"
+title = "Installer CLI guildwork: scaffold, SEA binary, bundle and signature check, small commands"
+kind = "program"
+path = "apps/cli/"
+package = "@guildwork/cli"
+stage = "0"
+purpose = "Command guildwork as a Node SEA binary with a shared scaffold (options, output, error codes, Compose wrapper, bundle and digest check) and the commands upgrade, worker register, github-app create, admin break-glass, config validate and version; install and doctor are separate components (cli-install, cli-doctor), backup and restore belong to backup-restore."
+design = ["06-installation-operations-ui.md#24-installer-cli-guildwork", "06-installation-operations-ui.md#243-guildwork-upgrade", "06-installation-operations-ui.md#246-guildwork-worker-register", "06-installation-operations-ui.md#247-guildwork-github-app-create", "06-installation-operations-ui.md#248-further-commands", "06-installation-operations-ui.md#249-internal-commands-internal-cli", "06-installation-operations-ui.md#210-upgrade-and-way-back", "06-installation-operations-ui.md#43-github-app-via-manifest-flow-cli", "06-installation-operations-ui.md#44-upgrade"]
+built_by = ["0-E18-T05", "0-E18-T06", "0-E18-T12", "0-E18-T13", "0-E18-T14", "0-E18-T15", "0-E21-T04", "8-E05-T02"]
+
+[[provides]]
+name = "cli-geruest"
+kind = "ts-api"
+title = "ExitCode, StepStatus, StepEvent, CliErrorCode GW-CLI-nnn, prompt helper with --yes, abort without a terminal, rejection of secret options"
+defined_in = "06-installation-operations-ui.md#24-installer-cli-guildwork"
+from_task = "0-E18-T05"
+
+[[provides]]
+name = "ndjson-ausgabe"
+kind = "file"
+title = "Output --json: one StepEvent line per step (NDJSON), never secrets except marked fields"
+defined_in = "06-installation-operations-ui.md#24-installer-cli-guildwork"
+from_task = "0-E18-T05"
+
+[[provides]]
+name = "compose-client"
+kind = "ts-api"
+title = "ComposeClient (exec, run, up, pull, ps, inspect) and InternalCli.call for internal commands"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T05"
+
+[[provides]]
+name = "bundle-pruefung"
+kind = "ts-api"
+title = "Check of the bundle checksum against the built-in SHA-256 of the version (FE-605) and cosign verify-blob if present (FE-620)"
+defined_in = "06-installation-operations-ui.md#241-guildwork-install"
+from_task = "0-E18-T05"
+
+[[provides]]
+name = "release-manifest-typ"
+kind = "ts-api"
+title = "ReleaseManifest, CoreImage, ToolImage, ImageRef as a TypeBox schema (source of the JSON Schema of release.json, FE-644)"
+defined_in = "06-installation-operations-ui.md#210-upgrade-and-way-back"
+from_task = "0-E18-T05"
+
+[[provides]]
+name = "sea-binary"
+kind = "file"
+title = "CLI binaries linux-amd64 and linux-arm64 (Node SEA, fallback tarball according to FE-604), build apps/cli/build/sea.mjs"
+defined_in = "06-installation-operations-ui.md#24-installer-cli-guildwork"
+from_task = "0-E18-T05"
+
+[[provides]]
+name = "cmd-upgrade"
+kind = "cli"
+title = "guildwork upgrade --to <X.Y.Z> [--bundle] [--backup] [--drain-timeout] [--rollback]"
+defined_in = "06-installation-operations-ui.md#243-guildwork-upgrade"
+from_task = "0-E18-T12"
+
+[[provides]]
+name = "upgrade-sperren"
+kind = "ts-api"
+title = "apps/control-plane/src/migrate/guards.ts: migrateGateInputs (haltPoints from release.json, backupMaxAgeS) and migrateErrorHint for the locks of the migrator (no_recent_backup, halt_point_skipped; logic only in packages/db gates.ts, 01 FE-133) and the version lock of the orchestrator for unknown state machine versions (FE-624)"
+defined_in = "06-installation-operations-ui.md#210-upgrade-and-way-back"
+from_task = "0-E18-T12"
+
+[[provides]]
+name = "internal-cli.drain"
+kind = "cli"
+title = "internal-cli drain on|off|status with the number of active leases"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T12"
+
+[[provides]]
+name = "cmd-worker-register"
+kind = "cli"
+title = "guildwork worker register --pool --name [--single-operator] [--out] [--config-dir]: pool key exactly once; worker.yaml, egress.yaml and socket-proxy/policy.json for the remote worker (03 FE-328, FE-658), lines for worker.env"
+defined_in = "06-installation-operations-ui.md#246-guildwork-worker-register"
+from_task = "0-E18-T13"
+
+[[provides]]
+name = "internal-cli.pool-key"
+kind = "cli"
+title = "internal-cli pool-key create: key only on stdout, only the hash in the database; first caller install for the local worker"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T06"
+
+[[provides]]
+name = "cmd-github-app-create"
+kind = "cli"
+title = "guildwork github-app create [--org] [--name] [--callback-port] [--paste-code]: manifest flow without the admin UI"
+defined_in = "06-installation-operations-ui.md#247-guildwork-github-app-create"
+from_task = "0-E18-T14"
+
+[[provides]]
+name = "cmd-github-app-create-dispatch"
+kind = "cli"
+title = "guildwork github-app create --dispatch --repo <runnerRepo>: dispatch app via manifest flow only with actions write (FE-1354)"
+defined_in = "13-stage-8-providers-and-bases.md#252-broker-profile-dispatch-and-dispatch-app"
+from_task = "8-E05-T02"
+
+[[provides]]
+name = "internal-cli.github"
+kind = "cli"
+title = "internal-cli github manifest and secret put <ref> (value via stdin)"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T14"
+
+[[provides]]
+name = "cmd-admin-break-glass"
+kind = "cli"
+title = "guildwork admin break-glass reset|lock|unlock"
+defined_in = "06-installation-operations-ui.md#248-further-commands"
+from_task = "0-E18-T15"
+
+[[provides]]
+name = "cmd-admin-login"
+kind = "cli"
+title = "guildwork admin login --url [--out] [--callback-port] [--paste-code] and guildwork admin session [--role] [--ttl-min] [--out]: session file 0600 for admin API clients such as guildwork-eval (FE-653)"
+defined_in = "06-installation-operations-ui.md#262-session-for-the-command-line"
+from_task = "0-E18-T15"
+
+[[provides]]
+name = "cmd-config-validate"
+kind = "cli"
+title = "guildwork config validate [--file]: installation.yaml against installation.schema.json with key and line"
+defined_in = "06-installation-operations-ui.md#248-further-commands"
+from_task = "0-E18-T15"
+
+[[provides]]
+name = "cmd-version"
+kind = "cli"
+title = "guildwork version: CLI, bundle and installed version, release date, version age"
+defined_in = "06-installation-operations-ui.md#248-further-commands"
+from_task = "0-E18-T15"
+
+[[provides]]
+name = "image-digest-pruefung"
+kind = "ts-api"
+title = "verifyImages: hard only digests from the verified release.json (GW-CLI-032), soft cosign verify per digest (FE-620); used by install, upgrade, doctor"
+defined_in = "06-installation-operations-ui.md#212-supply-chain-and-release"
+from_task = "0-E21-T04"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E18-T05"
+purpose = "Result type in parser and steps"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E18-T05"
+purpose = "sha256Hex for bundle and file checksums"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E18-T05"
+purpose = "TypeBox and compileSchema for ReleaseManifest"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/paket-vorlage"
+from_task = "0-E18-T05"
+purpose = "Structure of apps/cli as a package"
+
+[[uses]]
+interface = "schichtenpruefung/new-package"
+from_task = "0-E18-T05"
+purpose = "Create apps/cli with an entry in layers.toml"
+
+[[uses]]
+interface = "admin-api/internal-cli-rahmen"
+from_task = "0-E18-T06"
+purpose = "Register internal-cli pool-key create in the command registry"
+
+[[uses]]
+interface = "credential-broker/pool-keys"
+from_task = "0-E18-T06"
+purpose = "createPoolKey for internal-cli pool-key create"
+
+[[uses]]
+interface = "db-migrator/migrator"
+from_task = "0-E18-T12"
+purpose = "migrate locks in guards.ts before the migrations"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.backup-runs"
+from_task = "0-E18-T12"
+purpose = "Lock no_recent_backup reads the latest successful backup"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.schema-state"
+from_task = "0-E18-T12"
+purpose = "Halt point and schema check in migrate"
+
+[[uses]]
+interface = "migration-lint/lint"
+from_task = "0-E18-T12"
+purpose = "Rule against ALTER EXTENSION vector UPDATE"
+
+[[uses]]
+interface = "control-plane-orchestrator/upgrade-lift"
+from_task = "0-E18-T12"
+purpose = "Lifting open runs before the migrations"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "0-E18-T12"
+purpose = "Version lock for runs of an unknown state machine version"
+
+[[uses]]
+interface = "work-api/drain"
+from_task = "0-E18-T12"
+purpose = "internal-cli drain on, off, status"
+
+[[uses]]
+interface = "backup-restore/internal-cli.backup-status"
+from_task = "0-E18-T12"
+purpose = "Check for a fresh backup before the upgrade"
+
+[[uses]]
+interface = "backup-restore/cmd-backup"
+from_task = "0-E18-T12"
+purpose = "upgrade --backup calls guildwork backup --kind pre_upgrade"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0-E18-T12"
+purpose = "doctor after the rollout"
+
+[[uses]]
+interface = "cli-install/zielordner"
+from_task = "0-E18-T12"
+purpose = "compose.prev.yaml and release.prev.json in the target folder"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "0-E18-T12"
+purpose = "Write compose.yaml of the target version"
+
+[[uses]]
+interface = "control-plane/health"
+from_task = "0-E18-T12"
+purpose = "GET /readyz after the rollout"
+
+[[uses]]
+interface = "worker-paket/worker-env"
+from_task = "0-E18-T13"
+purpose = "Output lines for worker.env"
+
+[[uses]]
+interface = "plugin-github/app-manifest-flow"
+from_task = "0-E18-T14"
+purpose = "buildAppManifest for internal-cli github manifest"
+
+[[uses]]
+interface = "plugin-github/audit-app-anlage"
+from_task = "0-E18-T14"
+purpose = "Audit github.app_created after secret put"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E18-T14"
+purpose = "SecretStore.put for internal-cli secret put"
+
+[[uses]]
+interface = "config-resolver/validate-file"
+from_task = "0-E18-T15"
+purpose = "config validate with key and line"
+
+[[uses]]
+interface = "config-installation/installation-schema"
+from_task = "0-E18-T15"
+purpose = "installation.schema.json as the basis of the check"
+
+[[uses]]
+interface = "admin-api/internal-cli.break-glass"
+from_task = "0-E18-T15"
+purpose = "admin break-glass reset, lock, unlock"
+
+[[uses]]
+interface = "release-werkzeuge/release-json"
+from_task = "0-E21-T04"
+purpose = "Digests and signature identity from the verified release.json"
+
+[[uses]]
+interface = "admin-api/cli-sitzung"
+from_task = "0-E18-T15"
+purpose = "admin login: approval in the browser and exchange of the one-time code"
+
+[[uses]]
+interface = "admin-api/internal-cli.admin-session"
+from_task = "0-E18-T15"
+purpose = "admin session: session on the host without a browser"

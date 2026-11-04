@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "dummy-service"
+title = "Dummy service end to end with failure paths"
+kind = "service"
+path = "services/dummy/"
+package = "@guildwork/service-dummy"
+stage = "0"
+purpose = "Service without domain logic and without an LLM (default) that proves the whole chain of stage 0 from the comment to the effect in mode record, with a harness mode against a fake upstream, the end-to-end tests of the failure paths and the probe run of the assistant; never live (policy dummy.never_live)."
+design = ["06-installation-operations-ui.md#28-dummy-service", "06-installation-operations-ui.md#42-dummy-service-end-to-end", "06-installation-operations-ui.md#85-dummy-service-end-to-end", "06-installation-operations-ui.md#5-failure-and-abort-paths"]
+built_by = ["0-E16-T01", "0-E16-T02", "0-E16-T04", "0-E16-T05", "0-E16-T06", "0-E16-T07", "1-E08-T05"]
+
+[[provides]]
+name = "manifest"
+kind = "contract"
+title = "ServiceManifest dummy: command dummy (text, mode, fail), effect only propose_comment, minIsolation gvisor, egress empty, platform MCP run.context and repo.read_file"
+defined_in = "06-installation-operations-ui.md#28-dummy-service"
+from_task = "0-E16-T01"
+
+[[provides]]
+name = "befehl-dummy"
+kind = "event"
+title = "Command @agent dummy <text> on issue or PR (minimum permission write); route and controller with exactly one step dummy.run"
+defined_in = "06-installation-operations-ui.md#28-dummy-service"
+from_task = "0-E16-T01"
+
+[[provides]]
+name = "dummy-typen"
+kind = "ts-api"
+title = "DummyInput and DummyOutput"
+defined_in = "06-installation-operations-ui.md#28-dummy-service"
+from_task = "0-E16-T01"
+
+[[provides]]
+name = "dummy-konfig"
+kind = "config"
+title = "services.dummy.mode (off, shadow; live forbidden by the schema), policy rule dummy.never_live, fail only with GW_TEST_MODE=1"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E16-T01"
+
+[[provides]]
+name = "dummy-job"
+kind = "file"
+title = "Sandbox job job/dummy-job.mjs with out.json (DummyOutput), variants fail exit and fail hang"
+defined_in = "06-installation-operations-ui.md#28-dummy-service"
+from_task = "0-E16-T02"
+
+[[provides]]
+name = "harness-prompt"
+kind = "prompt"
+title = "Fixed prompt services/dummy/prompts/harness.md with schema { ok, path } for the mode harness"
+defined_in = "06-installation-operations-ui.md#28-dummy-service"
+from_task = "0-E16-T07"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "0-E16-T01"
+purpose = "defineService for the dummy"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "0-E16-T01"
+purpose = "ServiceController of the dummy"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "0-E16-T01"
+purpose = "Registration in the service loader of the control plane"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "0-E16-T01"
+purpose = "Schema services/dummy.ts with mode off and shadow"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "0-E16-T01"
+purpose = "Rule dummy.never_live"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "0-E16-T01"
+purpose = "fail only with GW_TEST_MODE, effect only propose_comment"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "0-E16-T01"
+purpose = "Command @agent dummy with arguments"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E16-T01"
+purpose = "text as Untrusted in the envelope"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E16-T01"
+purpose = "SandboxSpec of the work item"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "0-E16-T01"
+purpose = "Work item dummy.run with inline input"
+
+[[uses]]
+interface = "sdk-service/plattform-mcp-client"
+from_task = "0-E16-T02"
+purpose = "Call the platform MCP from the job"
+
+[[uses]]
+interface = "plattform-mcp/run.context"
+from_task = "0-E16-T02"
+purpose = "Read DummyInput from the envelope"
+
+[[uses]]
+interface = "plattform-mcp/repo"
+from_task = "0-E16-T02"
+purpose = "repo.read_file for the read proof"
+
+[[uses]]
+interface = "plattform-mcp/propose"
+from_task = "0-E16-T02"
+purpose = "propose_comment"
+
+[[uses]]
+interface = "testkit/fake-platform-mcp"
+from_task = "0-E16-T02"
+purpose = "Job tests against the platform MCP fake"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "0-E16-T04"
+purpose = "Job runs in sandbox-base"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "0-E16-T04"
+purpose = "End-to-end cases"
+
+[[uses]]
+interface = "plugin-github-trigger/webhook-fixtures"
+from_task = "0-E16-T04"
+purpose = "signed webhook issue_comment"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "0-E16-T04"
+purpose = "Intake of the webhook"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "0-E16-T04"
+purpose = "Effect shadowed and eval log in mode record"
+
+[[uses]]
+interface = "testkit/effects-probe"
+from_task = "0-E16-T04"
+purpose = "expectRecordedEffects in the happy path"
+
+[[uses]]
+interface = "audit-kette/verify-chain"
+from_task = "0-E16-T04"
+purpose = "Verify the audit chain of the run"
+
+[[uses]]
+interface = "telemetry/start"
+from_task = "0-E16-T04"
+purpose = "one trace from the event to the effect"
+
+[[uses]]
+interface = "control-plane-ingress/metriken"
+from_task = "0-E16-T05"
+purpose = "Counter duplicate in the dedupe case"
+
+[[uses]]
+interface = "work-api/metriken"
+from_task = "0-E16-T05"
+purpose = "Counter lease_expired"
+
+[[uses]]
+interface = "effect-gateway/idempotency-key"
+from_task = "0-E16-T05"
+purpose = "one effect despite repetition"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "0-E16-T06"
+purpose = "Reservation too small in the case limit-abort"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "0-E16-T06"
+purpose = "cancel in the heartbeat on overrun"
+
+[[uses]]
+interface = "limit-ledger/metriken"
+from_task = "0-E16-T06"
+purpose = "Ledger counters before and after"
+
+[[uses]]
+interface = "plugin-claude-code/install"
+from_task = "0-E16-T07"
+purpose = "pinned harness version in mode harness"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "0-E16-T07"
+purpose = "AgentRuntime.run with fixed prompt and schema"
+
+[[uses]]
+interface = "claude-code-startwege/launch-export"
+from_task = "0-E16-T07"
+purpose = "Managed settings and mcp.json of the sandbox"
+
+[[uses]]
+interface = "testkit/fake-anthropic"
+from_task = "0-E16-T07"
+purpose = "Fake LLM upstream behind the credential relay in mode harness"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "0-E16-T07"
+purpose = "Placeholder and forwarding to the fake upstream"
+
+[[uses]]
+interface = "not-aus/kill-switch-gate"
+from_task = "1-E08-T05"
+purpose = "Kill switch service dummy in the end-to-end case"

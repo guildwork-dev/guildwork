@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-sentry"
+title = "TriggerSource sentry"
+kind = "plugin"
+path = "plugins/sentry/"
+package = "@guildwork/plugin-sentry"
+stage = "10"
+purpose = "TriggerSource for Seer events from Sentry, mapped to the same event and the same body as incident-handoff; signature headers and fields are unverified and are verified in 10-E03-T02 against documentation and recording. No handoff logic of its own (it lives in incident/intake)."
+design = [
+  "15-stage-10-edge-layers.md#252-plugin-sentry",
+  "15-stage-10-edge-layers.md#253-route-with-a-responsible-person-and-handover",
+  "15-stage-10-edge-layers.md#83-incident-handoff-10-e03",
+]
+built_by = ["10-E03-T02", "10-E03-T03"]
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource sentry: verify (HMAC, strength per FE-1524), parse only Seer events, mapping to IncidentHandoffBodyV1 and event incident.handoff"
+defined_in = "15-stage-10-edge-layers.md#252-plugin-sentry"
+from_task = "10-E03-T02"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "SentryConfig under plugins.triggers[sentry] (client_secret_ref, scm, project_repos, tolerance_s, ticket)"
+defined_in = "15-stage-10-edge-layers.md#252-plugin-sentry"
+from_task = "10-E03-T02"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "10-E03-T02"
+purpose = "TriggerSource v1alpha1"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "10-E03-T02"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "10-E03-T02"
+purpose = "PluginManifest with SecretDecl client_secret_ref"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "10-E03-T02"
+purpose = "Seer root cause and proposed solution as untrusted"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "10-E03-T02"
+purpose = "Time window, if a signed timestamp is verified"
+
+[[uses]]
+interface = "plugin-incident-handoff/koerper-v1"
+from_task = "10-E03-T02"
+purpose = "Mapping to IncidentHandoffBodyV1"
+
+[[uses]]
+interface = "plugin-incident-handoff/ereignis-alert-handoff"
+from_task = "10-E03-T02"
+purpose = "The same event subject incident, action handoff"
+
+[[uses]]
+interface = "plugin-incident-handoff/event-feld-incident"
+from_task = "10-E03-T02"
+purpose = "Field incident with key sentry:<issue-id>"
+
+[[uses]]
+interface = "plugin-incident-handoff/konfig"
+from_task = "10-E03-T02"
+purpose = "Type ticket from IncidentHandoffConfig"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "10-E03-T02"
+purpose = "Client secret of the Sentry integration"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "10-E03-T02"
+purpose = "Load the plugin as BuiltinPluginPackage"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "10-E03-T02"
+purpose = "Abstract suite TriggerSource"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "10-E03-T02"
+purpose = "Contract suite sentry"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "10-E03-T02"
+purpose = "Recorded Seer events with headers"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "10-E03-T02"
+purpose = "Recording profile of the owner account"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "10-E03-T03"
+purpose = "sentry fixture in E2E via the same flow"

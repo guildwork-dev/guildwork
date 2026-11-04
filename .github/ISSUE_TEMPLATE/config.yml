@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/guildwork-dev/guildwork/security/advisories/new
+    about: Private Vulnerability Reporting is the only channel for vulnerabilities. Never open a public issue for them.
+  - name: Ask a question
+    url: https://github.com/guildwork-dev/guildwork/discussions
+    about: Questions about using or extending Guildwork go to Discussions.

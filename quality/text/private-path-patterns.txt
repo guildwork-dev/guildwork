@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Link targets that tools/hooks/links.py reports as private, one Python regular
+# expression per line. Each is searched in the link target as written and in
+# the target resolved to a path from the repository root.
+
+# Local files and home directories of a machine.
+^file:
+^~
+^/(?:Users|home)/
+^[A-Za-z]:[\\/]
+# Planning documents of the maintainers, kept outside this repository; their
+# public, translated versions live under docs/architecture/, docs/design/ and
+# docs/research/.
+^docs/(?:architektur|feinentwurf|recherche|referenz-installation)(?:/|$)

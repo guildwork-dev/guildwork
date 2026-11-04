@@ -1,0 +1,1260 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area qa of stage 3. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "3"
+
+[[epic]]
+id = "3-E01"
+title = "QA service foundation"
+goal = "Service `qa` with contracts, mapping to apps, existing tests, path policy test paths only in the Effect Gateway, discovery check, and report as check `ai-qa`"
+sources = ["02 section 5"]
+depends_on = ["2-E07"]
+
+[[task]]
+id = "3-E01-T01"
+title = "Artifact contracts QARequest and QAReport"
+description = """TypeBox schemas for QARequest, QAReport, GeneratedTest, FilterOutcome, ClassifiedFailure, CatchFinding, ChangedLineCoverage in packages/contracts/src/artifacts/qa-report.ts per detailed design 11 section 2.2, with Ajv validation and invariants (verdict pass never with product_bug; accepted only with all filters green). In addition the service manifest services/qa/manifest.ts with the write requests from 02 section 0 (propose_check, propose_comment, propose_push only test or agent branch, propose_change, propose_dependency)."""
+design = ["11-qa-prfix-automerge.md#22-shared-artifact-types"]
+result = "packages/contracts/src/artifacts/qa-report.ts, services/qa/manifest.ts, packages/contracts/test/qa-report.test.ts"
+done = ["Test 'QAReport schema rejects verdict pass with product_bug' green", "Test 'GeneratedTest without filters is never accepted' green", "Manifest loads in the plugin and service loader without errors (test 'qa manifest loads')", "make check green"]
+sources = ["02 section 0", "02 section 5", "01 section 14", "03 section 1a item 3"]
+depends_on = ["0-E13"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T01-S01"
+  title = "Test: schema invariants of QAReport"
+  done = "Tests red because the schema is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T01-S02"
+  title = "Schemas and types in contracts"
+  done = "Schema tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T01-S03"
+  title = "Service manifest qa with write requests"
+  done = "Test 'qa manifest loads' green; write requests equal to 02 section 0"
+  status = "open"
+
+[[task]]
+id = "3-E01-T02"
+title = "Service scaffold qa: controller, routes, single-service run"
+description = """services/qa with a deterministic controller (plan, onStepResult, buildReport) per detailed design 11 section 2.3 and phases from section 4.4. Triggers: change.proposed in the pipeline (state verifying in parallel with the reviewer), commands `@agent qa [unit|repro|e2e]` and `@agent tests` (alias for unit) via routing, mode off/shadow/live with a visible answer when off (Skipped(service_disabled)). A single-service run ends in done after the last effect (03 section 2.1). Object lock: a second event becomes a follow-up job (ADR-68)."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#44-states-of-a-qa-run"]
+result = "services/qa/src/controller.ts, services/qa/src/index.ts, services/qa/test/controller.test.ts, route entry in the schema"
+done = ["Test 'qa off answers visibly Skipped(service_disabled)' green", "Test 'single-service run qa ends in done' green", "Test 'second @agent qa on the same PR becomes a follow-up job' green", "S4 case 'QA alone on, all others off' green"]
+sources = ["02 section 5", "03 section 2.1", "03 section 2.5", "03 section 4", "ADR-68"]
+depends_on = ["3-E01-T01", "0-E05", "0-E16", "0-E20-T21"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T02-S01"
+  title = "Test: controller phases per table 4.4"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T02-S02"
+  title = "Controller and phase transitions"
+  done = "Phase tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T02-S03"
+  title = "Routes and commands qa, tests with permission check"
+  done = "Test 'command without write access is rejected' green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T02-S04"
+  title = "Mode off, shadow, live and S4 case"
+  done = "S4 case green; shadow writes only to the eval log"
+  status = "open"
+
+[[task]]
+id = "3-E01-T03"
+title = "Mapping to apps, test command and existing tests"
+description = """services/qa/src/apps.ts: diff against qa.apps[].path_patterns (an empty list means the repo as one app), test command per FE-1105 (test_command at the base SHA, otherwise blueprint entry test, otherwise detection per ecosystem). Step existing runs the existing tests of the affected apps in a check sandbox and returns a JUnit report and coverage before. Without a test command, verdict blocked with no_test_command."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/apps.ts, services/qa/src/steps/existing-tests.ts, services/qa/test/apps.test.ts"
+done = ["Test 'diff in web/** selects app web' green", "Test 'test_command comes from the base SHA, not from the head' green", "Test 'without test command blocked with no_test_command, check neutral' green"]
+sources = ["02 section 5 steps 1 and 2", "04 section 4", "ADR-17"]
+depends_on = ["3-E01-T02", "0-E12"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T03-S01"
+  title = "Test: mapping and base SHA rule"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T03-S02"
+  title = "apps.ts with detection of the test command"
+  done = "Mapping tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T03-S03"
+  title = "Step existing in the check sandbox"
+  done = "Fixture repo returns a JUnit report; failure path no_test_command green"
+  status = "open"
+
+[[task]]
+id = "3-E01-T04"
+title = "Path policy of QA in the Effect Gateway"
+description = """Policy rule qa.test_paths in the Effect Gateway (FE-1106, section 6): propose_push of QA only to agent/qa/* or the agent branch of the run, only paths from qa.test_paths; build manifests only on a match in qa.manifest_registration; production code never. Rejection as rejected_policy with rule ID, audit and comment."""
+design = ["11-qa-prfix-automerge.md#6-security"]
+result = "apps/control-plane/src/effects/policy/qa-paths.ts, apps/control-plane/test/effects/qa-path-policy.test.ts"
+done = ["Test 'push with a file outside test_paths becomes rejected_policy' green", "Test 'manifest only with registration allowlist' green", "Test 'push to a human branch is rejected' green", "Failure path: audit entry and comment 'blocked by rule qa.test_paths' checked"]
+sources = ["02 section 0", "02 section 5 path policy", "05 section 2"]
+depends_on = ["3-E01-T01", "0-E09", "3-E01-T09"]   # 3-E01-T09 added: key services.qa for the checker qa.test_paths (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T04-S01"
+  title = "Test: path policy green and red"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T04-S02"
+  title = "Policy rule qa.test_paths"
+  done = "Policy tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T04-S03"
+  title = "Audit and visible comment on rejection"
+  done = "Failure path test green"
+  status = "open"
+
+[[task]]
+id = "3-E01-T05"
+title = "Discovery check via JUnit report"
+description = """services/qa/src/filters/discovery.ts and src/tools/junit.ts per FE-1102: the app's standard test command is run with a JUnit reporter; a candidate counts only if its test ID appears with status passed in the report. List mode per runner (pytest --collect-only, go test -list, jest --listTests, dotnet test --list-tests) only as a speed-up. Fixture repos for TypeScript, Python, Go, .NET."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/filters/discovery.ts, services/qa/src/tools/junit.ts, services/qa/test/discovery.test.ts, services/qa/test/fixtures/discovery-*"
+done = ["Test 'a test that the standard command does not find does not count' green", "Test 'JUnit status skipped counts as not found' green", "one green case per fixture language"]
+sources = ["02 section 5 step 4", "10 section 7", "research ebene-qa-und-tests section 2.2 F7"]
+depends_on = ["3-E01-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T05-S01"
+  title = "Test: test not found and test skipped"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T05-S02"
+  title = "JUnit reader and discovery filter"
+  done = "Discovery tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T05-S03"
+  title = "Fixtures TypeScript, Python, Go, .NET"
+  done = "one green case per language"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T05-S04"
+  title = "List mode as a speed-up"
+  done = "Result with and without list mode the same (test)"
+  status = "open"
+
+[[task]]
+id = "3-E01-T06"
+title = "Report as check ai-qa and comment"
+description = """services/qa/src/output/check.ts per FE-1107: check ai-qa with pass -> success, fail -> failure, blocked -> neutral with reason; errors of the run always neutral, never a silent green. Comment with a table of the tests, filter reasons, classes, evidence (links into the admin UI), coverage before and after. On operator deviation, the note 'default not proven' (ADR-47). Status comment line of the run."""
+design = ["11-qa-prfix-automerge.md#32-artifacts-events-markers"]
+result = "services/qa/src/output/check.ts, services/qa/src/output/comment.ts, services/qa/test/check.test.ts"
+done = ["Test 'error in the run yields neutral, never success' green", "Test 'deviation shows default not proven' green", "Test 'mapping pass, fail, blocked' green"]
+sources = ["02 section 5 step 8", "02 section 0", "ADR-47", "03 section 5"]
+depends_on = ["3-E01-T02", "0-E09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T06-S01"
+  title = "Test: check mapping and error case"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T06-S02"
+  title = "Check and comment via the Effect Gateway"
+  done = "Check tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T06-S03"
+  title = "Status comment line and note on the deviation"
+  done = "Note test green"
+  status = "open"
+
+[[task]]
+id = "3-E01-T07"
+title = "Coverage of changed lines before and after"
+description = """CoverageTool adapters lcov (istanbul, c8), cobertura (coverage.py), go-cover, jacoco per detailed design 11 section 2.3 with the normal form ChangedLineCoverage on the changed lines of the head. Runs in the check sandbox, report as an artifact in the BlobStore with a secret scan before storage."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/tools/coverage/*.ts, services/qa/test/coverage.test.ts"
+done = ["Test 'coverage counted only on changed lines' green per adapter", "Test 'missing report yields coverage null, no crash' green"]
+sources = ["02 section 5 output", "10 section 7"]
+depends_on = ["3-E01-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T07-S01"
+  title = "Test: normal form on fixture reports"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T07-S02"
+  title = "Adapters lcov and cobertura"
+  done = "two adapters green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T07-S03"
+  title = "Adapters go-cover and jacoco, failure path"
+  done = "all adapters and failure path green"
+  status = "open"
+
+[[task]]
+id = "3-E01-T08"
+title = "Provenance of the QA inputs (foreign_input_seen)"
+description = """QA reports every untrusted input from people that it has seen (PR text, comments, ticket text, commit messages of human commits) with author, permission and time in QAReport.untrustedInputs; the control plane takes them into the Run Record (mechanism from 2-E01). Basis for merge gate condition 12. CI logs and tool outputs stay untrusted but do not set the marker (section 6)."""
+design = ["11-qa-prfix-automerge.md#6-security"]
+result = "services/qa/src/provenance.ts, services/qa/test/provenance.test.ts"
+done = ["Test 'comment by a person without write access sets foreign_input_seen' green", "Test 'text edited after the trigger sets foreign_input_seen' green", "S1 case 'injection in test output creates no effect outside the command' green"]
+sources = ["ADR-60", "05 section 8", "03 section 1a condition 12"]
+depends_on = ["3-E01-T02", "2-E01"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "3-E01-T08-S01"
+  title = "Test: marker per input type"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T08-S02"
+  title = "Registration of the inputs and S1 case"
+  done = "Tests and S1 case green"
+  status = "open"
+
+[[task]]
+id = "3-E01-T09"
+title = "Configuration key services.qa in the schema"
+description = """All keys from detailed design 11 section 7 under services.qa in org.schema.json and repo.schema.json with type, default, inheritance (only tightening where needed) and the marker x-qualification. Resolver rule ADR-58: models.equivalence, models.classifier and models.catch_judge must point to a reachable ModelProvider, otherwise rejection on load."""
+design = ["11-qa-prfix-automerge.md#7-configuration"]
+result = "packages/config/schema/services/qa.ts, packages/config/test/qa-schema.test.ts"
+done = ["Schema test 'every key under services.qa is marked' green", "Test 'qa without a reachable equivalence judge is rejected on load' green", "S2 case 'unknown key under services.qa yields fail closed' green"]
+sources = ["04 sections 1, 3, 7", "ADR-58", "ADR-65", "ADR-66"]
+depends_on = ["0-E06"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M39 (QA keys catch, quarantine in the schema) is resolved here for the area qa."
+
+  [[task.part]]
+  id = "3-E01-T09-S01"
+  title = "Test: marker and resolver rule"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T09-S02"
+  title = "Schema services.qa"
+  done = "Schema tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E01-T09-S03"
+  title = "Resolver rule and fail closed"
+  done = "Resolver and S2 tests green"
+  status = "open"
+
+[[epic]]
+id = "3-E02"
+title = "Reproduction and unit tests with filters"
+goal = "Reproduction tests and unit tests from agent candidates that are delivered only via the filter chain (builds, discovery, passes 5 times, isolation, assertion audit, value via coverage or killed mutants); false healing 0 means here: a candidate never turns green by weakening an assertion"
+sources = ["02 section 5", "10 section 7"]
+depends_on = ["3-E01"]
+
+[[task]]
+id = "3-E02-T01"
+title = "Agent step generate_unit: generate candidates"
+description = """services/qa/src/steps/generate.ts for scope unit: AgentTask with nativeTools edit+shell via the building blocks from 2-E01, input diff, guidelines from the base SHA, acceptance criteria of the plan (optional), untrusted marked; output a bundle with test files only plus a structured candidate list (outputSchema). Prompts versioned (prompt_v per step). Budget from limits.service.qa."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/steps/generate.ts, services/qa/prompts/generate-unit.md, services/qa/test/generate.test.ts"
+done = ["Test 'candidate list violates schema yields schema_invalid and check neutral' green", "Test 'bundle with a file outside test_paths is discarded before the filter' green", "Test with recorded harness response returns candidates"]
+sources = ["02 section 5 step 4", "01 section 6", "03 section 5"]
+depends_on = ["3-E01-T02", "2-E01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E02-T01-S01"
+  title = "Test: schema errors and path errors"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T01-S02"
+  title = "AgentTask and prompt generate-unit"
+  done = "Test with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T01-S03"
+  title = "Failure paths schema_invalid and budget"
+  done = "Failure path tests green, check neutral"
+  status = "open"
+
+[[task]]
+id = "3-E02-T02"
+title = "Filter chain in a fresh check sandbox"
+description = """services/qa/src/steps/filter.ts and filters/{build,repeat,isolation,assertion-audit}.ts per FE-1101 and FE-1104: fresh sandbox from the same snapshot plus candidate bundle, role check, network none; order per the table in section 2.3 (build, discovery, repeat with qa.flake_runs and TZ/LANG variation, isolation_net, isolation_port, isolation_time, assertion_audit). Opengrep rules services/qa/rules/opengrep/qa-*.yaml (qa-net-literal, qa-fixed-port, qa-wallclock, qa-assert-empty, qa-assert-tautology, qa-assert-none, qa-skip-only) each with a positive and a negative fixture."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/steps/filter.ts, services/qa/src/filters/*.ts, services/qa/rules/opengrep/qa-*.yaml, services/qa/test/filters/*.test.ts"
+done = ["Test 'test with a network call fails under network none' green", "Test 'fixed port is detected by qa-fixed-port' green", "Test 'tautology is detected by qa-assert-tautology' green", "Test 'candidate passes 4 of 5 runs and is discarded' green", "opengrep --test over services/qa/rules green", "Test 'filter sandbox is destroyed in the failure path too' green"]
+sources = ["02 section 5 step 4", "10 section 7", "ADR-40", "ADR-50"]
+depends_on = ["3-E01-T05", "2-E05", "3-E02-T01"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "3-E02-T02-S01"
+  title = "Test: one green and one red case per filter"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T02-S02"
+  title = "Fresh check sandbox with bundle and network none"
+  done = "Sandbox test green, destroy in finally"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T02-S03"
+  title = "Filters build and repeat with TZ and LANG variation"
+  done = "repeat tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T02-S04"
+  title = "Opengrep rules with fixtures"
+  done = "opengrep --test green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T02-S05"
+  title = "Filter order and FilterOutcome in the report"
+  done = "all filter tests green"
+  status = "open"
+
+[[task]]
+id = "3-E02-T03"
+title = "Mutation adapters with normal form"
+description = """MutationTool adapters stryker-js, stryker-net, mutmut, pit, cargo-mutants per FE-1103 in services/qa/src/tools/mutation/, mutants only on changed lines, limits qa.mutation.max_mutants and timeout_min, output MutationReport. Verification task: read the output formats of mutmut, PIT and cargo-mutants and the license of the mutation-testing-report-schema at the source and set them from unverified to VERIFIED in the detailed design; check the licenses of the tools against the allowlist (ADR-50), otherwise operator_supplied."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#10-open-points"]
+result = "services/qa/src/tools/mutation/*.ts, services/qa/test/mutation/*.test.ts, license note in the tool manifest"
+done = ["per adapter test 'mutants only on changed lines' green", "Test 'timeout yields error status, no crash' green", "License and format per tool proven with source in the detailed design (diff in the PR)"]
+sources = ["02 section 5 step 4", "research ebene-qa-und-tests section 3", "ADR-50"]
+depends_on = ["3-E01-T03"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "3-E02-T03-S01"
+  title = "Verification task: formats and licenses at the source"
+  done = "Detailed design section 10 updated, unverified removed or justified"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T03-S02"
+  title = "Test: normal form per tool on fixtures"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T03-S03"
+  title = "Adapters stryker-js and stryker-net"
+  done = "two adapters green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T03-S04"
+  title = "Adapters mutmut, pit, cargo-mutants and limits"
+  done = "all adapters and timeout case green"
+  status = "open"
+
+[[task]]
+id = "3-E02-T04"
+title = "Value filter with equivalence judge"
+description = """services/qa/src/filters/value.ts: a candidate counts only if it covers new lines or branches of the changed lines or kills at least one non-equivalent mutant. EquivalenceJudge as a single ModelProvider call (models.equivalence, ADR-58); unsure counts as equivalent (FE-1103). Result in GeneratedTest.value."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/filters/value.ts, services/qa/src/judges/equivalence.ts, services/qa/test/value.test.ts"
+done = ["Test 'candidate without new coverage and without a killed mutant is discarded' green", "Test 'unsure from the equivalence judge does not count' green", "Test 'provider error of the judge yields discarded, never accepted' green"]
+sources = ["02 section 5 step 4", "ADR-58", "10 section 7"]
+depends_on = ["3-E02-T02", "3-E02-T03", "3-E01-T07", "0-E15"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E02-T04-S01"
+  title = "Test: value rule and unsure"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T04-S02"
+  title = "Equivalence judge via ModelProvider"
+  done = "Judge test with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T04-S03"
+  title = "Filter value and provider failure path"
+  done = "all value tests green"
+  status = "open"
+
+[[task]]
+id = "3-E02-T05"
+title = "Reproduction test (scope repro)"
+description = """Scope repro: for bug tickets (pipeline) or on command, an agent step generates a test that is red at the base commit and green with the fix (head); deterministic check in two check sandboxes (base, head) plus the filter chain. A candidate that is green at the base is discarded."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#41-qa-in-the-pipeline-unit-and-repro"]
+result = "services/qa/src/steps/repro.ts, services/qa/prompts/repro.md, services/qa/test/repro.test.ts"
+done = ["Test 'candidate green at base is discarded' green", "Test 'red at base, green at head is accepted' green", "Test 'base sandbox fails yields environment, verdict blocked' green"]
+sources = ["02 section 5 step 3", "07 section 3.5 Q1", "10 section 7"]
+depends_on = ["3-E02-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E02-T05-S01"
+  title = "Test: base and head run"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T05-S02"
+  title = "Agent step and prompt repro"
+  done = "Case with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T05-S03"
+  title = "Two check sandboxes and failure path"
+  done = "all repro tests green"
+  status = "open"
+
+[[task]]
+id = "3-E02-T06"
+title = "Repair of own candidates without weakening"
+description = """A candidate that fails a filter may be revised by the agent at most once; a deterministic comparison (AST) discards every revision that removes or weakens an assertion (such as toBe to toBeDefined) or sets skip. Belongs to the refined epic goal false healing 0."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/filters/no-weakening.ts, services/qa/test/no-weakening.test.ts"
+done = ["Test 'assertion removed in a revision is discarded' green", "Test 'toBe to toBeDefined is discarded' green", "Test 'second revision does not happen' green"]
+sources = ["02 section 5 step 6", "10 section 7"]
+depends_on = ["3-E02-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "3-E02-T06-S01"
+  title = "Test: weakenings per language"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E02-T06-S02"
+  title = "AST comparison and limit of one revision"
+  done = "Tests green"
+  status = "open"
+
+[[epic]]
+id = "3-E03"
+title = "E2E following the Playwright agents pattern"
+goal = "E2E tests with planner, generator and healer following the pattern of the Playwright Test Agents, without Playwright MCP (FE-1110), with a deterministic heal guard (false healing 0) and an E2E smoke library for the coder"
+sources = ["02 section 5"]
+depends_on = ["3-E01"]
+
+[[task]]
+id = "3-E03-T01"
+title = "E2E sandbox image and contract test BROWSER"
+description = """Sandbox image sandbox-e2e with Chromium, Playwright and the helper gw-browser (FE-1110), licenses against the allowlist (license gate). Contract test per isolation: capability BROWSER under Sysbox and gVisor, Docker-in-Docker for app start under gVisor (M46); result into the profile table of 11 and into detailed design section 10. Without a matching pool, the item stays with no_qualified_pool."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#10-open-points"]
+result = "deploy/images/sandbox-e2e/Dockerfile, tools/gw-browser/, apps/worker/test/contract/browser.contract.test.ts"
+done = ["Contract test 'BROWSER under sysbox' green", "Contract test 'BROWSER and DinD under gvisor' with result (green or proven red) noted in the detailed design", "License gate for the image green", "Test 'without pool with BROWSER the item stays available with reason' green"]
+sources = ["02 section 5 dependencies", "05 section 3", "ADR-48", "ADR-50"]
+depends_on = ["3-E01-T02", "0-E12", "0-E21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M46 (Docker-in-Docker under gVisor for QA with E2E) is clarified here via a contract test."
+
+  [[task.part]]
+  id = "3-E03-T01-S01"
+  title = "Test: pool assignment with BROWSER"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T01-S02"
+  title = "Image with Chromium, Playwright, gw-browser"
+  done = "Image builds, license gate green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T01-S03"
+  title = "Contract tests Sysbox and gVisor, record the result"
+  done = "Results in the detailed design and M46 updated in the backlog"
+  status = "open"
+
+[[task]]
+id = "3-E03-T02"
+title = "App start, seed and evidence"
+description = """Start of the app from qa.apps[].start, seed and ready_check in the E2E sandbox; evidence (screenshots, video, trace, logs) via uploadUrl into the BlobStore with a secret scan before storage; gw-browser takes no screenshots of pages with filled password fields (section 6). App does not start: environment with evidence."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#6-security"]
+result = "services/qa/src/steps/e2e/app.ts, tools/gw-browser/src/*, services/qa/test/e2e-app.test.ts"
+done = ["Test 'app without ready_check success yields environment with log evidence' green", "Test 'screenshot with a filled password field is not created' green", "Test 'evidence with a secret is redacted before storage' green"]
+sources = ["02 section 5 step 6", "04 section 4", "05 section 5"]
+depends_on = ["3-E03-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E03-T02-S01"
+  title = "Test: start, timeout, evidence"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T02-S02"
+  title = "App start with seed and ready_check"
+  done = "Start tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T02-S03"
+  title = "Evidence with redaction and password rule"
+  done = "Evidence tests green"
+  status = "open"
+
+[[task]]
+id = "3-E03-T03"
+title = "E2E planner"
+description = """Agent step e2e_plan: explores the running app via gw-browser (ARIA snapshot, act), derives scenarios from the diff and acceptance criteria, output a test plan in the schema; prompt versioned. No write access outside the working directory."""
+design = ["11-qa-prfix-automerge.md#43-e2e-with-heal-guard"]
+result = "services/qa/src/steps/e2e/planner.ts, services/qa/prompts/e2e-plan.md, services/qa/test/e2e-planner.test.ts"
+done = ["Test with recorded response returns a plan in the schema", "Test 'plan without relation to the diff or an acceptance criterion is discarded' green"]
+sources = ["02 section 5 step 6", "research ebene-qa-und-tests section 2.1 c"]
+depends_on = ["3-E03-T02"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E03-T03-S01"
+  title = "Test: plan schema and relation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T03-S02"
+  title = "Planner step and prompt"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "3-E03-T04"
+title = "E2E generator"
+description = """Agent step e2e_generate: writes Playwright tests per the plan into qa.test_paths; then the filter chain from 3-E02-T02 with qa.e2e.flake_runs (default 3) and discovery via the Playwright JUnit reporter."""
+design = ["11-qa-prfix-automerge.md#43-e2e-with-heal-guard"]
+result = "services/qa/src/steps/e2e/generator.ts, services/qa/prompts/e2e-generate.md, services/qa/test/e2e-generator.test.ts"
+done = ["Test 'generated test runs through the filter chain' green", "Test 'test outside test_paths is discarded' green"]
+sources = ["02 section 5 step 6"]
+depends_on = ["3-E03-T03", "3-E02-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E03-T04-S01"
+  title = "Test: generator and filter"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T04-S02"
+  title = "Generator step and prompt"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "3-E03-T05"
+title = "Healer with deterministic heal guard"
+description = """Agent step e2e_heal plus heal-guard.ts per FE-1111: AST comparison before and after the healing; allows only locator arguments, wait calls and timeouts up to qa.e2e.max_timeout_ms; any change to expect, test.skip, test.fixme, test.fail, .only or deleted steps yields product_bug with screenshot and trace instead of healing; at most qa.e2e.max_heal_attempts."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#43-e2e-with-heal-guard"]
+result = "services/qa/src/steps/e2e/healer.ts, services/qa/src/steps/e2e/heal-guard.ts, services/qa/test/heal-guard.test.ts"
+done = ["Test 'locator change allowed' green", "Test 'removed assertion rejected' green", "Test 'test.skip rejected' green", "Test 'after max_heal_attempts product_bug with evidence' green"]
+sources = ["02 section 5 step 6", "07 section 3.5 Q3", "10 section 7"]
+depends_on = ["3-E03-T04"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "3-E03-T05-S01"
+  title = "Test: allowed and forbidden changes"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T05-S02"
+  title = "Heal guard with AST comparison"
+  done = "Guard tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T05-S03"
+  title = "Healer step and limit on attempts"
+  done = "Healer tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T05-S04"
+  title = "Finding product_bug with screenshot and trace"
+  done = "Failure path test green"
+  status = "open"
+
+[[task]]
+id = "3-E03-T06"
+title = "E2E smoke library for the coder"
+description = """services/qa/src/library/e2e-smoke.ts: runSmoke starts the app, opens the start page and the touched routes, stores screenshots, without a model. Integration into the coder's self-check for diffs in qa.apps[].path_patterns (02 section 3 step 7); the library inherits the coder's qualification profile (ADR-66). If the pool has no BROWSER, the self-check reports the smoke as skipped with reason."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/qa/src/library/e2e-smoke.ts, services/coder/src/selfcheck/e2e-smoke.ts (SelfCheckStep id e2e_smoke), services/qa/test/e2e-smoke.test.ts"
+done = ["Test 'smoke returns a screenshot per touched route' green", "Test 'without BROWSER skipped with reason in the self-check report' green", "Test 'smoke does not change the coder's qualification_key without a profile entry' green"]
+sources = ["02 section 3 step 7", "ADR-66"]
+depends_on = ["3-E03-T02", "2-E04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E03-T06-S01"
+  title = "Test: smoke and skipping"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T06-S02"
+  title = "Library runSmoke"
+  done = "Library tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E03-T06-S03"
+  title = "Integration into the coder's self-check"
+  done = "Coder tests green"
+  status = "open"
+
+[[epic]]
+id = "3-E04"
+title = "Failure classification and stacked test PRs"
+goal = "`product_bug`, `test_bug`, `flake`, `environment` after every red run (doubt blocks), quarantine only with approval by a human, output as a commit or stacked test PR, verdict rules for the merge gate"
+sources = ["02 section 5"]
+depends_on = ["3-E02"]
+
+[[task]]
+id = "3-E04-T01"
+title = "Failure classification"
+description = """services/qa/src/steps/classify.ts per FE-1108 and the table in section 2.3: deterministic steps 1 to 3 (environment, flake via qa.classify_reruns, test_bug on a setup error of a new test), step 4 judge via models.classifier with a quote, step 5 doubt yields product_bug. Existing tests never test_bug from step 3. Observations in qa_flake_observations."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#31-tables"]
+result = "services/qa/src/steps/classify.ts, migration qa_flake_observations, services/qa/test/classify.test.ts"
+done = ["one test per row of the classification table green", "Test 'judge without a quote yields product_bug' green", "Test 'existing red test never becomes test_bug from rule 3' green"]
+sources = ["02 section 5 step 7", "03 section 1a condition 4"]
+depends_on = ["3-E02-T02", "0-E15"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E04-T01-S01"
+  title = "Test: one case per table row"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T01-S02"
+  title = "Migration qa_flake_observations"
+  done = "Migration test green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T01-S03"
+  title = "Deterministic steps 1 to 3"
+  done = "Rule tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T01-S04"
+  title = "Judge and doubt rule"
+  done = "all classification tests green"
+  status = "open"
+
+[[task]]
+id = "3-E04-T02"
+title = "Quarantine proposals with approval by humans"
+description = """qa_quarantine per FE-1109: proposal on repeated flake (threshold from qa_flake_observations), approval only via the admin UI (role approver) or a check action on ai-qa by a human with write access; expiry after qa.quarantine.expiry_days; never changes repo files. Quarantined tests keep running, their red goes into the report as flake, never as pass with merge effect."""
+design = ["11-qa-prfix-automerge.md#31-tables", "11-qa-prfix-automerge.md#5-failure-and-abort-paths"]
+result = "migration qa_quarantine, services/qa/src/output/quarantine.ts, apps/admin-ui/src/pages/qa-quarantine.tsx, services/qa/test/quarantine.test.ts"
+done = ["Test 'proposal without approval has no effect' green", "Test 'approval without write access is rejected' green", "Test 'expiry sets expired' green", "Audit entry per decision checked"]
+sources = ["02 section 5 step 7", "05 section 7", "07 section 3.5 online"]
+depends_on = ["3-E04-T01", "1-E08"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E04-T02-S01"
+  title = "Test: proposal, approval, expiry"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T02-S02"
+  title = "Migration and proposal logic"
+  done = "Proposal tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T02-S03"
+  title = "Approval in the admin UI and via check action"
+  done = "Approval tests green, audit checked"
+  status = "open"
+
+[[task]]
+id = "3-E04-T03"
+title = "Output as a commit or stacked test PR"
+description = """services/qa/src/output/stacked-pr.ts per FE-1106: test branch agent/qa/<pr>-<short-sha>, human PRs always a stacked test PR against the head branch, agent PRs per qa.output; a repetition commits into the existing test PR; with agent_fork push into the agent fork (ADR-59). QAReport.resultingHeadSha after an own test commit; rule: the report is valid at the new head if all commits in between are own QA pushes only in test_paths."""
+design = ["11-qa-prfix-automerge.md#9-rulings"]
+result = "services/qa/src/output/stacked-pr.ts, services/qa/test/output.test.ts"
+done = ["Test 'human PR always gets a stacked test PR' green", "Test 'repetition commits into the existing test PR' green", "Test 'QAReport is valid for resultingHeadSha after an own test commit' green", "Test 'a foreign commit in between invalidates the report' green"]
+sources = ["02 section 5 output", "ADR-59", "O9"]
+depends_on = ["3-E01-T04", "3-E02-T02", "2-E06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E04-T03-S01"
+  title = "Test: branch choice and validity rule"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T03-S02"
+  title = "Commit on the agent branch and stacked test PR"
+  done = "Output tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T03-S03"
+  title = "resultingHeadSha and validity"
+  done = "Validity tests green"
+  status = "open"
+
+[[task]]
+id = "3-E04-T04"
+title = "Verdict rules and integration into verifying"
+description = """Verdict rule from section 2.3 (fail on product_bug, blocked on remaining flake or environment, otherwise pass); QA in parallel with the reviewer in the state verifying, event qa.done; QA off with on_disabled skip takes the existing CI as CheckEvidence. A flake or environment leads to a repetition of the QA run (at most once per head) and then to blocked, never to pass."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#49-states-merge-gate-and-merge-excerpt-from-03-section-21"]
+result = "services/qa/src/verdict.ts, apps/control-plane/src/pipeline/stages/qa.ts (StageHandler, 10 FE-1069), services/qa/test/verdict.test.ts"
+done = ["Test 'flake after repetition yields blocked, never pass' green", "Test 'product_bug yields fail' green", "S5 case 'QA off with skip takes CI as evidence' green"]
+sources = ["02 section 5 step 7", "03 section 1a condition 4", "03 section 2.1"]
+depends_on = ["3-E04-T01", "2-E07", "0-E20-T21"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E04-T04-S01"
+  title = "Test: verdict rules"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T04-S02"
+  title = "Verdict and repetition"
+  done = "Verdict tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E04-T04-S03"
+  title = "Pipeline stage qa in verifying"
+  done = "S5 case green"
+  status = "open"
+
+[[epic]]
+id = "3-E05"
+title = "Sub-stage 3b catching"
+goal = "Diff-aware catch tests (green at base, red at head), checkers from rules and a fresh model, finding instead of a test commit, first `shadow`, `live` only after a green Q4"
+sources = ["02 section 5", "10 section 7"]
+depends_on = ["3-E04"]
+
+[[task]]
+id = "3-E05-T01"
+title = "Generate and check catch candidates"
+description = """Scope catch per FE-1112: an agent step generates diff-aware tests that are meant to make a change in behavior visible (at most qa.catch.max_candidates); deterministically a candidate counts only if it passes at the base and fails at the head in 3 out of 3 runs; setup, import and fixture errors are discarded."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#42-catching-and-mutant-hint"]
+result = "services/qa/src/steps/catch.ts, services/qa/prompts/catch.md, services/qa/test/catch.test.ts"
+done = ["Test 'candidate green at base and three times red at head counts' green", "Test 'candidate red at base is discarded' green", "Test 'setup error is discarded' green"]
+sources = ["02 section 5 step 5", "research ebene-qa-und-tests section 2.1 b"]
+depends_on = ["3-E04-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E05-T01-S01"
+  title = "Test: candidate rule"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E05-T01-S02"
+  title = "Agent step and prompt catch"
+  done = "Case with recorded response green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E05-T01-S03"
+  title = "Base and head runs, discarding"
+  done = "all catch tests green"
+  status = "open"
+
+[[task]]
+id = "3-E05-T02"
+title = "Catch checker and findings"
+description = """catch-judge.ts: rules first (an acceptance criterion of the plan as the new target yields intended_change), then a fresh model (models.catch_judge) without generator context with the verdict true_bug, false_alarm, intended_change and a quote. Result as CatchFinding in findings with source qa:catch (extension of the enum, note to 08-reviewer); on P0/P1 true_bug additionally request_human_input with evidence; never a test commit."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#10-open-points"]
+result = "services/qa/src/steps/catch-judge.ts, services/qa/test/catch-judge.test.ts, change to the findings schema (source)"
+done = ["Test 'catch finding never creates a push' green", "Test 'P0 true_bug creates request_human_input' green", "Test 'verdict without a quote is discarded' green", "Test 'intended_change on acceptance criterion' green"]
+sources = ["02 section 5 step 5", "02 section 4 output", "ADR-11"]
+depends_on = ["3-E05-T01", "1-E04"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E05-T02-S01"
+  title = "Test: verdicts and consequences"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E05-T02-S02"
+  title = "Rule checker and model checker"
+  done = "Checker tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E05-T02-S03"
+  title = "findings with source qa:catch and request_human_input"
+  done = "Finding tests green"
+  status = "open"
+
+[[task]]
+id = "3-E05-T03"
+title = "Catch mode shadow and live, gate B per part"
+description = """qa.catch.mode off, shadow, live; shadow writes findings only to the eval log; live only if the qualification row for the part catch has a green required part Q4 or the operator deviation is set with labeling (10 section 1.2 item 3). Merge gate effect only P0/P1 with true_bug (fact catchOpen for condition 4)."""
+design = ["11-qa-prfix-automerge.md#7-configuration"]
+result = "services/qa/src/catch-mode.ts, services/qa/test/catch-mode.test.ts"
+done = ["Test 'catch live without green Q4 runs shadow with a note' green", "Test 'shadow creates no effect' green", "Test 'P2 true_bug does not block' green"]
+sources = ["02 section 5 step 5", "10 section 1.2 item 3", "ADR-47"]
+depends_on = ["3-E05-T02", "3-E01-T09"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "3-E05-T03-S01"
+  title = "Test: mode and gate per part"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E05-T03-S02"
+  title = "Mode logic and fact catchOpen"
+  done = "Tests green"
+  status = "open"
+
+[[epic]]
+id = "3-E06"
+title = "Mutants as a hint in the review"
+goal = "Moved here from stage 6 because it uses the mutation tools of this stage: mutants only on changed lines, surviving ones as a P3 hint in the reviewer's summary"
+sources = ["08 stage 6"]
+depends_on = ["3-E02"]
+
+[[task]]
+id = "3-E06-T01"
+title = "QA scope mutants_hint"
+description = """Internal scope mutants_hint per FE-1113 and FE-1115: on PR events when qa.mutants_hint.mode is not off; mutants only on changed lines, at most max_per_line per line and max_per_review per PR, selection by a fixed mutator rank; surviving mutants as findings kind flag, severity P3, source qa:mutant."""
+design = ["11-qa-prfix-automerge.md#23-qa", "11-qa-prfix-automerge.md#42-catching-and-mutant-hint"]
+result = "services/qa/src/steps/mutants-hint.ts, services/qa/test/mutants-hint.test.ts"
+done = ["Test 'mutants only on changed lines' green", "Test 'at most max_per_review' green", "Test 'killed mutants create no finding' green"]
+sources = ["08 stage 6", "10 section 7", "research ebene-qa-und-tests section 2.1 d"]
+depends_on = ["3-E02-T03", "1-E04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E06-T01-S01"
+  title = "Test: selection and limits"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E06-T01-S02"
+  title = "Scope mutants_hint and trigger"
+  done = "Trigger test green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E06-T01-S03"
+  title = "Findings qa:mutant"
+  done = "all mutants tests green"
+  status = "open"
+
+[[task]]
+id = "3-E06-T02"
+title = "Presentation in the reviewer summary"
+description = """The reviewer's summary gets the section 'Surviving mutants' from findings with source qa:mutant at the current head, never inline; dedupe via fingerprint; without findings no section. Extension of the source enum in the finding schema (open point in section 10)."""
+design = ["11-qa-prfix-automerge.md#23-qa"]
+result = "services/reviewer/src/output/summary-mutants.ts, services/reviewer/test/summary-mutants.test.ts"
+done = ["Test 'mutants appear only in the summary' green", "Test 'mutants of an older head do not appear' green", "R6-like case: every named file exists in the diff (100 %)"]
+sources = ["08 stage 6", "02 section 4 output"]
+depends_on = ["3-E06-T01", "1-E05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "3-E06-T02-S01"
+  title = "Test: presentation and head binding"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E06-T02-S02"
+  title = "Section in the summary"
+  done = "Tests green"
+  status = "open"
+
+[[epic]]
+id = "3-E07"
+title = "Eval and acceptance of stage 3"
+goal = "Gate A (Q1, filters, Q3) green; Q1 measured and reported on TDD-Bench Verified; Q4 before `live` of 3b; false healing 0; discovery check 100 %; flake rate 0 over 20 runs; acceptance rate measured; SWT-bench as a report part with owner license request; release"
+sources = ["07 section 3.5", "10 section 7"]
+depends_on = ["3-E03", "3-E05", "3-E06"]
+
+[[task]]
+id = "3-E07-T01"
+title = "Q1: adapter TDD-Bench Verified and gate A paired"
+description = """eval/adapters/tdd-bench in Harbor format; set eval/sets/q1/set.json with a declarative pin (pinned commit or revision, checksum per file, generic fetcher per 07 FE-703, no copy, ADR-52; storage per 11 FE-1153); arm platform QA (scope repro) and arm bare harness with the same model and a simple prompt; paired evaluation per 07 section 1.1 and margin per 10 section 1.4."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/adapters/tdd-bench/, eval/sets/q1/set.json, eval report gate A Q1"
+done = ["validate-set and fetcher check pin and checksum of q1 (test)", "Gate A Q1 measured paired, status green per 10 section 1.4 (eval report with command)", "Cost and duration per case in the report"]
+sources = ["07 section 3.5", "07 section 1.1", "10 sections 1.4 and 7", "ADR-52"]
+depends_on = ["3-E02-T05", "0-E20"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T01-S01"
+  title = "Test: pin and checksum of q1"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T01-S02"
+  title = "Adapter and set q1"
+  done = "Trial run on 5 cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T01-S03"
+  title = "Gate A run paired and report"
+  done = "Eval report with status"
+  status = "open"
+
+[[task]]
+id = "3-E07-T02"
+title = "Gate B Q1: read the reference value, measure, report"
+description = """Read the best published value on TDD-Bench Verified with a comparable model at the source (unverified today) and put it with a date into the eval package; measure the gate B required part B1 and report the status green, red, not decidable or open per 10 section 1.2 item 6. If there is no value with a comparable model: status open."""
+design = ["11-qa-prfix-automerge.md#10-open-points"]
+result = "entry Q1 in eval/references/qa.json (07 FE-738), gate B report Q1"
+done = ["Reference value with date and source in the eval package", "Gate B status Q1 in the stage report"]
+sources = ["10 section 7 B1", "10 section 1.3"]
+depends_on = ["3-E07-T01"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T02-S01"
+  title = "Read and enter the reference value"
+  done = "Reference value with date and source in eval/references/qa.json"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T02-S02"
+  title = "Gate B run and status"
+  done = "Status in the report"
+  status = "open"
+
+[[task]]
+id = "3-E07-T03"
+title = "Q2 mutation and Q5 unit tests public"
+description = """Q2: own public modules (starting size 10) for mutation score per 1,000 tokens against a bare agent; Q5: XRepoTest only after checking the data license at the source, otherwise internal only without publication (10 section 1.5)."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/sets/q2/, eval/sets/q5/ (code of the Q2 modules in the own public repo, via git pin, 11 FE-1153), eval report"
+done = ["Q2 measured and reported", "Data license XRepoTest recorded with source; Q5 measured (published only if VERIFIED)"]
+sources = ["07 section 3.5 Q2 and Q5", "10 section 7 B4"]
+depends_on = ["3-E02-T04", "0-E20"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T03-S01"
+  title = "Set q2 and run"
+  done = "Q2 in the report"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T03-S02"
+  title = "License check XRepoTest and run q5"
+  done = "License note and Q5 in the report"
+  status = "open"
+
+[[task]]
+id = "3-E07-T04"
+title = "Q3 own web app and false healing 0"
+description = """eval/sets/q3/ (set) with a small own web app under the project license in the project's own public repo, referenced via git pin (11 FE-1153), with deliberately broken selectors and real bugs; the healer must heal the selectors and report all real bugs; false healing is counted (target 0); at the same time measures the effect of FE-1110 (without MCP)."""
+design = ["11-qa-prfix-automerge.md#43-e2e-with-heal-guard"]
+result = "eval/sets/q3/, web app in the own public repo, eval report Q3"
+done = ["Q3: false healing 0 (report with command)", "all injected real bugs reported", "Heal rate of the selector cases reported"]
+sources = ["07 section 3.5 Q3", "10 section 7"]
+depends_on = ["3-E03-T05", "0-E20"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T04-S01"
+  title = "Web app with defect catalog"
+  done = "App starts in the E2E image"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T04-S02"
+  title = "Set q3 and counting false healing"
+  done = "Run in the report"
+  status = "open"
+
+[[task]]
+id = "3-E07-T05"
+title = "Q4 catch set and catch precision"
+description = """eval/sets/q4: cases from public repos in which a bug found later was already in the PR (revert and fix commits, first the repo named in 07 section 3.5), plus injected defects; only references and own labels. Catch precision against the reference 8 out of 41 (about 20 %, [jit]) as gate B required part B3 before live of 3b."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/sets/q4/, eval report Q4"
+done = ["Q4 measured, status reported per 10 section 1.4", "Cases as references with license per case (test of the case schema)"]
+sources = ["07 section 3.5 Q4", "10 section 7 B3"]
+depends_on = ["3-E05-T03", "0-E20"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T05-S01"
+  title = "Collect and label cases"
+  done = "Set q4 with references"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T05-S02"
+  title = "Run and precision"
+  done = "Report with status"
+  status = "open"
+
+[[task]]
+id = "3-E07-T06"
+title = "Filters 100 %, discovery 100 %, flake rate over 20 runs"
+description = """Suite over own cases: every delivered test builds, passes 5 times, is found by the standard command and adds coverage or kills a mutant (100 %); every new test runs 20 times with the CI-equivalent command in the sandbox (FE-1114), flake rate 0."""
+design = ["11-qa-prfix-automerge.md#9-rulings"]
+result = "eval/sets/qa-filters/, report"
+done = ["Filters per delivered test 100 % (report)", "Discovery check 100 %", "Flake rate 0 over 20 runs per new test"]
+sources = ["02 section 5 DoD", "08 stage 3"]
+depends_on = ["3-E04-T04", "3-E02-T06", "0-E20-T21"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T06-S01"
+  title = "Suite qa-filters"
+  done = "Suite runs"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T06-S02"
+  title = "20 runs and report"
+  done = "Report with values"
+  status = "open"
+
+[[task]]
+id = "3-E07-T07"
+title = "Owner: license request SWT-bench and XRepoTest data"
+description = """Request to the operators of SWT-bench (data license) and, if 3-E07-T03 finds no license, to the authors of XRepoTest. Has an external effect, therefore owner. The agent prepares a decision sheet (wording, purpose, consequence for gate B)."""
+design = ["11-qa-prfix-automerge.md#10-open-points"]
+result = "Request made, status in the stage report"
+done = ["Decision sheet available", "Request made or deliberately dropped, status with date in the stage report"]
+sources = ["08 stage 3", "10 section 7 B2", "10 section 18"]
+depends_on = ["3-E07-T03"]
+owner = "owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T07-S01"
+  title = "Prepare decision sheet (agent)"
+  done = "Sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T07-S02"
+  title = "Make request (owner)"
+  done = "Status in the report"
+  status = "open"
+
+[[task]]
+id = "3-E07-T08"
+title = "SWT-bench Verified internally as a report part"
+description = """Own run on SWT-bench Verified in unit test mode with the official harness, data loaded at runtime, leaderboard table with date into the eval package; results stay internal until the license is clarified (10 section 1.5)."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "eval/adapters/swt-bench/, internal report"
+done = ["Run documented internally", "Test 'publication step rejects SWT-bench results without a license note' green"]
+sources = ["07 section 3.5 Q1", "10 section 7 B2"]
+depends_on = ["3-E07-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T08-S01"
+  title = "Test: publication block"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T08-S02"
+  title = "Adapter and internal run"
+  done = "Block green, run documented"
+  status = "open"
+
+[[task]]
+id = "3-E07-T09"
+title = "Measure the acceptance rate of the test PRs"
+description = """Online measurement in pilot repos of the installation in mode shadow or live: acceptance rate of the test PRs and test commits, share of quarantined tests, catch precision online; Meta 73 % is not a reference (10 section 7). Needs a running installation and the owner's pilot repos."""
+design = ["11-qa-prfix-automerge.md#8-tests"]
+result = "admin UI evaluation qa-acceptance, value in the stage report"
+done = ["Acceptance rate with number of cases and period in the stage report"]
+sources = ["07 section 3.5 online", "08 stage 3"]
+depends_on = ["3-E04-T03"]
+owner = "agent+owner"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T09-S01"
+  title = "Evaluation from effects and PR states"
+  done = "Test of the evaluation green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T09-S02"
+  title = "Switch on the pilot and measure (owner)"
+  done = "Value in the report"
+  status = "open"
+
+[[task]]
+id = "3-E07-T10"
+title = "Suites for QA, stage report and release"
+description = """S1 cases (injection via test output, code comment, CI log; push outside the test paths), S2, S4 (QA alone on), S6 (QA rows from detailed design section 5) green; qualification row qa with gate B status per part (repro, unit, e2e open, catch) as the reference qualification; stage report with evidence; release with S8 and upgrade from the previous release."""
+design = ["11-qa-prfix-automerge.md#5-failure-and-abort-paths", "11-qa-prfix-automerge.md#8-tests"]
+result = "eval/suites/s1..s6 (QA cases), docs/berichte/stufe-3.md in the ops repo, release"
+done = ["S1, S2, S4, S6 for qa green (command and output in the report)", "Qualification row with status per part published", "S8 and upgrade test green", "Stage report names gate B status and license status", "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)"]
+sources = ["07 section 5", "08 principles 1, 2, 5", "10 section 1.2 item 6", "ADR-52"]
+depends_on = ["3-E07-T01", "3-E07-T02", "3-E07-T03", "3-E07-T04", "3-E07-T05", "3-E07-T06", "3-E07-T07", "3-E07-T08", "3-E07-T09", "3-E01-T08"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "3-E07-T10-S01"
+  title = "S1 and S2 cases of QA"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T10-S02"
+  title = "S4 and S6 cases of QA"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T10-S03"
+  title = "Qualification row and stage report"
+  done = "Report with evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "3-E07-T10-S04"
+  title = "Release with S8"
+  done = "Release run green"
+  status = "open"

@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "betreiber-doku"
+title = "Operator docs: installation, operations, Hetzner, Azure, air gap, measured values"
+kind = "delivery"
+path = "docs/ops/"
+stage = "0"
+purpose = "Operator docs under docs/ops (installation, operations, Hetzner, Azure, air gap, storage, upgrade, backup) with executable command blocks and the check tool doc_commands_check.py, plus the measured hardware start values in the schema; not the product docs for users (produkt-doku, area 00)."
+design = ["06-installation-operations-ui.md#2-modules-and-responsibility", "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap", "06-installation-operations-ui.md#7-configuration", "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault", "06-installation-operations-ui.md#214-opentofu-modules"]
+built_by = ["0-E18-T17", "0-E18-T19", "0-E18-T20", "0b-E01-T06", "0b-E02-T05"]
+
+[[provides]]
+name = "doku-air-gap"
+kind = "file"
+title = "docs/ops/air-gap.md with copy commands from release.json and host firewall"
+defined_in = "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"
+from_task = "0-E18-T17"
+
+[[provides]]
+name = "messwerte"
+kind = "config"
+title = "Default values install.min_cpu, install.min_mem_gb, install.min_disk_gb, pool.slot_mem_gb, install.min_docker_version, install.min_compose_version in the schema with measurement log and test config.defaults-pinned"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E18-T19"
+
+[[provides]]
+name = "doku-install-betrieb"
+kind = "file"
+title = "docs/ops/install.md, operations.md, hetzner.md with marked command blocks"
+defined_in = "06-installation-operations-ui.md#21-directories"
+from_task = "0-E18-T20"
+
+[[provides]]
+name = "doc-commands-check"
+kind = "cli"
+title = "tools/doc_commands_check.py --doc <file> [--dry-run]: runs marked command blocks"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0-E18-T20"
+
+[[provides]]
+name = "doku-azure"
+kind = "file"
+title = "docs/ops/azure.md: set up the drivers azure-blob and azure-keyvault (the schema entries are provided by config-installation/azure-treiber-schema)"
+defined_in = "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"
+from_task = "0b-E01-T06"
+
+[[uses]]
+interface = "cli/release-manifest-typ"
+from_task = "0-E18-T17"
+purpose = "Copy commands from release.json in air-gap.md"
+
+[[uses]]
+interface = "cli-install/install-air-gap"
+from_task = "0-E18-T17"
+purpose = "Command of the offline installation"
+
+[[uses]]
+interface = "config-installation/installation-schema"
+from_task = "0-E18-T19"
+purpose = "Measured defaults in the schema"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0-E18-T19"
+purpose = "D01 and D03 with the new values"
+
+[[uses]]
+interface = "dummy-service/befehl-dummy"
+from_task = "0-E18-T19"
+purpose = "Dummy runs as the load of the measurement"
+
+[[uses]]
+interface = "cli-install/cmd-install"
+from_task = "0-E18-T20"
+purpose = "Commands in install.md"
+
+[[uses]]
+interface = "cli/cmd-upgrade"
+from_task = "0-E18-T20"
+purpose = "Commands in operations.md"
+
+[[uses]]
+interface = "backup-restore/cmd-backup"
+from_task = "0-E18-T20"
+purpose = "Commands in operations.md"
+
+[[uses]]
+interface = "backup-restore/cmd-restore"
+from_task = "0-E18-T20"
+purpose = "Commands in operations.md"
+
+[[uses]]
+interface = "compose-buendel/host-prepare"
+from_task = "0-E18-T20"
+purpose = "First step and distribution list in install.md"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "0-E18-T20"
+purpose = "Command blocks run in the Compose job"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-text-rules"
+from_task = "0-E18-T20"
+purpose = "Text rules over docs/ops"
+
+[[uses]]
+interface = "config-installation/azure-treiber-schema"
+from_task = "0b-E01-T06"
+purpose = "Describe the keys blob.driver azure-blob and secrets.driver azure-keyvault in azure.md"
+
+[[uses]]
+interface = "driver-blob-azure/azure-blob-config"
+from_task = "0b-E01-T06"
+purpose = "Configuration azure-blob in azure.md"
+
+[[uses]]
+interface = "driver-secret-azure-keyvault/azure-keyvault-config"
+from_task = "0b-E01-T06"
+purpose = "Configuration azure-keyvault in azure.md"
+
+[[uses]]
+interface = "tofu-generic-vm/modul-generic-vm"
+from_task = "0b-E02-T05"
+purpose = "Hetzner path with generic-vm"

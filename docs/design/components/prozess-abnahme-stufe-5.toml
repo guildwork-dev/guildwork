@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-5"
+title = "E2E ticket to merge, shadow period, stage report and release for stage 5"
+kind = "process"
+path = "-"
+stage = "5"
+purpose = "Acceptance of stage 5: security cases Watch on human PRs, S7 (a), (b) and (d), E2E ticket to merge with owner go, shadow period with at least 100 agent PRs, stage report and release; without own product code."
+design = ["11-qa-prfix-automerge.md#8-tests", "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#47-merge-gate-waiting-window-and-merge"]
+built_by = ["5-E04-T02", "5-E05-T01", "5-E05-T02", "5-E05-T03", "5-E05-T04", "5-E05-T05"]
+
+[[provides]]
+name = "schattenbericht"
+kind = "file"
+title = "Shadow report in the ops repo with error bound per repo"
+defined_in = "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"
+from_task = "5-E05-T04"
+
+[[provides]]
+name = "stufenbericht-5"
+kind = "file"
+title = "Stage report for stage 5 in the ops repo"
+defined_in = "11-qa-prfix-automerge.md#8-tests"
+from_task = "5-E05-T05"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "5-E04-T02"
+purpose = "S1 and S2 cases Watch on human PRs"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "5-E05-T01"
+purpose = "S7 required cases (a) to (d)"
+
+[[uses]]
+interface = "merge-gate/auswertung"
+from_task = "5-E05-T01"
+purpose = "one miss case per condition C00 to C13"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "5-E05-T01"
+purpose = "recorded provider responses of the S7 cases"
+
+[[uses]]
+interface = "merge-ausfuehrung-und-nachlauf/nachlauf"
+from_task = "5-E05-T02"
+purpose = "Case (d) red target branch after merge"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "5-E05-T03"
+purpose = "E2E ticket to merge with recordings"
+
+[[uses]]
+interface = "merge-autonomie-und-schatten/schatten"
+from_task = "5-E05-T04"
+purpose = "Shadow report per repo and combination"
+
+[[uses]]
+interface = "merge-gate/tabelle-autonomy-qualification"
+from_task = "5-E05-T04"
+purpose = "Row autonomy_qualification after the shadow period"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "5-E05-T05"
+purpose = "Release of stage 5 with S8 and upgrade test"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "5-E05-T05"
+purpose = "Guard test with BUILT_STAGES extended by stage 5"
+
+[[uses]]
+interface = "merge-gate/bedingung-c13"
+from_task = "5-E05-T01"
+purpose = "Miss case C13"

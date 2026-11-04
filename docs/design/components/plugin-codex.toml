@@ -1,0 +1,198 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-codex"
+title = "AgentRuntime codex with credential kinds openai and chatgpt"
+kind = "plugin"
+path = "plugins/codex/"
+package = "@guildwork/plugin-codex"
+stage = "8"
+purpose = "Second harness: adapter for Codex CLI (codex exec --json --output-schema) as AgentRuntime with install via PinnedVersion, event mapping, credential kind openai via the relay and chatgpt as an operator mode (FE-1229, FE-1330 to FE-1332). Not included: the resolver rule checkCodexCredentials (provider config-resolver-regeln/codex-credentials, built in the same task), the CLI itself (loaded at the operator, never into the image), the relay extension by upstreamKind openai and the price calculation (FE-1360)."
+design = [
+  "13-stage-8-providers-and-bases.md#23-harness-codex-8-e03",
+  "13-stage-8-providers-and-bases.md#231-manifest-and-capabilities",
+  "13-stage-8-providers-and-bases.md#232-install",
+  "13-stage-8-providers-and-bases.md#233-run-and-event-mapping",
+  "13-stage-8-providers-and-bases.md#234-credential-kinds-openai-and-chatgpt",
+  "13-stage-8-providers-and-bases.md#235-contract-suite-codex",
+  "13-stage-8-providers-and-bases.md#46-codex-run",
+  "13-stage-8-providers-and-bases.md#83-codex-8-e03",
+]
+built_by = ["8-E03-T01", "8-E03-T02", "8-E03-T03", "8-E03-T04"]
+
+[[provides]]
+name = "spike-bericht"
+kind = "file"
+title = "eval/reports/spike-codex.md: verified start paths, event names, switches, pinned version and checksum for the contract suite"
+defined_in = "13-stage-8-providers-and-bases.md#10-open-points"
+from_task = "8-E03-T01"
+
+[[provides]]
+name = "agentruntime"
+kind = "contract"
+title = "AgentRuntime codex: supports per credential kind with conditions, install (checksum, codex --version), run with mapping to RuntimeEvent, AgentRunResult with cost.source price_table without usd; capability table"
+defined_in = "13-stage-8-providers-and-bases.md#231-manifest-and-capabilities"
+from_task = "8-E03-T02"
+
+[[provides]]
+name = "konfig-runtime"
+kind = "config"
+title = "Runtime with harness codex: CodexRuntimeConfig (pin, sandboxMode from nativeTools, credential, reasoningEffort), harness_pins.codex, runtimes[].reasoning_effort"
+defined_in = "13-stage-8-providers-and-bases.md#231-manifest-and-capabilities"
+from_task = "8-E03-T02"
+
+[[provides]]
+name = "credential-openai"
+kind = "contract"
+title = "Start path openai: grant openai from runtimes[].credential.ref, relay registration with upstreamKind openai, base URL and placeholder in the sandbox"
+defined_in = "13-stage-8-providers-and-bases.md#234-credential-kinds-openai-and-chatgpt"
+from_task = "8-E03-T03"
+
+[[provides]]
+name = "konfig-chatgpt"
+kind = "config"
+title = "credentials.chatgpt.auth_file in worker.yaml (FE-1332); acknowledge_terms comes from config-resolver-regeln/personal-modes-konfig"
+defined_in = "13-stage-8-providers-and-bases.md#234-credential-kinds-openai-and-chatgpt"
+from_task = "8-E03-T03"
+
+[[provides]]
+name = "contract-suite"
+kind = "file"
+title = "Contract suite codex: transcripts under plugins/codex/contract/transcripts, replay program packages/testkit/src/contract/fake-codex, attestation with fixturesHash as a load condition"
+defined_in = "13-stage-8-providers-and-bases.md#235-contract-suite-codex"
+from_task = "8-E03-T04"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "8-E03-T01"
+purpose = "Reconcile the verified events with RuntimeEvent and AgentRunResult"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E03-T02"
+purpose = "Manifest id codex with egress registry_host and mirror_host"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "8-E03-T02"
+purpose = "PluginContext with EgressHttp for install"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "8-E03-T02"
+purpose = "Prompt with renderUntrustedBlock blocks"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "8-E03-T02"
+purpose = "SandboxHandle spawn (via the worker's spawn wrapper, FE-550) and copyIn for run"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "8-E03-T02"
+purpose = "Capability table per credential kind"
+
+[[uses]]
+interface = "config-resolver-regeln/harness-pins"
+from_task = "8-E03-T02"
+purpose = "harness_pins.codex like harness_pins.claude-code"
+
+[[uses]]
+interface = "plugin-claude-code/audit-harness"
+from_task = "8-E03-T02"
+purpose = "Audit harness.pin_mismatch with alert on a differing checksum"
+
+[[uses]]
+interface = "plugin-claude-code/laufwerte"
+from_task = "8-E03-T02"
+purpose = "claude_code.kill_grace_ms between SIGTERM and SIGKILL"
+
+[[uses]]
+interface = "worker-harness-umgebung/harness-cache"
+from_task = "8-E03-T02"
+purpose = "Harness cache in the worker, read-only in the sandbox"
+
+[[uses]]
+interface = "worker-harness-umgebung/build-harness-env"
+from_task = "8-E03-T02"
+purpose = "Environment of the Codex process from the allowlist"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "8-E03-T02"
+purpose = "Entry of the platform MCP in config.toml"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "8-E03-T02"
+purpose = "Registration as a built-in package"
+
+[[uses]]
+interface = "work-item-umschlag/grants-v1"
+from_task = "8-E03-T03"
+purpose = "Grant openai with placeholder"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "8-E03-T03"
+purpose = "Base URL of the relay in the sandbox"
+
+[[uses]]
+interface = "credential-relay/upstream-profile"
+from_task = "8-E03-T03"
+purpose = "Upstream kind openai with Responses API, tools_function_only and usage from JSON and SSE (FE-1321)"
+
+[[uses]]
+interface = "egress-proxy/ctl-api"
+from_task = "8-E03-T03"
+purpose = "Relay registration with upstreamKind openai"
+
+[[uses]]
+interface = "config-resolver-regeln/personal-modes"
+from_task = "8-E03-T03"
+purpose = "PERSONAL_MODE_LOCKED for chatgpt as with subscription"
+
+[[uses]]
+interface = "config-resolver-regeln/personal-modes-konfig"
+from_task = "8-E03-T03"
+purpose = "credentials.personal_modes.chatgpt.acknowledge_terms"
+
+[[uses]]
+interface = "config-resolver-regeln/codex-credentials"
+from_task = "8-E03-T03"
+purpose = "Rules CODEX_OPENAI_SHELL_BEFORE_RELAY and CHATGPT_* at load time"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "8-E03-T03"
+purpose = "Key credentials.chatgpt.auth_file in worker.yaml"
+
+[[uses]]
+interface = "worker-harness-umgebung/read-subscription-token"
+from_task = "8-E03-T03"
+purpose = "Check of the login file (owner, mode 0400 or 0600)"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "8-E03-T04"
+purpose = "Suite AgentRuntime"
+
+[[uses]]
+interface = "contract-harness/fake-claude"
+from_task = "8-E03-T04"
+purpose = "Fake binary of the harness test kit, extended by fake-codex"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "8-E03-T04"
+purpose = "Attestation with fixturesHash"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "8-E03-T04"
+purpose = "make contract PLUGIN=codex"
+
+[[uses]]
+interface = "plugin-rahmen/attestation-pruefung"
+from_task = "8-E03-T04"
+purpose = "Test: codex plugin loads only with a passed suite"

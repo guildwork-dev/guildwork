@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "sarif"
+title = "SARIF 2.1.0 library"
+kind = "package"
+path = "packages/sarif/"
+package = "@guildwork/sarif"
+stage = "2"
+purpose = "Shared SARIF building blocks for analyzer runner, platform gate and reviewer: required field check, fingerprint, baseline comparison, properties bag for metrics. Not: running analyzers (analyzer-runner), not the analyzer contract v1alpha1 (contracts/vertrag-analyzer) and not the scaffold of the contract suite AN1 (contract-harness/an1-suite); both are created in the same task 2-E05-T01 but have their provider there."
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+built_by = ["2-E05-T01"]
+
+[[provides]]
+name = "sarif-api"
+kind = "ts-api"
+title = "validateSarif, fingerprint, normalizeLine, compareBaseline"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T01"
+
+[[provides]]
+name = "properties-beutel"
+kind = "file"
+title = "SARIF run.properties[\"guildwork/metrics\"] as MetricsBag (coverage, duplication of new lines, FE-1027)"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T01"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T01"
+purpose = "AnalyzerFinding and AnalyzerReport in compareBaseline"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "2-E05-T01"
+purpose = "defineContractSuite for the scaffold AN1"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "2-E05-T01"
+purpose = "Scaffold of the suite AN1 in the contract harness"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E05-T01"
+purpose = "sha256Hex in the fingerprint (FE-1026)"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E05-T01"
+purpose = "Result, ok and err as return values of the public functions"

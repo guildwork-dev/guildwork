@@ -1,0 +1,210 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-kb-source-confluence"
+title = "Confluence as a KB source"
+kind = "plugin"
+path = "plugins/kb-source-confluence/"
+package = "@guildwork/plugin-kb-source-confluence"
+stage = "9"
+purpose = "Read-only document source for the knowledge base: pages of allowed Confluence spaces, redacted and stored as chunks doc with visibility per space; off by default, only with data_policy approval. Not: writing to Confluence, own search index, retrieval in the worker (FE-1442)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#274-confluence-as-a-kb-source",
+  "14-stage-9-breadth-and-hardening.md#31-tables-block-0900",
+  "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07",
+]
+built_by = ["9-E07-T04"]
+
+[[provides]]
+name = "knowledge-store-doc-source"
+kind = "contract"
+title = "KnowledgeStore with capability DOC_SOURCE and DocumentSourceApi: listSpaces, changedPages, getPage"
+defined_in = "14-stage-9-breadth-and-hardening.md#274-confluence-as-a-kb-source"
+from_task = "9-E07-T04"
+
+[[provides]]
+name = "konfig-confluence"
+kind = "config"
+title = "ConfluenceSourceConfig (site, auth, spaceAllowlist, visibility per space, maxPageChars)"
+defined_in = "14-stage-9-breadth-and-hardening.md#274-confluence-as-a-kb-source"
+from_task = "9-E07-T04"
+
+[[provides]]
+name = "konfig-doc-sources"
+kind = "config"
+title = "knowledge.doc_sources[] (spaces per repo or project) and data_policy.kb_sources (approval of external document sources)"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E07-T04"
+
+[[provides]]
+name = "kb-doc-pages"
+kind = "table"
+title = "Table kb_doc_pages (migration 0909): metadata per page and version, visibility per space"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E07-T04"
+
+[[provides]]
+name = "doc-citation"
+kind = "ts-api"
+title = "DocCitation { space, pageId, version, title, url } as a citation from kb.search with kinds doc"
+defined_in = "14-stage-9-breadth-and-hardening.md#274-confluence-as-a-kb-source"
+from_task = "9-E07-T04"
+
+[[provides]]
+name = "kb-doc-sources"
+kind = "queue"
+title = "Queue kb-doc-sources per Confluence instance (singletonKey), cadence knowledge.doc_sources[].interval_min"
+defined_in = "14-stage-9-breadth-and-hardening.md#274-confluence-as-a-kb-source"
+from_task = "9-E07-T04"
+
+[[provides]]
+name = "kb-doc-source-errors-total"
+kind = "metric"
+title = "guildwork.kb.doc_source_errors with code (401, 403, 429, 5xx) and audit kb.doc_source_failed"
+defined_in = "14-stage-9-breadth-and-hardening.md#51-metrics-of-this-area"
+from_task = "9-E07-T04"
+
+[[uses]]
+interface = "contracts/vertrag-knowledge-store-learnings"
+from_task = "9-E07-T04"
+purpose = "KnowledgeStore with capability DOC_SOURCE"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E07-T04"
+purpose = "New capability DOC_SOURCE"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "9-E07-T04"
+purpose = "Title and text as untrusted"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E07-T04"
+purpose = "Manifest with egress {config.site}"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E07-T04"
+purpose = "PluginContext with ctx.http and ctx.secrets"
+
+[[uses]]
+interface = "plugin-jira-cloud/konfig-workitems"
+from_task = "9-E07-T04"
+purpose = "Atlassian site and access kind from 8-E01"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E07-T04"
+purpose = "Service account access via ctx.secrets"
+
+[[uses]]
+interface = "indexer-schichten/indexer-controller"
+from_task = "9-E07-T04"
+purpose = "Retrieval of changed pages on a schedule"
+
+[[uses]]
+interface = "indexer-schichten/item-index"
+from_task = "9-E07-T04"
+purpose = "Redaction and sanitizer as for items"
+
+[[uses]]
+interface = "indexer-schichten/kb-tabellen"
+from_task = "9-E07-T04"
+purpose = "kb_chunks with source_kind doc and doc_key"
+
+[[uses]]
+interface = "kb-indexer/chunker"
+from_task = "9-E07-T04"
+purpose = "Splitting the pages into chunks"
+
+[[uses]]
+interface = "plugin-model-local-embed/modelprovider-local-embed"
+from_task = "9-E07-T04"
+purpose = "Vectors as in L3"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "9-E07-T04"
+purpose = "Secret redaction before storage"
+
+[[uses]]
+interface = "kb/hybride-suche"
+from_task = "9-E07-T04"
+purpose = "kinds doc and DocCitation"
+
+[[uses]]
+interface = "plattform-mcp/kb"
+from_task = "9-E07-T04"
+purpose = "kb.search with kinds doc"
+
+[[uses]]
+interface = "indexer-schichten/ask"
+from_task = "9-E07-T04"
+purpose = "verifyAnswer checks DocCitation against the stored version"
+
+[[uses]]
+interface = "indexer-schichten/work-item-ask"
+from_task = "9-E07-T04"
+purpose = "E2E ask answers a question from a confluence page"
+
+[[uses]]
+interface = "effect-gateway/check-citations"
+from_task = "9-E07-T04"
+purpose = "Visibility per space against the output target"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/is-visible-for"
+from_task = "9-E07-T04"
+purpose = "Visibility of the space against the target"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "9-E07-T04"
+purpose = "Keys knowledge.doc_sources and data_policy.kb_sources"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E07-T04"
+purpose = "Migration 0909"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "9-E07-T04"
+purpose = "Policy tenant_isolation for kb_doc_pages"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E07-T04"
+purpose = "Contract suite kb-source-confluence"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "9-E07-T04"
+purpose = "Recorded Confluence responses"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E07-T04"
+purpose = "E2E ask from Confluence"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "9-E07-T04"
+purpose = "Schedule kb-doc-sources"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "9-E07-T04"
+purpose = "Register queue kb-doc-sources"
+
+[[uses]]
+interface = "indexer-schichten/ui-wissensbasis"
+from_task = "9-E07-T04"
+purpose = "Disrupted source on the knowledge base page"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "9-E07-T04"
+purpose = "Audit kb.doc_source_failed and kb.doc_page_removed"

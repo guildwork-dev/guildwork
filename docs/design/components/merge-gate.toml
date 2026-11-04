@@ -1,0 +1,298 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "merge-gate"
+title = "Merge gate: facts, conditions C00 to C13, waiting window"
+kind = "role"
+path = "apps/control-plane/src/orchestrator/merge-gate/"
+package = "@guildwork/control-plane"
+stage = "5"
+purpose = "Deterministic merge gate in the orchestrator: load facts fresh (fail closed), conditions C00 to C13 as a pure function, every evaluation as a row in merge_gate_decisions, waiting window with deadline and evidence of the branch protection; no service, no model and no merge call (that is done by merge-ausfuehrung-und-nachlauf)."
+design = ["11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up", "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode", "11-qa-prfix-automerge.md#212-admin-api-endpoints", "11-qa-prfix-automerge.md#31-tables", "11-qa-prfix-automerge.md#32-artifacts-events-markers", "11-qa-prfix-automerge.md#47-merge-gate-waiting-window-and-merge", "11-qa-prfix-automerge.md#9-rulings", "11-qa-prfix-automerge.md#5-failure-and-abort-paths"]
+built_by = ["5-E01-T01", "5-E01-T02", "5-E01-T03", "5-E01-T04", "5-E01-T05", "5-E01-T06", "5-E01-T07", "5-E03-T03"]
+
+[[provides]]
+name = "auswertung"
+kind = "ts-api"
+title = "evaluateMergeGate, MergeGateFacts, MergeGateResult, MergeConfig, GATE_VERSION"
+defined_in = "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"
+from_task = "5-E01-T01"
+
+[[provides]]
+name = "entscheidungen-repo"
+kind = "ts-api"
+title = "MergeGateDecisionsRepo for merge_gate_decisions, append-only"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E01-T01"
+
+[[provides]]
+name = "admin-api-entscheidungen"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/merge-gate"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E01-T01"
+
+[[provides]]
+name = "fakten-lader"
+kind = "ts-api"
+title = "MergeGateFactsLoader with fresh provider reads, a read error counts as failed"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E01-T02"
+
+[[provides]]
+name = "tabelle-autonomy-qualification"
+kind = "table"
+title = "autonomy_qualification"
+defined_in = "11-qa-prfix-automerge.md#31-tables"
+from_task = "5-E01-T03"
+
+[[provides]]
+name = "combination-key"
+kind = "ts-api"
+title = "AutonomyQualification.combinationKey from qualification_key per service and GATE_VERSION"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E01-T03"
+
+[[provides]]
+name = "bedingungen"
+kind = "ts-api"
+title = "Conditions C00 to C12, one file each under conditions/ with tests"
+defined_in = "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"
+from_task = "5-E01-T07"
+
+[[provides]]
+name = "wartefenster"
+kind = "ts-api"
+title = "MergeGateWindow open and onDeadline with pg-boss job deadline"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E01-T07"
+
+[[provides]]
+name = "event-merge-gate-decided"
+kind = "event"
+title = "merge_gate.decided with runId, decisionId, decision, failed"
+defined_in = "11-qa-prfix-automerge.md#32-artifacts-events-markers"
+from_task = "5-E01-T07"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "merge_gate_condition_failed_total{condition}, merge_gate_fact_read_failed_total, merge_gate_hold_total"
+defined_in = "11-qa-prfix-automerge.md#5-failure-and-abort-paths"
+from_task = "5-E01-T07"
+
+[[provides]]
+name = "bedingung-c13"
+kind = "ts-api"
+title = "Condition C13 branch protection and BranchProtectionReader (FE-1152)"
+defined_in = "11-qa-prfix-automerge.md#211-module-interfaces-of-merge-gate-post-merge-follow-up-and-shadow-mode"
+from_task = "5-E03-T03"
+
+[[provides]]
+name = "admin-api-branch-protection"
+kind = "http"
+title = "GET /admin/api/v1/repos/{repoId}/branch-protection"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E03-T03"
+
+[[provides]]
+name = "doctor-branch-protection"
+kind = "cli"
+title = "doctor check merge.branch_protection per repo"
+defined_in = "11-qa-prfix-automerge.md#212-admin-api-endpoints"
+from_task = "5-E03-T03"
+
+[[uses]]
+interface = "contracts-artefakte/merge-gate-decision"
+from_task = "5-E01-T01"
+purpose = "MergeGateConditionId, ConditionResult and MergeGateDecision"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.merge-gate-decisions"
+from_task = "5-E01-T01"
+purpose = "Table from migration 0006 with append-only trigger"
+
+[[uses]]
+interface = "db/repos"
+from_task = "5-E01-T01"
+purpose = "Repository merge_gate_decisions in the namespace repos"
+
+[[uses]]
+interface = "db/schema-typen"
+from_task = "5-E01-T01"
+purpose = "Kysely type of the table"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "5-E01-T01"
+purpose = "Route GET /admin/api/v1/runs/{runId}/merge-gate"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "5-E01-T01"
+purpose = "Trigger test against real Postgres"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "5-E01-T02"
+purpose = "Run, version, flags hold, stop, handed_off, foreign_input_seen"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "5-E01-T02"
+purpose = "effective configuration and qualification_key per service"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "5-E01-T02"
+purpose = "SHAs pushed by the gateway and contributions of the services"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "5-E01-T02"
+purpose = "open findings per severity and catch findings"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "5-E01-T02"
+purpose = "QAReport and ReviewArtifact at the head"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "5-E01-T02"
+purpose = "G4 by CODEOWNER at the SHA"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservations"
+from_task = "5-E01-T02"
+purpose = "Budget exhausted"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.repo-overrides"
+from_task = "5-E01-T02"
+purpose = "tightening overrides of the repo"
+
+[[uses]]
+interface = "herkunft-foreign-input/tabelle-run-untrusted-inputs"
+from_task = "5-E01-T02"
+purpose = "foreign inputs of the run for C12"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "5-E01-T02"
+purpose = "mergeStatus, checkEvidence, compare, repoInfo, getPermission fresh"
+
+[[uses]]
+interface = "plugin-github-scm/list-reviews"
+from_task = "5-E01-T02"
+purpose = "human reviews at the SHA"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "5-E01-T02"
+purpose = "isQualifiedForMergeGate per contributing service"
+
+[[uses]]
+interface = "eval-dienst/tabellen-qualifikation"
+from_task = "5-E01-T02"
+purpose = "Qualification rows and Gate B status"
+
+[[uses]]
+interface = "quality-gate/tabelle-quality-gate-decisions"
+from_task = "5-E01-T02"
+purpose = "quality-gate at the head"
+
+[[uses]]
+interface = "contracts-artefakte/qa-report"
+from_task = "5-E01-T02"
+purpose = "QAReport with verdict and testedHeadSha"
+
+[[uses]]
+interface = "qa-klassifikation-und-ausgabe/gueltigkeit-am-head"
+from_task = "5-E01-T02"
+purpose = "Validity of the QAReport at the current head"
+
+[[uses]]
+interface = "qa-catching/catch-open"
+from_task = "5-E01-T02"
+purpose = "open catch findings P0/P1 true_bug"
+
+[[uses]]
+interface = "propose-dependency/tabelle-dependency-requests"
+from_task = "5-E01-T02"
+purpose = "new dependencies with osv cross-check"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "5-E01-T02"
+purpose = "recorded provider responses of the facts"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "5-E01-T03"
+purpose = "qualification_key per service for combination_key"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "5-E01-T03"
+purpose = "Migration autonomy_qualification in block 0500"
+
+[[uses]]
+interface = "config-resolver/snapshot"
+from_task = "5-E01-T03"
+purpose = "autonomy and merge.mode on all layers"
+
+[[uses]]
+interface = "service-coder/coder-typen"
+from_task = "5-E01-T04"
+purpose = "SelfCheckReport and HardGateResult for C05"
+
+[[uses]]
+interface = "orchestrator-effekte/status-kommentar"
+from_task = "5-E01-T07"
+purpose = "End of window and hint to @agent hold"
+
+[[uses]]
+interface = "control-plane-orchestrator/fristen-queues"
+from_task = "5-E01-T07"
+purpose = "Required event deadline as a pg-boss job"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "5-E01-T07"
+purpose = "State merge_gate with required event deadline"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "5-E03-T03"
+purpose = "doctor check merge.branch_protection"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "5-E03-T03"
+purpose = "Read method for rulesets and branch protection (additive, FE-1152)"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "5-E01-T07"
+purpose = "Metrics merge_gate_* in the catalog"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "5-E01-T02"
+purpose = "Audit per evaluation and read error"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.steps"
+from_task = "5-E01-T02"
+purpose = "Contributions of the services per step for C02"
+
+[[uses]]
+interface = "reviewer-befunde/review-artefakt"
+from_task = "5-E01-T02"
+purpose = "most recent ReviewArtifact at the head for C03"
+
+[[uses]]
+interface = "agent-step/untrusted-input-record"
+from_task = "5-E01-T02"
+purpose = "Provenance records for C12"

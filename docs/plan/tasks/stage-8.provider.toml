@@ -1,0 +1,1297 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area provider of stage 8. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/13-stage-8-providers-and-bases.md (FE-1300 to FE-1399; the stage 8 rulings from 12-expansion.md still apply). Stage 8 depends on 2 and 0b, not on 6, 7a, 7 (13 section 1.1).
+stage = "8"
+
+[[epic]]
+id = "8-E01"
+title = "Jira Cloud"
+goal = "TriggerSource `relay` via Automation with HMAC (otherwise admin webhook with HMAC, FE-1223), WorkItemProvider with service account, ADF, transitions via `status_mapping`, remote link, `identity_links` via OAuth, permission AND check; a Jira mention equals a GitHub mention (S5)"
+sources = ["01 sections 3, 4"]
+depends_on = ["2-E07"]
+
+[[task]]
+id = "8-E01-T01"
+title = "Jira cassettes and fixtures from the public documentation; test site optional"
+description = """The project has no Jira account (owner decision O28, detailed design 13 FE-1366). The agent builds the cassettes and fixtures for the spike and the contract suite per detailed design 05 FE-564 from the public documentation of Jira Cloud and Atlassian: webhook and Automation bodies ("Send web request"), REST responses for comment, transition, remote link, labels, permissions, errors and rate limit, OAuth 3LO responses of the identity link; per cassette the source URL and reading date, unverified values as a note. Optional owner run, not a done criterion: Jira Cloud test site (free tier), service account, Automation rule and Atlassian OAuth app with a decision sheet and instructions from the agent; recordings then replace the documentation cassettes, secrets only in the SecretStore of the test installation."""
+design = ["13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets", "05-plugins-and-contracts.md#210-contract-harness"]
+result = "plugins/jira-cloud/contract/fixtures/ from the documentation with sources; with the optional owner run, a note in the ops repo"
+done = [
+  "Cassettes and fixtures for every method of the contract suite and for webhook, relay and OAuth checked in with `source` and reading date",
+  "gitleaks and deny scan over the fixtures with 0 hits",
+]
+sources = ["01 sections 3 and 4", "05 section 5", "O22", "O28"]
+depends_on = []
+owner = "agent"
+estimate_h = 4
+note = "Planned as an owner account step until 2026-11-01; after O28 built from the documentation, the test site is an optional owner run."
+
+  [[task.part]]
+  id = "8-E01-T01-S01"
+  title = "Cassettes and fixtures from the documentation (agent)"
+  done = "Fixtures with sources in the repo"
+
+  [[task.part]]
+  id = "8-E01-T01-S02"
+  title = "Instructions for the optional owner run (agent)"
+  done = "Instructions in the ops repo"
+
+[[task]]
+id = "8-E01-T02"
+title = "Spike: Jira input, signature, permissions API, fixtures"
+description = """Clarifies from the public documentation (on a test site only if the optional owner run from 8-E01-T01 took place) the open Jira points from 13-stage-8-providers-and-bases.md section 10: can Automation compute an HMAC over the body; HMAC header of the admin webhook; auth type of the service account; endpoint for the permissions of another user (FE-1226); marker as a comment property; remote link upsert via globalId; rate limit headers. Checks the fixtures from 8-E01-T01 against the responses; the recording script remains for the optional owner run (test site only)."""
+design = ["13-stage-8-providers-and-bases.md#219-spike-fixtures-and-recording", "13-stage-8-providers-and-bases.md#10-open-points"]
+result = "plugins/jira-cloud/fixtures/, eval/reports/spike-jira.md, update of 13-stage-8-providers-and-bases.md sections 2.1 and 10"
+done = [
+  "every open Jira question noted as VERIFIED (with the location in the documentation or a recording from the optional owner run), refuted or unverified with consequence",
+  "Fixtures with fixturesHash; the recording script refuses foreign sites (test)",
+  "12-expansion.md updated in the same PR where the recording deviates",
+]
+sources = ["01 sections 2, 3, 4, 11.1 and 11.5", "09 section 4"]
+depends_on = ["8-E01-T01"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E01-T02-S01"
+  title = "Recording script with target check"
+  done = "Test green"
+
+  [[task.part]]
+  id = "8-E01-T02-S02"
+  title = "Check signatures of webhook and relay"
+  done = "Note with location"
+
+  [[task.part]]
+  id = "8-E01-T02-S03"
+  title = "Permissions API, marker, remote link, rate limit"
+  done = "Note with location"
+
+  [[task.part]]
+  id = "8-E01-T02-S04"
+  title = "Update the detailed design"
+  done = "13-stage-8-providers-and-bases.md updated"
+
+[[task]]
+id = "8-E01-T03"
+title = "ADF renderer and ADF reader"
+description = """@guildwork/adf per FE-1224: markdownToAdf for the platform subset via mdast (remark-parse), mentions via accountId, nodes that cannot be mapped as a code block; adfToMarkdown for ticket texts and comments with marking of unknown nodes (13-stage-8-providers-and-bases.md section 2.1.5)."""
+design = ["13-stage-8-providers-and-bases.md#215-adf-renderer-and-adf-reader"]
+result = "packages/adf/"
+done = [
+  "Test 'adf roundtrip of the platform subset' green",
+  "Test 'adf renderer falls back to code block' green",
+  "License of remark-parse green in the license gate",
+]
+sources = ["01 section 11.5", "ADR-32"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E01-T03-S01"
+  title = "Test cases per node kind"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E01-T03-S02"
+  title = "markdownToAdf"
+  done = "Render tests green"
+
+  [[task.part]]
+  id = "8-E01-T03-S03"
+  title = "adfToMarkdown"
+  done = "Roundtrip green"
+
+[[task]]
+id = "8-E01-T04"
+title = "TriggerSource jira-cloud"
+description = """TriggerSource per 13-stage-8-providers-and-bases.md section 2.1.2 and FE-1223: ingress path /ingress/jira-cloud/{instanceId}, modes webhook (HMAC, strong), relay (HMAC or shared secret, weak) and poll (JQL cursor), signature before parsing, ADF mention of the service account as a native mention, text mention as a fallback, dedupeKey with delivery ID, isSelf, IP allowlist for weak."""
+design = ["13-stage-8-providers-and-bases.md#212-triggersource-jira-cloud", "13-stage-8-providers-and-bases.md#41-jira-ingress-to-inbox"]
+result = "plugins/jira-cloud/src/trigger.ts, contract suite jira-cloud (trigger)"
+done = [
+  "Test 'jira invalid signature is rejected before parsing' green (webhook and relay)",
+  "Test 'jira adf mention of the service account is a native mention' green",
+  "Test 'jira text mention as fallback' green",
+  "Contract suite (trigger part) green against the fixtures from 8-E01-T02",
+  "Test 'jira relay without peer header is rejected with ip allowlist' green (FE-1316)",
+]
+sources = ["01 sections 2 and 3", "05 section 9", "ADR-08", "ADR-32"]
+depends_on = ["8-E01-T02", "8-E01-T03"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "8-E01-T04-S01"
+  title = "Tests signature and mention"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E01-T04-S02"
+  title = "verify for webhook and relay"
+  done = "Signature tests green"
+
+  [[task.part]]
+  id = "8-E01-T04-S03"
+  title = "parse with ADF mention and command"
+  done = "Mention tests green"
+
+  [[task.part]]
+  id = "8-E01-T04-S04"
+  title = "poll and reconcile via JQL"
+  done = "Poll test green"
+
+  [[task.part]]
+  id = "8-E01-T04-S05"
+  title = "Ingress path and contract suite"
+  done = "Contract suite green"
+
+[[task]]
+id = "8-E01-T05"
+title = "WorkItemProvider jira-cloud read"
+description = """getItem (ADF to untrusted Markdown), getComments, search (JQL with cursor), userPermission per FE-1226 with a 60 s cache, whoami, getLinks, renderMention; retry on 429 and 5xx with retryAfterMs; capabilities() per 13-stage-8-providers-and-bases.md sections 2.1.1 and 2.1.3."""
+design = ["13-stage-8-providers-and-bases.md#213-workitemprovider-jira-cloud-reading"]
+result = "plugins/jira-cloud/src/workitems/read.ts"
+done = [
+  "Contract cases of all read methods green including 401, 403, 404",
+  "Test 'jira 429 is retried with a pause' green",
+  "The payload is never used as truth: router test reads getItem fresh",
+]
+sources = ["01 sections 2 and 4", "01 section 1.1 rule 3"]
+depends_on = ["8-E01-T02", "8-E01-T03"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E01-T05-S01"
+  title = "Contract cases read"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "8-E01-T05-S02"
+  title = "getItem, getComments, search"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "8-E01-T05-S03"
+  title = "userPermission, whoami, retry"
+  done = "all cases green"
+
+[[task]]
+id = "8-E01-T06"
+title = "WorkItemProvider jira-cloud write"
+description = """addComment and updateComment in ADF with a marker, transition via status_mapping (error with a list of possible transitions), assign, linkExternal as a remote link with globalId, setLabels, linkItems, createItem; only via the Effect Gateway with profile comment_issue or labels; status comment instead of an agent session."""
+design = ["13-stage-8-providers-and-bases.md#214-workitemprovider-jira-cloud-writing"]
+result = "plugins/jira-cloud/src/workitems/write.ts"
+done = [
+  "Test 'jira transition via status mapping' green",
+  "Test 'missing transition reports possible targets' green",
+  "Test 'remote link is idempotent via global id' green",
+  "Contract cases of all write methods green",
+  "mintWorkItemToken in the broker (FE-1315) with test 'jira writes only with a token per effect' green",
+]
+sources = ["01 section 4", "03 section 2.3", "05 section 2"]
+depends_on = ["8-E01-T05"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E01-T06-S01"
+  title = "Contract cases write"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "8-E01-T06-S02"
+  title = "Comments with marker"
+  done = "Comment cases green"
+
+  [[task.part]]
+  id = "8-E01-T06-S03"
+  title = "Transition, assign, remote link"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "8-E01-T06-S04"
+  title = "Labels, links, creation"
+  done = "all cases green"
+
+[[task]]
+id = "8-E01-T07"
+title = "identity_links via OAuth confirmation"
+description = """Linking per FE-1225 and 13-stage-8-providers-and-bases.md sections 2.1.6 and 4.3: admin UI page link accounts, OAuth 2.0 with PKCE at Atlassian (3LO) and GitHub (app user sign-in), table identity_link_flows, column identity_links.revoked_by via an expand migration (model of the link from 01 section 3.2, 13 section 3.2), discard user tokens after reading the account ID, revocation with audit."""
+design = ["13-stage-8-providers-and-bases.md#216-identity-linking", "13-stage-8-providers-and-bases.md#43-identity-linking", "13-stage-8-providers-and-bases.md#32-tables-of-stage-8"]
+result = "apps/control-plane/src/identity/links.ts, apps/admin-ui/src/pages/identity-link/, packages/db/migrations/0801_identity_links.sql"
+done = [
+  "Test 'identity link requires both oauth confirmations' green",
+  "Test 'identity link state is single use' green",
+  "Test 'email equality never links' green",
+  "Secret scan after a test run: no user token in tables, logs, BlobStore",
+  "Test 'identity link flows are deleted after expiry' green",
+]
+sources = ["05 section 7", "01 section 2 (ResolvedEvent.identity)"]
+depends_on = ["8-E01-T02"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "8-E01-T07-S01"
+  title = "Tests linking and single use"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E01-T07-S02"
+  title = "Migrations identity_link_flows and identity_links"
+  done = "Migration test green"
+
+  [[task.part]]
+  id = "8-E01-T07-S03"
+  title = "OAuth flows Atlassian and GitHub"
+  done = "Flow tests with fixtures green"
+
+  [[task.part]]
+  id = "8-E01-T07-S04"
+  title = "Admin UI page and revocation"
+  done = "UI test and audit test green"
+
+  [[task.part]]
+  id = "8-E01-T07-S05"
+  title = "Secret scan after the run"
+  done = "0 findings"
+
+[[task]]
+id = "8-E01-T08"
+title = "permission AND check in the router"
+description = """For Jira events the router adds permission.workItem (fresh at the provider) and, via identity_links, permission.scm in the target repo from repo_mapping; commands with min_permission work_item and scm run only with both; without a link Skipped(identity_not_linked) with an answer and a link (13-stage-8-providers-and-bases.md section 4.2). In addition, the visibility of ticket targets for ADR-63 per FE-1253 (the org's setting; without it only references of the own run to the assigned repo, citations with content only with the setting; otherwise public) in the Effect Gateway."""
+design = ["13-stage-8-providers-and-bases.md#217-permission-and-check-and-visibility-of-ticket-targets", "13-stage-8-providers-and-bases.md#42-jira-mention-to-ticket-to-pr"]
+result = "apps/control-plane/src/router/permissions-and.ts"
+done = [
+  "Test 'and permission check requires ticket and repo' green (four combinations)",
+  "Test 'without identity link no code run from jira' green",
+  "S2 case Jira: a trigger with ticket but without repo permission yields 0 runs",
+  "Test 'ticket target visibility per setting, assignment, otherwise public' green (citation from a foreign private repo in Jira blocked, citation from the assigned private repo without the setting blocked, remote link to the own draft PR allowed)",
+]
+sources = ["01 section 2", "03 section 3 (G0)", "04 section 3 (command_permissions)", "05 section 7", "ADR-63"]
+depends_on = ["8-E01-T05", "8-E01-T07"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E01-T08-S01"
+  title = "Tests four combinations and without link"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E01-T08-S02"
+  title = "Permission resolution and answers"
+  done = "Tests green"
+
+[[task]]
+id = "8-E01-T09"
+title = "Out of order, repetition and catching up"
+description = """Tests with Jira fixtures for unordered and repeated deliveries (up to 5 repetitions), late events, comments edited after the trigger and catching up via poll and reconcile; dedupe via delivery ID and dedupeKey, fresh reading, object lock (ADR-68)."""
+design = ["13-stage-8-providers-and-bases.md#41-jira-ingress-to-inbox", "13-stage-8-providers-and-bases.md#42-jira-mention-to-ticket-to-pr", "13-stage-8-providers-and-bases.md#5-failure-and-abort-paths"]
+result = "plugins/jira-cloud/test/ordering.test.ts, apps/control-plane/test/ingress-jira.test.ts"
+done = [
+  "Test 'jira repeated delivery creates one run' green",
+  "Test 'jira swapped order uses fresh state' green",
+  "Test 'jira edited comment is not used as a command' green",
+  "Test 'jira poll catches up missed events' green",
+]
+sources = ["01 section 2", "03 section 5", "05 section 4 item 3", "ADR-68"]
+depends_on = ["8-E01-T04", "8-E01-T05"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E01-T09-S01"
+  title = "Fixture sequences for order and repetition"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E01-T09-S02"
+  title = "Corrections in ingress and router"
+  done = "Tests green"
+
+[[task]]
+id = "8-E01-T10"
+title = "E2E: Jira mention equals GitHub mention (S5)"
+description = """S5 case per 07 section 5: Jira ticket with @agent code through ticket-to-pr to a draft PR, review and fix in the test repo with cassettes (Jira from the documentation per 8-E01-T01, GitHub recorded), same state sequence and effects as from GitHub Issues; control commands approve plan and stop from Jira; status comment in ADF, transition started and in_review, remote link to the PR; path for @agent ask from Jira up to the route (E2E in 9-E02-T03, FE-1227)."""
+design = ["13-stage-8-providers-and-bases.md#218-ask-and-control-commands-from-jira", "13-stage-8-providers-and-bases.md#42-jira-mention-to-ticket-to-pr", "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8"]
+result = "eval/suites/s5/jira/"
+done = [
+  "E2E 'jira mention equals github mention' green",
+  "approve plan from Jira leads from G1 to coding (S5)",
+  "ask from Jira is recognized, permission-checked and routed to indexer; without indexer the answer 'service indexer is off' (test)",
+]
+sources = ["07 section 5 (S5)", "03 sections 1 and 4", "08 stage 8"]
+depends_on = ["8-E01-T04", "8-E01-T06", "8-E01-T08", "8-E01-T09", "0-E20-T21"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E01-T10-S01"
+  title = "E2E skeleton with Jira fixtures"
+  done = "Test red"
+
+  [[task.part]]
+  id = "8-E01-T10-S02"
+  title = "Equality of the state sequence"
+  done = "E2E green"
+
+  [[task.part]]
+  id = "8-E01-T10-S03"
+  title = "Control commands and ask route"
+  done = "Cases green"
+
+[[epic]]
+id = "8-E02"
+title = "Further LLM providers"
+goal = "Claude API via WIF, Bedrock, Foundry, Vertex, one step each with contract test 'start with <kind>' and data path policy; transition with short-lived item credentials until the relay contract test (FE-1228)"
+sources = ["01 sections 7, 11.4"]
+depends_on = ["2-E07"]
+
+[[task]]
+id = "8-E02-T01"
+title = "Cassettes for Claude API WIF, Bedrock, Vertex, Foundry and cloud drivers from the documentation; accounts optional"
+description = """The project has neither a Console workspace nor accounts at AWS, Google Cloud or Azure for these providers (owner decision O28, detailed design 13 FE-1366); Claude via Bedrock, Vertex and Foundry is still Claude, but needs a cloud account. The agent builds the cassettes and fixtures per detailed design 05 FE-564 from the public documentation: token exchange (WIF jwt-bearer, STS, Google STS, Entra), invoke or prediction responses with usage, errors and rate limit per provider, responses of the drivers `gcs`, `aws-secretsmanager`, `gcp-secretmanager`; per cassette the source URL and reading date. Optional owner run, not a done criterion: Console workspace with a WIF federation rule, AWS account with Bedrock in eu profiles, GCP project with Vertex, Azure with a Foundry resource, with a decision sheet (costs per run, effect, risks) and cost measurement before and after every run (O22); recordings then replace the documentation cassettes."""
+design = ["13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets", "05-plugins-and-contracts.md#210-contract-harness"]
+result = "Cassettes under plugins/model-{bedrock,vertex,foundry}/contract/, drivers/*/contract/ and the exchange fixtures, each with sources; with the optional owner run, a note in the ops repo"
+done = [
+  "Cassettes per provider and driver checked in with `source` and reading date",
+  "gitleaks and deny scan over the cassettes with 0 hits",
+  "Stage report names per provider 'checked from documentation' or 'evidenced against the real system'",
+]
+sources = ["O22", "O28", "01 section 11.4", "05 section 5"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+note = "Planned as an owner account step until 2026-11-01; after O28 built from the documentation, accounts and recordings are an optional owner run."
+
+  [[task.part]]
+  id = "8-E02-T01-S01"
+  title = "Cassettes of the providers from the documentation (agent)"
+  done = "Cassettes with sources in the repo"
+
+  [[task.part]]
+  id = "8-E02-T01-S02"
+  title = "Cassettes of the cloud drivers and the token exchange from the documentation (agent)"
+  done = "Cassettes with sources in the repo"
+
+[[task]]
+id = "8-E02-T02"
+title = "Spike: federation and start paths"
+description = """Clarifies the open points from 09 section 4 for stage 8: federation details for Bedrock, Vertex, Foundry from the own OIDC issuer role, WIF claims in the federation rule set, whether Vertex offers EU regions for Claude, whether Claude Code can disable the client signature for Bedrock with a base URL, env variables for vertex and foundry (backlog M36). Result as an update of 13-stage-8-providers-and-bases.md sections 2.2 and 10."""
+design = ["13-stage-8-providers-and-bases.md#221-overview-per-credential-kind", "13-stage-8-providers-and-bases.md#10-open-points"]
+result = "eval/reports/spike-federation.md, update of 12-expansion.md"
+done = [
+  "every question VERIFIED with the location in the documentation (or a trial run from the optional owner run), otherwise unverified with consequence",
+  "Env allowlist for vertex and foundry defined (M36)",
+]
+sources = ["09 section 4", "01 sections 6 and 11.4", "Backlog M36"]
+depends_on = ["8-E02-T01"]
+owner = "agent"
+estimate_h = 8
+note = "Backlog M36 (env allowlist vertex, foundry)"
+
+  [[task.part]]
+  id = "8-E02-T02-S01"
+  title = "Check WIF and Bedrock"
+  done = "Note"
+
+  [[task.part]]
+  id = "8-E02-T02-S02"
+  title = "Check Vertex and Foundry"
+  done = "Note"
+
+  [[task.part]]
+  id = "8-E02-T02-S03"
+  title = "Update the detailed design"
+  done = "13-stage-8-providers-and-bases.md updated"
+
+[[task]]
+id = "8-E02-T03"
+title = "Start with wif"
+description = """Credential kind wif for claude-code and model-anthropic: broker JWT with exp at most half the remaining lifetime of the lease and a fresh jti per exchange, exchange in the worker via jwt-bearer, access token only in the relay, the relay sets Authorization Bearer, placeholder in the sandbox, --bare (01 section 6, 13-stage-8-providers-and-bases.md section 4.4)."""
+design = ["13-stage-8-providers-and-bases.md#223-exchange-in-the-worker-for-wif", "13-stage-8-providers-and-bases.md#222-grants-and-broker", "13-stage-8-providers-and-bases.md#44-start-with-wif"]
+result = "plugins/claude-code/src/credentials/wif.ts, apps/worker/src/credentials/wif-exchange.ts, egress-proxy relay extension"
+done = [
+  "Contract test 'start with wif' green: exchange in the worker, --bare, model call via the relay, no real credential in the environment, file system and process list of the sandbox",
+  "Tests 'wif broker jwt exp at most half the remaining lifetime of the lease', 'wif every exchange with a fresh jti', 'wif exchange rejected ends auth_failed' green",
+  "Test 'foreign credential variables do not appear in the harness' green for wif",
+]
+sources = ["01 section 6", "05 sections 3 and 5", "ADR-22", "08 stage 8"]
+depends_on = ["8-E02-T02"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E02-T03-S01"
+  title = "Tests JWT, jti, rejection, environment"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E02-T03-S02"
+  title = "Broker JWT and exchange in the worker"
+  done = "Exchange tests green"
+
+  [[task.part]]
+  id = "8-E02-T03-S03"
+  title = "Relay with bearer and placeholder"
+  done = "Relay tests green"
+
+  [[task.part]]
+  id = "8-E02-T03-S04"
+  title = "Contract test against the stub of the token and messages endpoint from the documentation"
+  done = "Contract test green; a run against a real workspace only as an optional owner run (O28)"
+
+[[task]]
+id = "8-E02-T04"
+title = "Bedrock"
+description = """ModelProvider model-bedrock and claude-code with bedrock: transition with STS credentials of an item role (only InvokeModel on eu. profiles, lifetime at most the lease) via CloudIdentity aws; relay with SigV4 behind credential.relay, enabled only with a green relay contract test (FE-1228); capabilities per 01 section 11.5 (no web search, caching regional)."""
+design = ["13-stage-8-providers-and-bases.md#226-modelprovider-bedrock-vertex-and-foundry", "13-stage-8-providers-and-bases.md#224-credential-relay-for-further-upstreams", "13-stage-8-providers-and-bases.md#225-starting-paths-and-harness-environment", "13-stage-8-providers-and-bases.md#45-start-with-bedrock-vertex-and-foundry"]
+result = "plugins/model-bedrock/, plugins/claude-code/src/credentials/bedrock.ts, relay SigV4"
+done = [
+  "Contract test 'start with bedrock' green in the transition (only STS of the item role in the sandbox, lifetime at most the lease)",
+  "Relay contract test with SigV4 green or noted as unverified with a reason; credential.relay true only when green",
+  "Test 'bedrock sts rejected ends auth_failed' green",
+  "Contract suite model-bedrock green",
+]
+sources = ["01 sections 6, 7, 11.4 and 11.5", "05 section 3"]
+depends_on = ["8-E02-T02", "8-E04-T03"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "8-E02-T04-S01"
+  title = "Tests transition and rejection"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E02-T04-S02"
+  title = "ModelProvider bedrock"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "8-E02-T04-S03"
+  title = "Start path in the transition"
+  done = "Contract test green"
+
+  [[task.part]]
+  id = "8-E02-T04-S04"
+  title = "Relay with SigV4 behind a switch"
+  done = "Relay test green or note"
+
+[[task]]
+id = "8-E02-T05"
+title = "Vertex"
+description = """ModelProvider model-vertex and claude-code with vertex (CLAUDE_CODE_USE_VERTEX, CLOUD_ML_REGION) via CloudIdentity gcp, transition with a short-lived access token per item, relay behind a switch; region per the result of 8-E02-T02 in the data path policy."""
+design = ["13-stage-8-providers-and-bases.md#226-modelprovider-bedrock-vertex-and-foundry", "13-stage-8-providers-and-bases.md#225-starting-paths-and-harness-environment", "13-stage-8-providers-and-bases.md#45-start-with-bedrock-vertex-and-foundry"]
+result = "plugins/model-vertex/, plugins/claude-code/src/credentials/vertex.ts"
+done = [
+  "Contract test 'start with vertex' green",
+  "Contract suite model-vertex green",
+  "Env allowlist vertex green in the test 'foreign credential variables do not appear in the harness'",
+]
+sources = ["01 sections 6, 7 and 11.4"]
+depends_on = ["8-E02-T02", "8-E04-T03"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E02-T05-S01"
+  title = "Tests start and environment"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E02-T05-S02"
+  title = "ModelProvider vertex"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "8-E02-T05-S03"
+  title = "Start path claude-code"
+  done = "Contract test green"
+
+[[task]]
+id = "8-E02-T06"
+title = "Foundry"
+description = """ModelProvider model-foundry and claude-code with foundry (CLAUDE_CODE_USE_FOUNDRY, ANTHROPIC_FOUNDRY_RESOURCE) via CloudIdentity azure-managed-identity, transition with a short-lived Entra token per item, relay behind a switch; data path never eu as long as no EU zone is evidenced."""
+design = ["13-stage-8-providers-and-bases.md#226-modelprovider-bedrock-vertex-and-foundry", "13-stage-8-providers-and-bases.md#225-starting-paths-and-harness-environment", "13-stage-8-providers-and-bases.md#45-start-with-bedrock-vertex-and-foundry"]
+result = "plugins/model-foundry/, plugins/claude-code/src/credentials/foundry.ts"
+done = [
+  "Contract test 'start with foundry' green",
+  "Contract suite model-foundry green",
+  "Env allowlist foundry green in the environment test",
+]
+sources = ["01 sections 6, 7, 11.4 and 11.5"]
+depends_on = ["8-E02-T02", "8-E04-T03"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E02-T06-S01"
+  title = "Tests start and environment"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E02-T06-S02"
+  title = "ModelProvider foundry"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "8-E02-T06-S03"
+  title = "Start path claude-code"
+  done = "Contract test green"
+
+[[task]]
+id = "8-E02-T07"
+title = "Data path policy per provider resolution"
+description = """Resolver rules per 13-stage-8-providers-and-bases.md section 2.2.7 (ADR-23): matrix repo class by provider and region; Foundry never eu; Vertex eu only after evidence; Claude API only global or us; fallback provider only if all checks pass; S2 cases per new resolution."""
+design = ["13-stage-8-providers-and-bases.md#227-data-path-policy-per-provider-resolution"]
+result = "packages/config/src/resolver/data-policy.ts (extension), eval/suites/s2/provider/"
+done = [
+  "Test 'foundry for eu is rejected at load' green",
+  "Test 'data path policy per provider resolution' green",
+  "S2 of stage 8 for the provider resolution green",
+]
+sources = ["04 sections 3 and 5", "01 section 11.4", "ADR-23", "07 section 5 (S2)"]
+depends_on = ["8-E02-T03", "8-E02-T04", "8-E02-T05", "8-E02-T06"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "8-E02-T07-S01"
+  title = "Matrix tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E02-T07-S02"
+  title = "Resolver rules"
+  done = "Tests and S2 green"
+
+[[epic]]
+id = "8-E03"
+title = "Second harness codex"
+goal = "AgentRuntime `codex` with contract suite, credential kinds `openai` (relay) and `chatgpt` (personal operator mode), costs via the price table"
+sources = ["01 section 6"]
+depends_on = ["2-E07"]
+
+[[task]]
+id = "8-E03-T01"
+title = "Spike: Codex CLI"
+description = """Checks from the documentation and a trial run without a model call (installation, help, configuration; the project has no OpenAI account, O28): start path codex exec --json --output-schema, sandbox modes, repo configuration untrusted, the Codex home variable, base URL switch via the relay, RESUME, telemetry and update switches (air gap), plan limits (09 section 4). Result as an update of 13-stage-8-providers-and-bases.md sections 2.3 and 10."""
+design = ["13-stage-8-providers-and-bases.md#23-harness-codex-8-e03", "13-stage-8-providers-and-bases.md#10-open-points"]
+result = "eval/reports/spike-codex.md, update of 12-expansion.md"
+done = [
+  "every question VERIFIED or unverified with consequence",
+  "pinned version and checksum for the contract suite defined",
+]
+sources = ["01 sections 6 and 11.3", "09 section 4"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "8-E03-T01-S01"
+  title = "Trial run and note"
+  done = "Note"
+
+  [[task.part]]
+  id = "8-E03-T01-S02"
+  title = "Update the detailed design"
+  done = "13-stage-8-providers-and-bases.md updated"
+
+[[task]]
+id = "8-E03-T02"
+title = "AgentRuntime codex"
+description = """plugins/codex per 13-stage-8-providers-and-bases.md section 2.3: install with PinnedVersion from the official source or the mirror, run with codex exec --json --output-schema, sandbox mode from nativeTools, own empty configuration directory, subagents off, mapping of the events to RuntimeEvent, usage, abort via AbortSignal, cost source price_table via the interface PriceLookup (tables come with 8-E06-T01; without a table usd stays empty)."""
+design = ["13-stage-8-providers-and-bases.md#231-manifest-and-capabilities", "13-stage-8-providers-and-bases.md#232-install", "13-stage-8-providers-and-bases.md#233-run-and-event-mapping", "13-stage-8-providers-and-bases.md#46-codex-run"]
+result = "plugins/codex/src/*.ts"
+done = [
+  "Test 'codex schema invalid ends neutral' green",
+  "Test 'codex reports cost source price_table without a loaded table' green (integration of the tables in 8-E06-T01)",
+  "install aborts with invalid on a deviating checksum (test)",
+]
+sources = ["01 section 6", "06 section 8", "ADR-39"]
+depends_on = ["8-E03-T01"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "8-E03-T02-S01"
+  title = "Tests install, schema, costs"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E03-T02-S02"
+  title = "install with checksum"
+  done = "install test green"
+
+  [[task.part]]
+  id = "8-E03-T02-S03"
+  title = "run and event mapping"
+  done = "Run on fixture green"
+
+  [[task.part]]
+  id = "8-E03-T02-S04"
+  title = "Costs and abort"
+  done = "all tests green"
+
+[[task]]
+id = "8-E03-T03"
+title = "Credential kinds openai and chatgpt"
+description = """openai via the relay with a placeholder key; until the relay contract test is green, the resolver allows codex with openai only for services without a shell (FE-1229). chatgpt only as a personal operator mode per ADR-51 (login in the unmodified CLI on the worker host, acknowledge_terms, single_operator, only without a shell)."""
+design = ["13-stage-8-providers-and-bases.md#234-credential-kinds-openai-and-chatgpt"]
+result = "plugins/codex/src/credentials/*.ts, resolver rules"
+done = [
+  "Contract test 'start with openai' green or relay noted as unverified",
+  "Test 'codex openai with shell rejected before relay test' green",
+  "S2 case chatgpt without acknowledge_terms yields a rejection at load",
+  "Upstream profile openai in the relay with test 'relay openai allows only the responses api' green",
+]
+sources = ["01 section 6", "05 section 6", "ADR-51"]
+depends_on = ["8-E03-T02", "8-E02-T04"]   # 8-E02-T04 added: the relay's upstream profiles (FE-1321) are created with Bedrock (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E03-T03-S01"
+  title = "Tests start, resolver, S2"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E03-T03-S02"
+  title = "openai via relay"
+  done = "Contract test green or note"
+
+  [[task.part]]
+  id = "8-E03-T03-S03"
+  title = "Resolver rules and chatgpt lock"
+  done = "all tests green"
+
+[[task]]
+id = "8-E03-T04"
+title = "Contract suite codex"
+description = """Contract suite of the AgentRuntime codex with transcripts built from the documented event format of `codex exec --json` (detailed design 05 FE-564; the project has no OpenAI account, O28; recorded runs only from an optional owner run): install, run, schema output, abort, failure paths (auth, rate limit, schema invalid), start paths per credential kind; load condition per 01 section 1.1 rule 1."""
+design = ["13-stage-8-providers-and-bases.md#235-contract-suite-codex"]
+result = "plugins/codex/contract/"
+done = [
+  "Contract suite codex green; fixturesHash in the manifest",
+  "Plugin loads only with a passed suite (test)",
+]
+sources = ["01 section 1.1", "07 section 5"]
+depends_on = ["8-E03-T02", "8-E03-T03"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E03-T04-S01"
+  title = "Transcripts from the documentation"
+  done = "Fixtures with sources in the repo"
+
+  [[task.part]]
+  id = "8-E03-T04-S02"
+  title = "Suite and load condition"
+  done = "Suite green"
+
+[[epic]]
+id = "8-E04"
+title = "Further bases"
+goal = "Helm chart with ExecutionBackend `k8s`, OpenTofu `aws`, `gcp`, `hetzner` with host preparation as cloud-init, drivers `gcs`, `aws-secretsmanager`, `gcp-secretmanager` and identities `azure-managed-identity`, `aws`, `gcp`"
+sources = ["11 sections 2.5, 2.6, 4"]
+depends_on = ["0b-E03"]
+
+[[task]]
+id = "8-E04-T01"
+title = "BlobStore gcs"
+description = """Driver drivers/blob-gcs per 01 section 13 and 13-stage-8-providers-and-bases.md section 2.4.1: put, get, delete, list, presignPut and presignGet via signed URLs (unverified), capabilities VERSIONING and OBJECT_LOCK per bucket setting; contract suite against cassettes from the public documentation from 8-E02-T01 (detailed design 05 FE-564; recordings only from an optional owner run; emulator only with an evidenced license and coverage)."""
+design = ["13-stage-8-providers-and-bases.md#241-blobstore-gcs"]
+result = "drivers/blob-gcs/"
+done = [
+  "Contract suite blob-gcs green including an expired presign URL and deletion under object lock",
+  "Signed URLs for presignPut evidenced or PRESIGN none with upload via the Work API (fallback level with audit)",
+]
+sources = ["01 section 13", "11 sections 4 and 11"]
+depends_on = ["8-E04-T03", "8-E02-T01"]   # 8-E02-T01 added: provides the cassettes from the documentation (O28; until 2026-11-01: the owner's cloud accounts for recordings)
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E04-T01-S01"
+  title = "Documentation cassettes and contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "8-E04-T01-S02"
+  title = "Driver"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "8-E04-T01-S03"
+  title = "Presign and object lock"
+  done = "Failure path cases green"
+
+[[task]]
+id = "8-E04-T02"
+title = "SecretStore aws-secretsmanager and gcp-secretmanager"
+description = """Drivers drivers/secret-aws-secretsmanager and drivers/secret-gcp-secretmanager with get, put (WRITE) and optionally sign via KMS (SIGN); contract suites against cassettes from the public documentation (detailed design 05 FE-564) including an unknown secret version."""
+design = ["13-stage-8-providers-and-bases.md#242-secretstore-aws-secretsmanager-and-gcp-secretmanager"]
+result = "drivers/secret-aws-secretsmanager/, drivers/secret-gcp-secretmanager/"
+done = [
+  "Contract suites of both drivers green including failure paths",
+  "sign only if the trial run evidences it; otherwise SIGN none",
+]
+sources = ["01 section 13", "05 section 5", "ADR-22", "ADR-41"]
+depends_on = ["8-E04-T03", "8-E02-T01"]   # 8-E02-T01 added: provides the cassettes from the documentation (O28; until 2026-11-01: the owner's cloud accounts for recordings)
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E04-T02-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "8-E04-T02-S02"
+  title = "aws-secretsmanager"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "8-E04-T02-S03"
+  title = "gcp-secretmanager"
+  done = "Cases green"
+
+[[task]]
+id = "8-E04-T03"
+title = "CloudIdentity azure-managed-identity, aws, gcp"
+description = """Drivers drivers/identity-azure-managed-identity, drivers/identity-aws, drivers/identity-gcp with ambientToken and exchange (entra, aws_sts, gcp_sts, anthropic_wif) per 01 section 13; contract suites with a test issuer and exchange responses from the public documentation (detailed design 05 FE-564) including a rejected exchange and jti reuse. Basis for 8-E02-T04 to T06."""
+design = ["13-stage-8-providers-and-bases.md#243-cloudidentity-azure-managed-identity-aws-and-gcp"]
+result = "drivers/identity-azure-managed-identity/, drivers/identity-aws/, drivers/identity-gcp/"
+done = [
+  "Contract suites of the three drivers green",
+  "Test 'jti is never reused in the wif exchange' green",
+  "issuer.mint in the driver context (FE-1342) with test 'self issuer driver without self-issuer is rejected at start' green",
+]
+sources = ["01 section 13", "05 section 5", "11 section 4", "ADR-22"]
+depends_on = ["8-E02-T01"]   # 8-E02-T01 added: provides the cassettes from the documentation (O28; until 2026-11-01: the owner's cloud accounts for recordings)
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "8-E04-T03-S01"
+  title = "Test issuer and contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "8-E04-T03-S02"
+  title = "azure-managed-identity"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "8-E04-T03-S03"
+  title = "aws"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "8-E04-T03-S04"
+  title = "gcp"
+  done = "Cases green"
+
+[[task]]
+id = "8-E04-T04"
+title = "Helm chart"
+description = """deploy/helm/guildwork per 11 section 2.5 and FE-1231: separate deployments for web, orchestrator and worker pools from one image, migrate as a job before the rollout, no database, RuntimeClass per pool, NetworkPolicy (sandbox pods only to the egress proxy), signature check in the init container, values schema, optional embedder."""
+design = ["13-stage-8-providers-and-bases.md#244-helm-chart"]
+result = "deploy/helm/guildwork/"
+done = [
+  "helm lint and schema check of the values green",
+  "Test 'helm starts no unsigned image' green",
+  "License of cosign or the check tool green in the license gate",
+  "Tests 'helm values map secrets to the environment' and 'helm orchestrator has exactly one replica' green (FE-1347, FE-1348)",
+]
+sources = ["11 sections 2.5 and 3", "05 section 10", "06 section 2"]
+depends_on = ["8-E04-T11"]   # values pools[] and RBAC of the chart follow the backend k8s (13 FE-1345)
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "8-E04-T04-S01"
+  title = "Values schema and lint test"
+  done = "Lint red or schema test red"
+
+  [[task.part]]
+  id = "8-E04-T04-S02"
+  title = "Deployments, job migrate, pools"
+  done = "Lint green"
+
+  [[task.part]]
+  id = "8-E04-T04-S03"
+  title = "NetworkPolicy and RuntimeClass"
+  done = "Template tests green"
+
+  [[task.part]]
+  id = "8-E04-T04-S04"
+  title = "Signature check in the init container"
+  done = "Signature test green"
+
+[[task]]
+id = "8-E04-T05"
+title = "Helm in S8 on kind and k3d"
+description = """CI run per 11 section 9: Helm install on kind and k3d with RuntimeClass runsc, external Postgres as a container, smoke run (webhook fixture, review in shadow), upgrade N-1 to N with data; isolation matrix only with the levels supported in stage 8 (backlog M132)."""
+design = ["13-stage-8-providers-and-bases.md#47-helm-install-upgrade-and-s8", "13-stage-8-providers-and-bases.md#84-bases-8-e04"]
+result = ".github/workflows/s8-helm.yml, eval/suites/s8/helm/"
+done = [
+  "S8 'helm install and smoke on kind' and 'on k3d' green (job log)",
+  "Upgrade N-1 to N with data without loss",
+  "The matrix names only isolation levels that stage 8 supports (M132)",
+]
+sources = ["11 sections 9 and 10", "07 section 5 (S8)", "08 stage 8"]
+depends_on = ["8-E04-T04", "8-E04-T11", "0-E20-T21"]
+owner = "agent"
+estimate_h = 10
+note = "Backlog M132 (S8 matrix per stage)"
+
+  [[task.part]]
+  id = "8-E04-T05-S01"
+  title = "Workflow kind"
+  done = "Smoke green"
+
+  [[task.part]]
+  id = "8-E04-T05-S02"
+  title = "Workflow k3d"
+  done = "Smoke green"
+
+  [[task.part]]
+  id = "8-E04-T05-S03"
+  title = "Upgrade with data"
+  done = "Upgrade test green"
+
+[[task]]
+id = "8-E04-T06"
+title = "Host preparation as cloud-init"
+description = """deploy/tofu/host-prepare per FE-1232 (backlog M121): cloud-init for gVisor registration, Sysbox only on suitable kernels, KVM udev rule, systemd unit of the worker package, list of supported distributions per isolation; generic-vm and target modules use it."""
+design = ["13-stage-8-providers-and-bases.md#245-host-preparation-host-prepare"]
+result = "deploy/tofu/host-prepare/"
+done = [
+  "Test 'host prepare registers runsc and checks kvm' green",
+  "doctor on the prepared host reports the expected isolation levels",
+]
+sources = ["11 sections 1, 2.6 and 3", "Backlog M121"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+note = "Backlog M121 (host preparation separate from the installer)"
+
+  [[task.part]]
+  id = "8-E04-T06-S01"
+  title = "Test in a VM fake"
+  done = "Test red"
+
+  [[task.part]]
+  id = "8-E04-T06-S02"
+  title = "cloud-init module"
+  done = "Test green"
+
+[[task]]
+id = "8-E04-T07"
+title = "OpenTofu aws"
+description = """deploy/tofu/aws per 11 section 2.6: network, control plane on EC2 (Fargate only behind a switch, backlog M98), RDS with pgvector, S3, Secrets Manager, identity, worker EC2 pool with host-prepare; no secrets as input or output, state encrypted, providers pinned."""
+design = ["13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"]
+result = "deploy/tofu/aws/"
+done = [
+  "tofu validate and plan with fake credentials green (test 'tofu validate and plan per module')",
+  "Check: no secret as a variable or output (test)",
+]
+sources = ["11 sections 2.6, 3 and 9", "O22", "Backlog M98"]
+depends_on = ["8-E04-T02", "8-E04-T03", "8-E04-T06"]
+owner = "agent"
+estimate_h = 12
+note = "Backlog M98 (Fargate as the location of the control plane unverified)"
+
+  [[task.part]]
+  id = "8-E04-T07-S01"
+  title = "Plan test and secret check"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E04-T07-S02"
+  title = "Module"
+  done = "Tests green"
+
+[[task]]
+id = "8-E04-T08"
+title = "OpenTofu gcp"
+description = """deploy/tofu/gcp per 11 section 2.6: network, control plane on GCE (Cloud Run only behind a switch, 11 section 11 item 5), Cloud SQL with pgvector, GCS, Secret Manager, Workload Identity, worker GCE pool (Intel, not E2) with host-prepare."""
+design = ["13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"]
+result = "deploy/tofu/gcp/"
+done = [
+  "tofu validate and plan with fake credentials green",
+  "Check: no secret as a variable or output",
+]
+sources = ["11 sections 2.6, 3 and 9"]
+depends_on = ["8-E04-T01", "8-E04-T02", "8-E04-T03", "8-E04-T06"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "8-E04-T08-S01"
+  title = "Plan test and secret check"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E04-T08-S02"
+  title = "Module"
+  done = "Tests green"
+
+[[task]]
+id = "8-E04-T09"
+title = "OpenTofu hetzner"
+description = """deploy/tofu/hetzner per 11 section 2.6: network and firewall, cloud servers, object storage connection, call of generic-vm with host-prepare; check KVM on cloud servers (11 section 11 item 1) and MicroVM only on dedicated servers."""
+design = ["13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"]
+result = "deploy/tofu/hetzner/"
+done = [
+  "tofu validate and plan with fake credentials green",
+  "KVM question noted as a precondition of the real apply in 8-E04-T10",
+]
+sources = ["11 sections 2.6, 3 and 11"]
+depends_on = ["8-E04-T06"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E04-T09-S01"
+  title = "Plan test"
+  done = "Test red"
+
+  [[task.part]]
+  id = "8-E04-T09-S02"
+  title = "Module"
+  done = "Test green"
+
+[[task]]
+id = "8-E04-T10"
+title = "Apply workflows aws, gcp, hetzner; real applies optional"
+description = """The agent builds the workflows `tofu-apply-<module>.yml` (only `workflow_dispatch`, GitHub environment with a required reviewer, O22, 11 section 9) and checks them locally against the workflow policy. The project has no accounts at AWS, Google Cloud or Hetzner (owner decision O28, detailed design 13 FE-1366); real applies are therefore an optional owner run and not a done criterion: per module an apply in a throwaway environment, portability and smoke test, destroy, cost query afterwards, on Hetzner additionally kvm-ok; the owner gives the go and the accounts. Without this run the module appears in the stage report as "CI-checked" (11 section 10)."""
+design = ["13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets", "13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"]
+result = "Job logs of the applies, cost queries, note in the stage report"
+done = [
+  "Workflows checked locally against the workflow policy (log)",
+  "per module, status in the stage report: 'CI-checked' or, after an optional owner run, a real apply with destroy, evidence and costs before and after the run",
+]
+sources = ["O22", "O28", "11 sections 9 and 10", "08 stage 8"]
+depends_on = ["8-E04-T07", "8-E04-T08", "8-E04-T09"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "8-E04-T10-S01"
+  title = "Workflow with environment and decision sheet (agent)"
+  done = "Workflow checked locally against the policy"
+
+  [[task.part]]
+  id = "8-E04-T10-S02"
+  title = "Decision sheet for the optional owner run (agent)"
+  done = "Sheet in the ops repo"
+
+  [[task.part]]
+  id = "8-E04-T10-S03"
+  title = "Status per module in the stage report"
+  done = "CI-checked or log of the optional apply in the stage report"
+
+[[task]]
+id = "8-E04-T11"
+title = "ExecutionBackend k8s"
+description = """plugins/exec-k8s per 13 section 2.4.4 (FE-1345, FE-1346): K8sExecutionBackend with K8sBackendOptions, loaded in the worker pod; create sets up per item the NetworkPolicy gw-item-<itemId> (egress only to the egress proxy) and the pod gw-item-<itemId> with runtimeClassName, a hardened securityContext, dnsPolicy None with an unreachable nameserver and emptyDir volumes; exec, spawn, copyIn and copyOut via the Kubernetes API, destroy idempotent in finally; verified RuntimeClasses and egressProxy via probe pods (WorkerCaps.verified). In addition, in the egress proxy the registration with bindVia sourceIp (03 section 2.9.1): the proxy assigns connections to the item via the pod IP. No Docker in the pod, no access to secrets; the Helm chart (8-E04-T04) creates the namespace and RBAC, the contract suite creates them itself in the kind cluster."""
+design = ["13-stage-8-providers-and-bases.md#244-helm-chart", "13-stage-8-providers-and-bases.md#84-bases-8-e04", "03-execution.md#291-control-api-for-the-worker"]
+result = "plugins/exec-k8s/, apps/egress-proxy (binding via sourceIp)"
+done = [
+  "Contract suite ExecutionBackend against kind green: create, exec, spawn, copyIn, copyOut, destroy in the failure path and network",
+  "The sandbox pod reaches only the egress proxy; the proxy binds the connection to the item via sourceIp and rejects a foreign source IP (test)",
+  "Pod specification without secret access, without a service account token and without a resolver (test against the rendered object)",
+  "License of the Kubernetes client used green in the license gate",
+]
+sources = ["01 section 8", "11 section 2.5", "ADR-48"]
+depends_on = []
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "8-E04-T11-S01"
+  title = "Contract cases against kind and proxy test sourceIp"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "8-E04-T11-S02"
+  title = "Backend: create, exec, spawn, copyIn, copyOut, destroy"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "8-E04-T11-S03"
+  title = "Egress proxy: binding via sourceIp"
+  done = "Proxy test green"
+
+[[epic]]
+id = "8-E05"
+title = "Backend ci-dispatch"
+goal = "Worker as a CI job (one-shot worker) with a nested sandbox and an enforced egress proxy, own dispatch app, OIDC sign-in, slot limit"
+sources = ["06 section 2a"]
+depends_on = ["2-E01"]
+
+[[task]]
+id = "8-E05-T01"
+title = "Owner: runner repo, dispatch app, runners"
+description = """The owner creates the runner repo, creates the dispatch app via the manifest flow (only actions:write, installed only on the runner repo, ADR-45) and provides runners (GitHub-hosted standard runners for tests; self-hosted runners only with a decision sheet). No paid runners."""
+design = ["13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets", "13-stage-8-providers-and-bases.md#252-broker-profile-dispatch-and-dispatch-app"]
+result = "Runner repo, dispatch app, note in the ops repo"
+done = [
+  "Dispatch app installed only on the runner repo (API query in the note)",
+  "no paid runners",
+]
+sources = ["ADR-45", "05 section 2", "06 section 2a"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+
+  [[task.part]]
+  id = "8-E05-T01-S01"
+  title = "Decision sheet (agent)"
+  done = "Sheet in the ops repo"
+
+  [[task.part]]
+  id = "8-E05-T01-S02"
+  title = "Create repo and app (owner)"
+  done = "Note"
+
+[[task]]
+id = "8-E05-T02"
+title = "Dispatch app and profile dispatch"
+description = """The broker mints tokens with profile dispatch only from the dispatch app and only for the runner repo; ExecutionBackend ci-dispatch-github with dispatch() (workflow_dispatch with item_hint), table dispatch_records, states per 13-stage-8-providers-and-bases.md section 4.8. In addition, the switch `guildwork github-app create --dispatch --repo <runnerRepo>` and the profile `dispatch` in `buildAppManifest` for operators (13 section 2.5.2, FE-1354); the dispatch app of the owner task 8-E05-T01 is created before that via the GitHub UI."""
+design = ["13-stage-8-providers-and-bases.md#251-plugin-and-configuration", "13-stage-8-providers-and-bases.md#252-broker-profile-dispatch-and-dispatch-app", "13-stage-8-providers-and-bases.md#48-ci-dispatch", "13-stage-8-providers-and-bases.md#32-tables-of-stage-8"]
+result = "plugins/backend-ci-dispatch-github/src/backend.ts, packages/db/migrations/0802_dispatch_records.sql"
+done = [
+  "Permission test: the main app never gets actions:write; profile dispatch only for the runner repo",
+  "State transitions of table 4.8, one test each",
+  "The dispatch input contains only the item ID (test)",
+  "Test 'github app create dispatch creates manifest only with actions write' green (FE-1354)",
+]
+sources = ["05 section 2", "06 section 2a", "ADR-45"]
+depends_on = ["8-E05-T01"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E05-T02-S01"
+  title = "Tests permissions and states"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E05-T02-S02"
+  title = "Broker profile and dispatch()"
+  done = "Tests green"
+
+[[task]]
+id = "8-E05-T03"
+title = "Runner workflow and OIDC sign-in"
+description = """Template deploy/ci-dispatch/runner-workflow.yml (actions pinned by SHA, minimal permissions, id-token write), worker mode --once (FE-1233), sign-in to the Work API via the CI system's OIDC token with a check of runner_environment, repository and job_workflow_ref (05 section 5)."""
+design = ["13-stage-8-providers-and-bases.md#253-runner-workflow-and-one-shot-worker", "13-stage-8-providers-and-bases.md#254-oidc-login-at-the-work-api"]
+result = "deploy/ci-dispatch/runner-workflow.yml, apps/worker (mode once), apps/control-plane/src/work/oidc.ts"
+done = [
+  "Test 'oidc with foreign workflow ref is rejected' green",
+  "The workflow template passes the workflow policy check from stage R",
+  "The one-shot worker claims exactly one item and exits (test)",
+]
+sources = ["05 section 5", "06 section 2a", "12 section 5"]
+depends_on = ["8-E05-T02"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E05-T03-S01"
+  title = "Tests OIDC and one-shot worker"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E05-T03-S02"
+  title = "OIDC check in the Work API"
+  done = "OIDC test green"
+
+  [[task.part]]
+  id = "8-E05-T03-S03"
+  title = "Worker --once and workflow template"
+  done = "all tests green, policy check green"
+
+[[task]]
+id = "8-E05-T04"
+title = "Nested setup and mandatory proxy"
+description = """Job container with the Sysbox runtime, inside it the worker process, the egress proxy container (the only one with outbound network) and the sandbox on the internal network (internal: true); done criterion from 06 section 2a with the tests (a) to (d) and S1 in the nested setup (backlog M4)."""
+design = ["13-stage-8-providers-and-bases.md#255-nested-setup", "13-stage-8-providers-and-bases.md#85-ci-dispatch-8-e05"]
+result = "deploy/ci-dispatch/nested/, eval/suites/s1/ci-dispatch/"
+done = [
+  "Test 'nested sandbox does not reach testhost directly' (a) green",
+  "Test 'proxy rejects testhost outside the allowlist' (b) green",
+  "Test 'llm call via the relay succeeds in the job' (c) green",
+  "S1 in the nested setup with 0 hits of a real credential outside the relay (d)",
+]
+sources = ["06 section 2a", "07 section 5 (S1)", "Backlog M4"]
+depends_on = ["8-E05-T03", "0-E20-T21", "0-E20-T22"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "8-E05-T04-S01"
+  title = "Tests (a) to (d)"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E05-T04-S02"
+  title = "Job container with Sysbox on the runner"
+  done = "Container starts (job log)"
+
+  [[task.part]]
+  id = "8-E05-T04-S03"
+  title = "Proxy and internal network"
+  done = "(a) and (b) green"
+
+  [[task.part]]
+  id = "8-E05-T04-S04"
+  title = "Relay call and S1"
+  done = "(c) and (d) green"
+
+[[task]]
+id = "8-E05-T05"
+title = "Slot limit, wait time, failure"
+description = """maxConcurrency below the slot count, rejection of further dispatches with slot_limit, expiry of unclaimed dispatches after ci_dispatch.claim_timeout_s, metric CI wait time, mandatory alert on accumulated dispatch errors, fallback to another pool if configured."""
+design = ["13-stage-8-providers-and-bases.md#256-slot-limit-expiry-and-metrics", "13-stage-8-providers-and-bases.md#48-ci-dispatch"]
+result = "plugins/backend-ci-dispatch-github/src/limits.ts, metrics"
+done = [
+  "Test 'slot limit starts no further job' green",
+  "Test 'unclaimed dispatch expires' green",
+  "Metrics guildwork.ci_dispatch.wait, .active, .expired, .failed and .slot_full in the OTel export and in the catalog core/src/telemetry/catalog.ts (test; 13 section 5.1)",
+  "Alert rules ci_dispatch_failing and ci_dispatch_expired entered per 13 section 5.2 (test)",
+  "Tests 'expired dispatch releases item for fallback pool' and 'pool view shows disrupted pool' green",
+]
+sources = ["06 sections 2a and 4", "ADR-30"]
+depends_on = ["8-E05-T04"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "8-E05-T05-S01"
+  title = "Tests limit and expiry"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E05-T05-S02"
+  title = "Limit, expiry, metric, alert"
+  done = "Tests green"
+
+[[epic]]
+id = "8-E06"
+title = "Price tables, qualification and acceptance stage 8"
+goal = "Price tables per provider as versioned files, qualification per new combination, S8 for Helm, stage report and release"
+sources = ["08 stage 8"]
+depends_on = ["8-E01", "8-E02", "8-E03", "8-E04", "8-E05"]
+
+[[task]]
+id = "8-E06-T01"
+title = "Price tables"
+description = """@guildwork/pricing per 13-stage-8-providers-and-bases.md section 2.6 and FE-1230: files per provider with source and retrieval date (VERIFIED or CLAIMED), loader into price_entries, operator overrides, cost source price_table for Codex and providers without a cost figure, notice on an old table, upper bound on a missing price."""
+design = ["13-stage-8-providers-and-bases.md#26-price-tables-8-e06", "13-stage-8-providers-and-bases.md#49-loading-prices-and-booking-costs", "13-stage-8-providers-and-bases.md#32-tables-of-stage-8"]
+result = "packages/pricing/, packages/db/migrations/0803_price_entries.sql"
+done = [
+  "Test 'price table per provider complete for the reference models' green",
+  "Test 'missing price uses upper bound and reports' green",
+  "Test 'operator price takes precedence over release price' green",
+  "Test 'codex costs from the price table' green",
+  "every table with source and retrieval date; prices re-read at the source",
+  "Test 'price selection by region, override and validity' green (FE-1363)",
+]
+sources = ["04 section 6", "01 section 6 (cost.source)", "ADR-44"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+note = "Backlog M128 only partially: raw counters separated, switching the limit unit is not part of this task"
+
+  [[task.part]]
+  id = "8-E06-T01-S01"
+  title = "Tests completeness, missing price, override"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "8-E06-T01-S02"
+  title = "File format and loader"
+  done = "Loader tests green"
+
+  [[task.part]]
+  id = "8-E06-T01-S03"
+  title = "Tables per provider with sources"
+  done = "Completeness test green"
+
+  [[task.part]]
+  id = "8-E06-T01-S04"
+  title = "Integration of ledger and billing"
+  done = "all tests green"
+
+[[task]]
+id = "8-E06-T02"
+title = "Qualification per new combination"
+description = """For every new combination of harness, credential kind, provider and models (wif, bedrock, vertex, foundry, codex), measure gate A of the reviewer (and of the services the project qualifies in stage 8) or take over a reference qualification (07 section 2.1), but only if an optional owner run provides the account (O28, detailed design 13 FE-1366); otherwise the combination appears in the report as "not measured, no account in the project". Publish qualification rows with gate B status; measure costs before and after every run."""
+design = ["13-stage-8-providers-and-bases.md#27-qualification-and-acceptance-8-e06"]
+result = "eval/reports/stufe-8-qualifikation.md, published qualification rows"
+done = [
+  "per new combination a row with gate A and gate B status, a takeover note or the note 'not measured, no account in the project (O28)'",
+  "Costs per run with source in the report",
+]
+sources = ["07 sections 2 and 2.1", "10 section 1.2", "08 stage 8", "ADR-52", "ADR-66"]
+depends_on = ["8-E06-T01", "0-E20-T09", "0-E20-T19", "0-E20-T20"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "8-E06-T02-S01"
+  title = "Combination list and profiles"
+  done = "List in the report"
+
+  [[task.part]]
+  id = "8-E06-T02-S02"
+  title = "Runs or takeovers"
+  done = "Rows in the report"
+
+  [[task.part]]
+  id = "8-E06-T02-S03"
+  title = "Publication"
+  done = "Rows in the release"
+
+[[task]]
+id = "8-E06-T03"
+title = "Suites, stage report and release stage 8"
+description = """S1 (credential exfiltration per new kind, also in the nested setup), S2 (data path, Codex, chatgpt), S5 (Jira), S8 (Helm, tofu validate and plan per module, upgrade from the previous release); stage report with all done criteria from 08 stage 8 and release."""
+design = ["13-stage-8-providers-and-bases.md#27-qualification-and-acceptance-8-e06", "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8"]
+result = "docs/berichte/stufe-8.md, release notes"
+done = [
+  "Done criteria from 08 stage 8 individually with evidence: E2E Jira (S5), AND permissions, out of order and repetition, start with <kind> per credential kind against stubs from the documentation, data path policy (S2), qualification per combination or the note 'not measured, no account in the project (O28)', S8 Helm on kind or k3d, tofu validate and plan per module, real applies only as an optional owner run with O22, ci-dispatch nested (M4) and slot limit",
+  "S1, S2, S5, S8 of stage 8 green",
+  "signed release with SBOM",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 8", "07 section 5", "10 section 1.2 item 6"]
+depends_on = ["8-E06-T02", "0-E20-T21", "0-E20-T22"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "8-E06-T03-S01"
+  title = "Suites S1 and S2 of the new kinds"
+  done = "Suites green"
+
+  [[task.part]]
+  id = "8-E06-T03-S02"
+  title = "S8 with upgrade"
+  done = "S8 green (job log)"
+
+  [[task.part]]
+  id = "8-E06-T03-S03"
+  title = "Stage report and release"
+  done = "Report and release"

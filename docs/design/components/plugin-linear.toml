@@ -1,0 +1,303 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-linear"
+title = "Linear"
+kind = "plugin"
+path = "plugins/linear/"
+package = "@guildwork/plugin-linear"
+stage = "9"
+purpose = "Linear as a ticket source with Agent Sessions: TriggerSource for session events with deadlines 5 s and 10 s, WorkItemProvider with session instead of a status comment, plus the E2E cases for ask from Jira and Linear. Not: operating mode private (no polling), code hoster functions."
+design = [
+  "14-stage-9-breadth-and-hardening.md#221-linear",
+  "14-stage-9-breadth-and-hardening.md#223-ask-from-jira-and-linear",
+  "14-stage-9-breadth-and-hardening.md#43-linear-agent-session",
+  "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02",
+]
+built_by = ["9-E02-T01", "9-E02-T03"]
+
+[[provides]]
+name = "trigger-source"
+kind = "contract"
+title = "TriggerSource Linear: agent session events created (delegated, mentioned), prompted, stop; signature before parsing; ack via session.activity"
+defined_in = "14-stage-9-breadth-and-hardening.md#221-linear"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "work-item-provider"
+kind = "contract"
+title = "WorkItemProvider Linear with session.* (start, activity, plan), delegation, externalUrls, transitions, labels, create and link issues"
+defined_in = "14-stage-9-breadth-and-hardening.md#221-linear"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "konfig-linear"
+kind = "config"
+title = "plugins.work_items[linear]: LinearInstanceConfig (workspace, apiUrl, appActorId, auth, webhookSecretRef, teamAllowlist, statusMapping)"
+defined_in = "14-stage-9-breadth-and-hardening.md#221-linear"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "team-sichtbarkeit"
+kind = "config"
+title = "plugins.work_items[].visibility.<TEAM>: visibility of a Linear team as an output target per FE-1253 (org level only)"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "work-item-sessions"
+kind = "table"
+title = "Table work_item_sessions (migration 0903): one session per run and work item, last_version for idempotency"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "linear-ack-latency-seconds"
+kind = "metric"
+title = "guildwork.effect.ack_latency (histogram, s, plugin): time from inbox.received_at to effects.applied_at of the ack; alert rule ack_latency_exceeded"
+defined_in = "14-stage-9-breadth-and-hardening.md#51-metrics-of-this-area"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "e2e-suite"
+kind = "file"
+title = "E2E suite eval/suites/e2e/linear/ (plan from linear) with recording"
+defined_in = "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02"
+from_task = "9-E02-T01"
+
+[[provides]]
+name = "e2e-ask-tickets"
+kind = "file"
+title = "E2E suite eval/suites/s5/ask-tickets/: ask from Jira and Linear with valid citations and visibility rule"
+defined_in = "14-stage-9-breadth-and-hardening.md#223-ask-from-jira-and-linear"
+from_task = "9-E02-T03"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E02-T01"
+purpose = "Result, PluginError and Refs in all methods"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E02-T01"
+purpose = "Implement PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E02-T01"
+purpose = "Manifest with egress {config.apiUrl} and secrets"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E02-T01"
+purpose = "Report AGENT_SESSION, PLAN_NATIVE, DELEGATION and POLL none"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "9-E02-T01"
+purpose = "Issue and session texts as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "9-E02-T01"
+purpose = "TriggerSource for agent session events"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "9-E02-T01"
+purpose = "WorkItemProvider with session.*"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "9-E02-T01"
+purpose = "Events created, prompted and stop as TriggerEvent"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "9-E02-T01"
+purpose = "Recognize the command from the mention"
+
+[[uses]]
+interface = "event-schema/dedupe-key"
+from_task = "9-E02-T01"
+purpose = "Dedupe of the session events"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-endpunkt"
+from_task = "9-E02-T01"
+purpose = "Response 202 within 5 s without parsing"
+
+[[uses]]
+interface = "control-plane-ingress/ingress-process"
+from_task = "9-E02-T01"
+purpose = "After parsing, create the ack effect with priority ack_fast"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "9-E02-T01"
+purpose = "Platform effect ack via submitPlatform"
+
+[[uses]]
+interface = "effect-gateway/queue-effects-ack-fast"
+from_task = "9-E02-T01"
+purpose = "Dispatcher serves effects-ack-fast with its own workers ahead of the backlog in effects-dispatch (04 FE-448)"
+
+[[uses]]
+interface = "effekt-executoren/ack"
+from_task = "9-E02-T01"
+purpose = "ack calls TriggerSource.ack, for Linear session.activity"
+
+[[uses]]
+interface = "effekt-executoren/status-comment"
+from_task = "9-E02-T01"
+purpose = "Executor status_comment with session variant"
+
+[[uses]]
+interface = "effekt-executoren/status-comment-session"
+from_task = "9-E02-T01"
+purpose = "Session activities instead of a status comment in E2E"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "9-E02-T01"
+purpose = "Routes work_item.mentioned and assigned to ticket-to-pr"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/routen-ticket-to-pr"
+from_task = "9-E02-T01"
+purpose = "Delegation starts ticket-to-pr"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "9-E02-T01"
+purpose = "Plan steps for session.plan"
+
+[[uses]]
+interface = "service-coder/befehl-say"
+from_task = "9-E02-T01"
+purpose = "prompted is delivered as the steering instruction say"
+
+[[uses]]
+interface = "credential-broker/plugin-secrets"
+from_task = "9-E02-T01"
+purpose = "App access and signing secret via ctx.secrets"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E02-T01"
+purpose = "Migration 0903 work_item_sessions"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "9-E02-T01"
+purpose = "Policy tenant_isolation for work_item_sessions"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "9-E02-T01"
+purpose = "Foreign key run_id"
+
+[[uses]]
+interface = "db/repos"
+from_task = "9-E02-T01"
+purpose = "Access to work_item_sessions"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "9-E02-T01"
+purpose = "Metric linear_ack_latency_seconds"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E02-T01"
+purpose = "Loader rejects the instance in private with PRIVATE_MODE_NO_POLL"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "9-E02-T01"
+purpose = "Recording of the Linear responses and events"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "9-E02-T01"
+purpose = "Recording only against the test workspace"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "9-E02-T01"
+purpose = "make contract-record for the fixtures"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E02-T01"
+purpose = "Contract suite linear"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E02-T01"
+purpose = "Abstract suite TriggerSource"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E02-T01"
+purpose = "contract-attestation.json"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "9-E02-T01"
+purpose = "Deadline test with fake clock"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "9-E02-T01"
+purpose = "Contract cases against recordings"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E02-T01"
+purpose = "E2E plan from linear"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-9/testkonten"
+from_task = "9-E02-T01"
+purpose = "Documentation cassettes for the spike; test workspace and recordings only from the optional owner run"
+
+[[uses]]
+interface = "indexer-schichten/ask"
+from_task = "9-E02-T03"
+purpose = "Mode ask of the indexer with AskAnswer"
+
+[[uses]]
+interface = "indexer-schichten/work-item-ask"
+from_task = "9-E02-T03"
+purpose = "Work item indexer.ask in E2E"
+
+[[uses]]
+interface = "plugin-jira-cloud/suite-s5-jira"
+from_task = "9-E02-T03"
+purpose = "Ask path from Jira up to the route"
+
+[[uses]]
+interface = "plugin-jira-cloud/workitems-schreiben"
+from_task = "9-E02-T03"
+purpose = "Answer from Jira as a comment"
+
+[[uses]]
+interface = "adf/markdown-zu-adf"
+from_task = "9-E02-T03"
+purpose = "Answer in ADF"
+
+[[uses]]
+interface = "effect-gateway/check-citations"
+from_task = "9-E02-T03"
+purpose = "Citation check against the visibility of the ticket target"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "9-E02-T03"
+purpose = "Answer as a comment or session activity response"
+
+[[uses]]
+interface = "plattform-mcp/kb"
+from_task = "9-E02-T03"
+purpose = "kb.search in the ask run"

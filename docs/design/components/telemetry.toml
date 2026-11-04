@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "telemetry"
+title = "Package telemetry: OTel SDK start per role and instruments from the catalog"
+kind = "package"
+path = "packages/telemetry/"
+package = "@guildwork/telemetry"
+stage = "0"
+purpose = "Starts the OTel SDK in each role before other code, registers the metrics of the catalog with cardinality protection, gives the harness the OTel environment and delivers the collector as a Compose fragment. Only apps use it; packages measure via the facade in core. Not the product telemetry (produkt-telemetrie)."
+design = ["00-codebase-and-conventions.md#29-observability-and-required-alerts", "00-codebase-and-conventions.md#33-metrics-catalog", "00-codebase-and-conventions.md#44-trace-from-event-to-harness", "00-codebase-and-conventions.md#6-security"]
+built_by = ["0-E19-T01", "0-E19-T02", "0-E19-T03"]
+
+[[provides]]
+name = "start"
+kind = "ts-api"
+title = "startTelemetry(TelemetryOptions) with TelemetryHandle (shutdown, dropped)"
+defined_in = "00-codebase-and-conventions.md#29-observability-and-required-alerts"
+from_task = "0-E19-T01"
+
+[[provides]]
+name = "harness-env"
+kind = "ts-api"
+title = "harnessOtelEnv: TRACEPARENT, endpoint, service name and occupied variables for the harness"
+defined_in = "00-codebase-and-conventions.md#29-observability-and-required-alerts"
+from_task = "0-E19-T01"
+
+[[provides]]
+name = "guildwork.telemetry.dropped"
+kind = "metric"
+title = "Counter of discarded telemetry per signal"
+defined_in = "00-codebase-and-conventions.md#33-metrics-catalog"
+from_task = "0-E19-T01"
+
+[[provides]]
+name = "instrumente"
+kind = "ts-api"
+title = "Registration of the catalog metrics with unit, histogram boundaries, unknown attribute values as other"
+defined_in = "00-codebase-and-conventions.md#33-metrics-catalog"
+from_task = "0-E19-T02"
+
+[[provides]]
+name = "collector-fragment"
+kind = "file"
+title = "deploy/compose/observability.compose.yaml and observability/otel-collector.yaml (contrib by digest)"
+defined_in = "00-codebase-and-conventions.md#29-observability-and-required-alerts"
+from_task = "0-E19-T03"
+
+[[provides]]
+name = "otlp-empfaenger"
+kind = "http"
+title = "OTLP HTTP of the collector in the internal network for roles and harness (via the egress proxy)"
+defined_in = "00-codebase-and-conventions.md#29-observability-and-required-alerts"
+from_task = "0-E19-T03"
+
+[[provides]]
+name = "prometheus-export"
+kind = "http"
+title = "Prometheus endpoint of the collector, internal network only"
+defined_in = "00-codebase-and-conventions.md#29-observability-and-required-alerts"
+from_task = "0-E19-T03"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E19-T01"
+purpose = "Facade from core runs on the global provider after the start"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E19-T01"
+purpose = "Log telemetry.export_failed and telemetry.shutdown_timeout"
+
+[[uses]]
+interface = "config-installation/installation-yaml.observability"
+from_task = "0-E19-T01"
+purpose = "Endpoint, protocol, sampling and interval from observability"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E19-T02"
+purpose = "Register every metric from METRICS in the SDK"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "0-E19-T03"
+purpose = "License and digest of the collector in docs/quality/toolchain.md"
+

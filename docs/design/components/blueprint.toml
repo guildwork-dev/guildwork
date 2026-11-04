@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "blueprint"
+title = "Blueprint: schema, parser, devcontainer subset, snapshotKey"
+kind = "package"
+path = "packages/blueprint/"
+package = "@guildwork/blueprint"
+stage = "2"
+purpose = "Reads and checks the environment description of a repo (.agents/environment.yaml or the allowed devcontainer subset) at the base SHA and computes ResolvedEnvironment with snapshotKey from it. Not: building or starting a sandbox (worker-umgebungs-snapshot, worker-sandbox-phasen)."
+design = ["10-planner-architect-coder.md#24-blueprint-guildworkblueprint", "10-planner-architect-coder.md#220-cli-commands-and-doctor-checks-of-stage-2"]
+built_by = ["2-E01-T04"]
+
+[[provides]]
+name = "blueprint-parser"
+kind = "ts-api"
+title = "Blueprint, Command, ResolvedEnvironment; parser with an upper limit of 256 KiB, errors with key and line, devcontainer subset (FE-1038), snapshotKey"
+defined_in = "10-planner-architect-coder.md#24-blueprint-guildworkblueprint"
+from_task = "2-E01-T04"
+
+[[provides]]
+name = "blueprint-datei"
+kind = "file"
+title = "Repo file .agents/environment.yaml version 1 (schema from section 2.4)"
+defined_in = "10-planner-architect-coder.md#24-blueprint-guildworkblueprint"
+from_task = "2-E01-T04"
+
+[[provides]]
+name = "blueprint-json-schema"
+kind = "file"
+title = "JSON Schema packages/contracts/schemas/blueprint.v1.json, generated from the TypeBox type"
+defined_in = "10-planner-architect-coder.md#24-blueprint-guildworkblueprint"
+from_task = "2-E01-T04"
+
+[[provides]]
+name = "konfig-blueprint"
+kind = "config"
+title = "Keys sandbox_images_allowlist (installation) and blueprint (repo, path of the file)"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E01-T04"
+
+[[provides]]
+name = "doctor-r01-blueprint"
+kind = "cli"
+title = "doctor check R01-blueprint per repo (file apps/cli/src/doctor/checks/R01-blueprint.ts, FE-642) and internal-cli blueprint check --repo"
+defined_in = "10-planner-architect-coder.md#220-cli-commands-and-doctor-checks-of-stage-2"
+from_task = "2-E01-T04"
+
+[[provides]]
+name = "metrik-blueprint-invalid"
+kind = "metric"
+title = "guildwork.blueprint.invalid"
+defined_in = "10-planner-architect-coder.md#51-metrics-of-this-area"
+from_task = "2-E01-T04"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "2-E01-T04"
+purpose = "TypeBox schema Blueprint and export to blueprint.v1.json"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "2-E01-T04"
+purpose = "Result and RepoRef in the parser"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "2-E01-T04"
+purpose = "Installation key sandbox_images_allowlist in the schema"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E01-T04"
+purpose = "Repo key blueprint (path of the file) in the repo schema"
+
+[[uses]]
+interface = "config-resolver/repo-datei"
+from_task = "2-E01-T04"
+purpose = "Path of the blueprint from .agents/config.yaml at the base SHA"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "2-E01-T04"
+purpose = "Default image when base_image is missing and with source none"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "2-E01-T04"
+purpose = "R01-blueprint in the check registry of doctor (FE-642)"
+
+[[uses]]
+interface = "cli-doctor/doctor-repo"
+from_task = "2-E01-T04"
+purpose = "Option doctor --repo, under which R01 runs per repo"
+
+[[uses]]
+interface = "admin-api/internal-cli-rahmen"
+from_task = "2-E01-T04"
+purpose = "internal-cli blueprint check --repo --json"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E01-T04"
+purpose = "getFile on the default branch for R01 and blueprint resolution in Z0"
+
+[[uses]]
+interface = "telemetry/instrumente"
+from_task = "2-E01-T04"
+purpose = "Counter blueprint_invalid"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E01-T04"
+purpose = "canonicalJson and sha256Hex for blueprintSha256 and snapshotKey"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E01-T04"
+purpose = "Result, ok and err as the return value of the public functions"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E01-T04"
+purpose = "New counters of stage 2 in the metric catalog"

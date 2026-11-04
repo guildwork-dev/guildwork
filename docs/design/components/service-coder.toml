@@ -1,0 +1,492 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-coder"
+title = "Coder: agent phases, self-review, commits and bundle, draft PR, L1, L2, L4"
+kind = "service"
+path = "services/coder/"
+package = "@guildwork/service-coder"
+stage = "2"
+purpose = "Implements an approved plan (or a ticket with --no-plan) in a sandbox with write and shell rights, checks itself, normalizes commits, builds bundle and PR text and reports push and draft PR as write requests; in addition clarifying question (L1), steering (L2) and agent-led environment setup (L4). Not: self-check bundle (coder-self-check), hard gates and G4 (coder-harte-gates), orchestrator effects such as agent-approval-check (orchestrator-effekte)."
+design = ["10-planner-architect-coder.md#213-coder-servicescoder", "10-planner-architect-coder.md#44-coder-run", "10-planner-architect-coder.md#45-question-and-continuation-l1", "10-planner-architect-coder.md#46-steering-l2", "10-planner-architect-coder.md#47-agent-led-environment-setup-l4", "10-planner-architect-coder.md#84-coder-2-e04"]
+built_by = ["2-E04-T01", "2-E04-T02", "2-E04-T05", "2-E04-T06", "2-E04-T07", "2-E04-T09", "2-E04-T10", "2-E04-T11"]
+
+[[provides]]
+name = "manifest-coder"
+kind = "contract"
+title = "Service manifest coder with the write requests from section 6.2 (including propose_check, FE-1062)"
+defined_in = "10-planner-architect-coder.md#62-permission-profiles-and-effects-per-service-stage-2"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "coder.controller: steps coder.prepare, coder.env_bootstrap, coder.implement, coder.resume, coder.wip_push, coder.propose"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "coder-typen"
+kind = "ts-api"
+title = "CodeRequest, CoderAgentOutput, ChangeProposal, SelfCheckReport, SelfCheckItem, HardGateResult"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "artefakt-schemas-coder"
+kind = "file"
+title = "JSON Schemas ChangeProposal and SelfCheckReport under packages/contracts/schemas/artifacts/v1alpha1/"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "tabelle-change-proposals"
+kind = "table"
+title = "change_proposals (migration 0203)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "admin-api-proposal"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/proposal"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "konfig-coder"
+kind = "config"
+title = "services.coder.* from section 7 (repair_rounds, require_repro, self_check, ci_config_paths, test_globs, env_bootstrap, ask_timeout_h, allow_steer, allow_handoff, ask_grace_s, rate_limit_resume_min, git_identity, best_of_n, max_children, g4)"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E04-T01"
+
+[[provides]]
+name = "prompt-implement"
+kind = "prompt"
+title = "services/coder/prompts/implement.v1.md and phase.v1.md"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T02"
+
+[[provides]]
+name = "prompt-repair"
+kind = "prompt"
+title = "services/coder/prompts/repair.v1.md"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T05"
+
+[[provides]]
+name = "commit-normalisierung"
+kind = "contract"
+title = "Commits with author git_identity, trailers Agent-Run and Co-authored-by, parent chain from the base SHA (FE-1017)"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T06"
+
+[[provides]]
+name = "pr-text"
+kind = "ui"
+title = "PR text from the repo template in a fixed search order plus platform block (FE-1018)"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T06"
+
+[[provides]]
+name = "bundle"
+kind = "file"
+title = "Git bundle t/<tenant>/runs/<runId>/bundles/<proposalId>.bundle"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E04-T06"
+
+[[provides]]
+name = "event-change-proposed"
+kind = "event"
+title = "change.proposed { runId, proposalId, prRef, headSha }"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E04-T07"
+
+[[provides]]
+name = "mcp-request-human-input"
+kind = "mcp-tool"
+title = "Additional behavior of request_human_input for the coder: answer end your turn now, abort after ask_grace_s, only with capability RESUME"
+defined_in = "10-planner-architect-coder.md#45-question-and-continuation-l1"
+from_task = "2-E04-T09"
+
+[[provides]]
+name = "befehl-say"
+kind = "ui"
+title = "Command @agent say with delivery live_steer, next_item, pending, undelivered_handover"
+defined_in = "10-planner-architect-coder.md#46-steering-l2"
+from_task = "2-E04-T10"
+
+[[provides]]
+name = "admin-api-steer"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/steer"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E04-T10"
+
+[[provides]]
+name = "steer-blobs"
+kind = "file"
+title = "Steering instruction redacted under t/<tenant>/runs/<runId>/steer/<messageId>.txt"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E04-T10"
+
+[[provides]]
+name = "prompt-env-bootstrap"
+kind = "prompt"
+title = "services/coder/prompts/env-bootstrap.v1.md"
+defined_in = "10-planner-architect-coder.md#47-agent-led-environment-setup-l4"
+from_task = "2-E04-T11"
+
+[[provides]]
+name = "policy-env-bootstrap"
+kind = "config"
+title = "Policy rule coder.env_bootstrap: propose_change only on .agents/environment.yaml in mode env_bootstrap"
+defined_in = "10-planner-architect-coder.md#47-agent-led-environment-setup-l4"
+from_task = "2-E04-T11"
+
+[[provides]]
+name = "item-executor"
+kind = "ts-api"
+title = "ItemExecutor: implementation of the port ReviewExecutor in the worker for the self-review (FE-1073)"
+defined_in = "10-planner-architect-coder.md#213-coder-servicescoder"
+from_task = "2-E04-T05"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "2-E04-T01"
+purpose = "defineService with controller and jobs"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "2-E04-T01"
+purpose = "ServiceController of the coder"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "2-E04-T01"
+purpose = "Step handler coder.*"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "2-E04-T01"
+purpose = "registerControllers with coder.controller"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "2-E04-T01"
+purpose = "Service manifest coder"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E04-T01"
+purpose = "services.coder.* with x-qualification (M39)"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "2-E04-T01"
+purpose = "Resolver rules best_of_n, max_children (FE-1023)"
+
+[[uses]]
+interface = "config-resolver-regeln/personal-modes"
+from_task = "2-E04-T01"
+purpose = "Coder with subscription only for operator_test"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "2-E04-T01"
+purpose = "Plan hash and design hash from G1 for coder.plan_hash_bound"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "2-E04-T01"
+purpose = "ChangeProposal and SelfCheckReport as artifacts"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E04-T01"
+purpose = "Migration 0203 change_proposals"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E04-T01"
+purpose = "Repository change_proposals"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "2-E04-T01"
+purpose = "JSON Schemas ChangeProposal and SelfCheckReport"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E04-T01"
+purpose = "GET /admin/api/v1/runs/{runId}/proposal"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E04-T01"
+purpose = "Command @agent handoff with answer from stage 9"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "2-E04-T02"
+purpose = "PlanArtifact with phases and agentPrompt in the agent phase"
+
+[[uses]]
+interface = "service-architect/design-artifact"
+from_task = "2-E04-T02"
+purpose = "approved DesignArtifact in the agent phase"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "2-E04-T01"
+purpose = "Create work items of the coder steps"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "2-E04-T01"
+purpose = "prompt_v per stage in the profile contribution of the coder"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "2-E04-T02"
+purpose = "Agent phase per plan phase with run and resume"
+
+[[uses]]
+interface = "agent-step/prompt-builder"
+from_task = "2-E04-T02"
+purpose = "Phase text and ticket as Untrusted"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E04-T02"
+purpose = "EnvironmentService, WorkSnapshotService, AnalyzerRunnerService in the step handler"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/env-snapshot-dienst"
+from_task = "2-E04-T02"
+purpose = "Sandbox from the environment snapshot"
+
+[[uses]]
+interface = "worker-sandbox-phasen/phasenwechsel"
+from_task = "2-E04-T02"
+purpose = "Phase switch before the harness start"
+
+[[uses]]
+interface = "registry-cache/registry-server"
+from_task = "2-E04-T02"
+purpose = "Packages from the registry cache in the agent phase"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "2-E04-T02"
+purpose = "Harness with nativeTools edit+shell"
+
+[[uses]]
+interface = "plattform-mcp/item"
+from_task = "2-E04-T02"
+purpose = "item.get and item.comments"
+
+[[uses]]
+interface = "plattform-mcp/repo"
+from_task = "2-E04-T02"
+purpose = "repo.read_file and repo.list_files"
+
+[[uses]]
+interface = "service-planner/mcp-plan-get"
+from_task = "2-E04-T02"
+purpose = "plan.get for the approved plan"
+
+[[uses]]
+interface = "service-architect/mcp-design-get"
+from_task = "2-E04-T02"
+purpose = "design.get for the approved design"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "2-E04-T02"
+purpose = "Reserve budget proportionally per plan phase"
+
+[[uses]]
+interface = "herkunft-foreign-input/untrusted-inputs-endpunkt"
+from_task = "2-E04-T02"
+purpose = "Reporting of the Untrusted inputs before each turn"
+
+[[uses]]
+interface = "coder-self-check/self-check-api"
+from_task = "2-E04-T05"
+purpose = "Self-check after each repair round"
+
+[[uses]]
+interface = "reviewer-bibliothek/review-change"
+from_task = "2-E04-T05"
+purpose = "Self-review only on diff and task"
+
+[[uses]]
+interface = "reviewer-bibliothek/review-executor"
+from_task = "2-E04-T05"
+purpose = "Port ReviewExecutor, implemented in the coder as ItemExecutor (FE-1073)"
+
+[[uses]]
+interface = "service-planner/persist-plan-file"
+from_task = "2-E04-T06"
+purpose = "Plan file as first commit with persist branch"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E04-T06"
+purpose = "exportBundle of the workspace"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "2-E04-T06"
+purpose = "Upload of the bundle and StepResult with propose_push, propose_change"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "2-E04-T06"
+purpose = "StepResultV1 with variant proposal"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "2-E04-T06"
+purpose = "Write requests propose_push and propose_change in the StepResult"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "2-E04-T06"
+purpose = "prSections Untrusted-sanitized in the PR template"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "2-E04-T07"
+purpose = "Write requests in step coder.propose to the Effect Gateway"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "2-E04-T07"
+purpose = "Policy: command covers effect"
+
+[[uses]]
+interface = "effekt-executoren/push"
+from_task = "2-E04-T07"
+purpose = "Push to agent/<key>-<slug> with expectedOldSha"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "2-E04-T07"
+purpose = "Draft PR with title and text"
+
+[[uses]]
+interface = "effekt-executoren/ticket-transition"
+from_task = "2-E04-T07"
+purpose = "Link ticket (Remote Link)"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "2-E04-T07"
+purpose = "Event change.proposed"
+
+[[uses]]
+interface = "plugin-claude-code/resume"
+from_task = "2-E04-T09"
+purpose = "resume with answer or steering instruction"
+
+[[uses]]
+interface = "plattform-mcp/request-human-input"
+from_task = "2-E04-T09"
+purpose = "Base form request_human_input from stage 0, additional behavior for the coder"
+
+[[uses]]
+interface = "effekt-executoren/human-input"
+from_task = "2-E04-T09"
+purpose = "Question on the ticket"
+
+[[uses]]
+interface = "arbeitsstand-snapshot/work-snapshot-dienst"
+from_task = "2-E04-T09"
+purpose = "Snapshot on clarifying question, deadline and rate limit, restore on coder.resume"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-steer-messages"
+from_task = "2-E04-T10"
+purpose = "Delivery status of the steering instructions"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "2-E04-T10"
+purpose = "Command say via routing and command_permissions"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "2-E04-T10"
+purpose = "Capture steer_text as Untrusted input"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E04-T11"
+purpose = "Check of the proposed blueprint"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/env-snapshot-dienst"
+from_task = "2-E04-T11"
+purpose = "Trial build with post_build"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/envelope-hinweis"
+from_task = "2-E04-T02"
+purpose = "ready environment snapshots in envelope.inputs when creating coder.implement"
+
+[[uses]]
+interface = "worker-sandbox-phasen/setup-secrets-grant"
+from_task = "2-E04-T02"
+purpose = "setupSecretNames from blueprint.secrets in the envelope of coder.implement"
+
+[[uses]]
+interface = "quality-gate/tabelle-quality-gate-decisions"
+from_task = "2-E04-T07"
+purpose = "Row per head SHA from the SelfCheckReport in coder.propose (FE-1074)"
+
+[[uses]]
+interface = "arbeitsstand-snapshot/snapshots-endpunkt"
+from_task = "2-E04-T09"
+purpose = "inputs.workSnapshot for coder.resume and coder.wip_push from work_snapshots"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E04-T01"
+purpose = "newId for proposalId, sha256Hex for the bundle hash"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E04-T01"
+purpose = "Result, ok and err as return of the public functions"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "2-E04-T06"
+purpose = "Redact PR text and commit texts before the bundle"
+
+[[uses]]
+interface = "core/markdown-bereinigung"
+from_task = "2-E04-T06"
+purpose = "Remove external links in prSections"
+
+[[uses]]
+interface = "core/logger"
+from_task = "2-E04-T02"
+purpose = "Logs of the coder steps with untrustedSummary"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E04-T01"
+purpose = "real Postgres per test file for the migrations and repositories"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "2-E04-T09"
+purpose = "Clock for ask_timeout_h, ask_grace_s and rate_limit_resume_min"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E04-T01"
+purpose = "Audit actions of the coder controller (coder.*, 10 section 5), such as the answer to @agent handoff in stage 2, failure paths of the self-check and bundle without push"

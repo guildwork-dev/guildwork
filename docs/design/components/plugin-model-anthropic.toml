@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-model-anthropic"
+title = "ModelProvider anthropic-api"
+kind = "plugin"
+path = "plugins/model-anthropic/"
+package = "@guildwork/plugin-model-anthropic"
+stage = "0"
+purpose = "ModelProvider anthropic-api for single calls (gate, verifier, judge) in the worker as work item model_call, via the credential relay with a placeholder per item and the Vercel AI SDK, with cost from a versioned price table (from 8-E06-T01 only the control plane calculates cost). Not for agent runs (AgentRuntime) and never from the control plane (FE-531); no embeddings."
+design = [
+  "05-plugins-and-contracts.md#216-modelprovider-anthropic-api-adr-03-adr-31-ruling-fe-531-fe-532",
+  "05-plugins-and-contracts.md#82-contract-and-suite-cases-with-the-real-system-owner-runs",
+]
+built_by = ["0-E15-T08", "0-E15-T11", "8-E06-T01"]
+
+[[provides]]
+name = "model-provider"
+kind = "contract"
+title = "ModelProvider anthropic-api: models, generate (relay URL and placeholder from req.credential, structured with Ajv re-check, tools, cache, limits from anthropic-ratelimit headers), countTokens; capabilities according to the table, REGION_EU none"
+defined_in = "05-plugins-and-contracts.md#216-modelprovider-anthropic-api-adr-03-adr-31-ruling-fe-531-fe-532"
+from_task = "0-E15-T08"
+
+[[provides]]
+name = "eingebautes-paket"
+kind = "ts-api"
+title = "BuiltinPluginPackage anthropic-api with manifest.json (bundled, egress {config.relay_host}) and contract-attestation.json"
+defined_in = "05-plugins-and-contracts.md#216-modelprovider-anthropic-api-adr-03-adr-31-ruling-fe-531-fe-532"
+from_task = "0-E15-T08"
+
+[[provides]]
+name = "preistabelle"
+kind = "file"
+title = "plugins/model-anthropic/price-tables/anthropic.yaml with date and source per model (cost source price_table, FE-532); only until 8-E06-T01, then packages/pricing/tables/anthropic.json and cost without usd (FE-562, 13 FE-1360, FE-1362)"
+defined_in = "05-plugins-and-contracts.md#216-modelprovider-anthropic-api-adr-03-adr-31-ruling-fe-531-fe-532"
+from_task = "0-E15-T08"
+
+[[provides]]
+name = "preis-alter"
+kind = "config"
+title = "Named value pricing.max_age_days (hint in health() for an old price table)"
+defined_in = "05-plugins-and-contracts.md#7-configuration"
+from_task = "0-E15-T08"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "0-E15-T08"
+purpose = "ModelProvider contract and GenerateRequest.credential (FE-550)"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E15-T08"
+purpose = "ctx.http.asFetch for the AI SDK"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E15-T08"
+purpose = "untrusted parts via renderUntrustedBlock"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E15-T08"
+purpose = "manifest.json bundled"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E15-T08"
+purpose = "BuiltinPluginPackage anthropic-api"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E15-T08"
+purpose = "ModelProvider suite against provisional cassettes"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "0-E15-T08"
+purpose = "Cassettes with anthropic-ratelimit headers"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "0-E15-T11"
+purpose = "Optional recording via a locally started relay (owner run with API key, O28)"
+
+[[uses]]
+interface = "contract-harness/make-contract"
+from_task = "0-E15-T11"
+purpose = "make contract-record PLUGIN=model-anthropic"
+
+[[uses]]
+interface = "contract-harness/aufzeichnungsprofil"
+from_task = "0-E15-T11"
+purpose = "Target profile relay-local"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "0-E15-T11"
+purpose = "Attestation over the cassettes from the documentation (05 FE-564), again after an optional recording"

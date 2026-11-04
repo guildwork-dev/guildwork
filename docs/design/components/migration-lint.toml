@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "migration-lint"
+title = "Migration linter expand/contract and probe N-1 against N"
+kind = "tool"
+path = "tools/migration-lint/"
+stage = "0"
+purpose = "Static check of all migration files against the expand/contract rules and forbidden statements as a gate in make check, plus the probe that code of N-1 runs against the schema after an expand migration. Not here: applying the migrations (db-migrator) and the full upgrade test S8 (0-E21)."
+design = ["01-data-model.md#41-migration", "01-data-model.md#44-migration-linter-and-n-1-against-n-probe", "01-data-model.md#8-tests"]
+built_by = ["0-E02-T12"]
+
+[[provides]]
+name = "lint"
+kind = "cli"
+title = "tools/migration-lint/lint.py [--json <file>] <folder> with rule IDs, exit codes 0, 1, 2 according to 00 section 2.10; extending a value list via DROP and ADD CONSTRAINT of the same name is allowed in expand (FE-138)"
+defined_in = "01-data-model.md#44-migration-linter-and-n-1-against-n-probe"
+from_task = "0-E02-T12"
+
+[[provides]]
+name = "gate"
+kind = "config"
+title = "Gate migration-lint in quality/gates.toml (in_check, CI job tools)"
+defined_in = "01-data-model.md#44-migration-linter-and-n-1-against-n-probe"
+from_task = "0-E02-T12"
+
+[[provides]]
+name = "probe-n-minus-1"
+kind = "file"
+title = "Probe upgrade.n_minus_1_code_on_n_schema with fixture n-minus-1 as a building block of the upgrade test"
+defined_in = "01-data-model.md#44-migration-linter-and-n-1-against-n-probe"
+from_task = "0-E02-T12"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "0-E02-T12"
+purpose = "ruff, mypy strict and unittest for tools/migration-lint"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "0-E02-T12"
+purpose = "Register the gate migration-lint with in_check = true"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "0-E02-T12"
+purpose = "Linter in the target check-tools of make check"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "0-E02-T12"
+purpose = "Linter in the CI job tools"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E02-T12"
+purpose = "Check the header lines phase, transactional, min_app_release, haltepunkt"
+
+[[uses]]
+interface = "db-migrator/tabellenverzeichnis"
+from_task = "0-E02-T12"
+purpose = "Rule number-outside-block from packages/db/migrations/blocks.json"
+
+[[uses]]
+interface = "db-migrator/migrator"
+from_task = "0-E02-T12"
+purpose = "Probe N-1: apply the migration lists of N-1 and N"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E02-T12"
+purpose = "Fixture of the repository queries at the state N-1"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E02-T12"
+purpose = "Postgres for the probe upgrade.n_minus_1_code_on_n_schema"
+
+[[uses]]
+interface = "testkit/postgres-rollen"
+from_task = "0-E02-T12"
+purpose = "Migrate the probe as guildwork_owner and query it as guildwork_app"

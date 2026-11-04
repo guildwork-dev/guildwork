@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Private deny list over every push to main (docs/quality/push-discipline.md):
+# the pushed commits (before..after) and the tree; on the first push, when
+# `before` is all zeros, the whole history and the tree. The list and the
+# allowed identities come from the secrets of the environment denylist and
+# go into files readable by the job user only, never into an argument. The
+# scanner uses the standard library only: no cache, no dependencies.
+#
+# No concurrency group: every push is scanned, none is cancelled or replaced
+# by a later one.
+#
+# actions/checkout v7.0.1 is pinned to the same commit as in ci.yml.
+#
+# Values from the event reach run steps only through env (FE-024).
+
+name: denylist-main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: denylist
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Write the private list and the allowed identities
+        env:
+          DENYLIST: ${{ secrets.DENYLIST }}
+          ALLOW_AUTHORS: ${{ secrets.ALLOW_AUTHORS }}
+        run: |
+          if [ -z "$DENYLIST" ] || [ -z "$ALLOW_AUTHORS" ]; then
+            echo "denylist.secret_missing: the environment denylist needs the secrets DENYLIST and ALLOW_AUTHORS" >&2
+            exit 2
+          fi
+          umask 077
+          mkdir -p "$RUNNER_TEMP/denylist"
+          printf '%s\n' "$DENYLIST" > "$RUNNER_TEMP/denylist/list"
+          printf '%s\n' "$ALLOW_AUTHORS" > "$RUNNER_TEMP/denylist/authors"
+      - name: Scan the pushed commits, on the first push the history
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          range="$(python3 tools/ci/commit_range.py)"
+          export DENYLIST_FILE="$RUNNER_TEMP/denylist/list"
+          export ALLOW_AUTHORS_FILE="$RUNNER_TEMP/denylist/authors"
+          case "$range" in
+            *..*) make denylist COMMIT_RANGE="$range" ;;
+            *) make denylist-history ;;
+          esac

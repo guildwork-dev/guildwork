@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-kontext-werkzeug"
+title = "Context tool gw-review-context in the sandbox (diff, neighborhood, callers, SARIF)"
+kind = "service"
+path = "services/reviewer/context-tool/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Bundled Node script in the image sandbox-base that parses repo files and SARIF only in the sandbox and outputs exclusively schema JSON (FE-805). Never calls a model and has no network."
+design = [
+  "08-reviewer.md#210-context-tool-gw-review-context",
+  "08-reviewer.md#46-context-building-and-token-budget",
+  "08-reviewer.md#411-finding-lifecycle-and-increment",
+  "08-reviewer.md#414-analyzers-in-mode-ingest",
+]
+built_by = ["1-E02-T03", "1-E02-T04", "1-E06-T01", "6-E02-T03"]
+
+[[provides]]
+name = "cli-diff"
+kind = "cli"
+title = "gw-review-context diff: merge base diff, hunks, generated files, line mapping since..head, ancestor check"
+defined_in = "08-reviewer.md#210-context-tool-gw-review-context"
+from_task = "1-E02-T03"
+
+[[provides]]
+name = "cli-symbols"
+kind = "cli"
+title = "gw-review-context symbols: enclosing symbols, neighborhood and callers via web-tree-sitter, fallback without grammar"
+defined_in = "08-reviewer.md#210-context-tool-gw-review-context"
+from_task = "1-E02-T04"
+
+[[provides]]
+name = "cli-excerpts"
+kind = "cli"
+title = "gw-review-context excerpts: excerpts per candidate for the verifier in the modes read and recheck"
+defined_in = "08-reviewer.md#210-context-tool-gw-review-context"
+from_task = "1-E02-T04"
+
+[[provides]]
+name = "grammars-lock"
+kind = "file"
+title = "grammars.lock.json: tree-sitter grammars with version, checksum and license"
+defined_in = "08-reviewer.md#46-context-building-and-token-budget"
+from_task = "1-E02-T04"
+
+[[provides]]
+name = "symbols-touched"
+kind = "cli"
+title = "gw-review-context symbols with touched: SymbolTouched { path, name, language, exported, hasDoc } per newly created or changed symbol (09 FE-956)"
+defined_in = "08-reviewer.md#210-context-tool-gw-review-context"
+from_task = "6-E02-T03"
+
+[[provides]]
+name = "cli-sarif"
+kind = "cli"
+title = "gw-review-context sarif: check of SARIF 2.1.0, normalization to AnalyzerFinding, baselineState, limits"
+defined_in = "08-reviewer.md#210-context-tool-gw-review-context"
+from_task = "1-E06-T01"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "1-E02-T03"
+purpose = "Tool as a bundled script in the image"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "1-E02-T03"
+purpose = "Call via SandboxHandle.exec with role check, output via copyOut"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "1-E02-T03"
+purpose = "Check of schema and size of the output in the handler"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "1-E02-T03"
+purpose = "ChangedFile in DiffResult"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E02-T03"
+purpose = "named value reviewer.job_output_max_bytes"
+
+[[uses]]
+interface = "lizenz-gate/lizenz-listen"
+from_task = "1-E02-T04"
+purpose = "License of every tree-sitter grammar against the allowlist"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "1-E02-T04"
+purpose = "License gate green with all grammars"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "1-E02-T04"
+purpose = "web-tree-sitter and grammars with license and location"

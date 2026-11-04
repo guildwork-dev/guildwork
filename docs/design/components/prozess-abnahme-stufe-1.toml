@@ -1,0 +1,232 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-1"
+title = "Qualification, dogfooding, shadow mode, live decision, release and stage report for stage 1"
+kind = "process"
+path = "-"
+stage = "1"
+purpose = "Acceptance of stage 1 without own product code: Gate A and Gate B runs, qualification row as reference qualification, leaderboard submission, project installation, shadow mode, decision on live, release and stage report. External effects (submission, tag, live) only with the owner."
+design = [
+  "08-reviewer.md#85-gate-a-gate-b-qualification",
+  "08-reviewer.md#86-rollout",
+  "08-reviewer.md#1-purpose-and-sources",
+]
+built_by = [
+  "1-E09-T10", "1-E09-T11", "1-E09-T12", "1-E09-T13",
+  "1-E10-T09", "1-E10-T10", "1-E10-T11", "1-E10-T12", "1-E10-T13",
+]
+
+[[provides]]
+name = "bericht-gate-a"
+kind = "file"
+title = "eval/reports/stufe-1/reviewer-gate-a-<date>.md and .json"
+defined_in = "08-reviewer.md#85-gate-a-gate-b-qualification"
+from_task = "1-E09-T10"
+
+[[provides]]
+name = "bericht-gate-b"
+kind = "file"
+title = "eval/reports/stufe-1/reviewer-gate-b-<date>.md and .json with status per required part B1 to B3"
+defined_in = "08-reviewer.md#85-gate-a-gate-b-qualification"
+from_task = "1-E09-T11"
+
+[[provides]]
+name = "qualifikationszeile"
+kind = "file"
+title = "Reference qualification eval/qualification/<release>/reviewer.json and row in qualification of the project installation"
+defined_in = "08-reviewer.md#85-gate-a-gate-b-qualification"
+from_task = "1-E09-T12"
+
+[[provides]]
+name = "projekt-installation"
+kind = "contract"
+title = "Project installation single-host with pool self-hosted (single_operator) and its own GitHub App, credential subscription of the owner (O28), only runs that the owner triggers"
+defined_in = "08-reviewer.md#86-rollout"
+from_task = "1-E10-T09"
+
+[[provides]]
+name = "bericht-schatten"
+kind = "file"
+title = "eval/reports/stufe-1/reviewer-shadow-<date>.md with address rate and recall (report part B4)"
+defined_in = "08-reviewer.md#86-rollout"
+from_task = "1-E10-T10"
+
+[[provides]]
+name = "release-stufe-1"
+kind = "file"
+title = "Release of stage 1 with release notes and qualification row"
+defined_in = "08-reviewer.md#85-gate-a-gate-b-qualification"
+from_task = "1-E10-T12"
+
+[[provides]]
+name = "stufenbericht"
+kind = "file"
+title = "Stage report for stage 1 with evidence per done criterion and Gate B status"
+defined_in = "08-reviewer.md#1-purpose-and-sources"
+from_task = "1-E10-T13"
+
+[[uses]]
+interface = "eval-adapter-reviewer/adapter"
+from_task = "1-E09-T10"
+purpose = "Reviewer arm of the gate runs"
+
+[[uses]]
+interface = "eval-adapter-reviewer/nackter-harness"
+from_task = "1-E09-T10"
+purpose = "bare arm of Gate A"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r1-labels"
+from_task = "1-E09-T10"
+purpose = "R1 with human labels"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r5"
+from_task = "1-E09-T10"
+purpose = "R5 SWE-PRBench and AACR-Bench"
+
+[[uses]]
+interface = "eval-saetze-reviewer/scorer-swe-prbench-und-aacr"
+from_task = "1-E09-T10"
+purpose = "Recall against human feedback"
+
+[[uses]]
+interface = "eval-saetze-reviewer/richter-review-match"
+from_task = "1-E09-T10"
+purpose = "Judge for R1"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "1-E09-T10"
+purpose = "Gate A decision with margin, bootstrap, power"
+
+[[uses]]
+interface = "eval-gates/gates-reviewer"
+from_task = "1-E09-T10"
+purpose = "Gate file of the reviewer"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "1-E09-T10"
+purpose = "Report as Markdown and JSON"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "1-E09-T10"
+purpose = "Start runs and fetch the report"
+
+[[uses]]
+interface = "prozess-eval-konten-und-lizenzen/eval-credentials-projekt"
+from_task = "1-E09-T10"
+purpose = "Eval credentials of the project installation"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r2"
+from_task = "1-E09-T11"
+purpose = "R2 under three judges"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r4"
+from_task = "1-E09-T11"
+purpose = "R4 with three repetitions"
+
+[[uses]]
+interface = "eval-saetze-reviewer/scorer-martian"
+from_task = "1-E09-T11"
+purpose = "F2 core per judge"
+
+[[uses]]
+interface = "eval-saetze-reviewer/scorer-reviewbench"
+from_task = "1-E09-T11"
+purpose = "grounded recall and F1"
+
+[[uses]]
+interface = "eval-saetze-reviewer/bezugswerte-reviewer"
+from_task = "1-E09-T11"
+purpose = "Baseline values before the first Gate B run"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "1-E09-T11"
+purpose = "Status per part, least favorable judge"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "1-E09-T12"
+purpose = "Profile and qualification_key of the measured reviewer"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "1-E09-T12"
+purpose = "Row that the policy finds for the profile"
+
+[[uses]]
+interface = "eval-dienst/tabellen-qualifikation"
+from_task = "1-E09-T12"
+purpose = "Row in qualification of the project installation"
+
+[[uses]]
+interface = "eval-core/referenz-qualifikation-format"
+from_task = "1-E09-T12"
+purpose = "File of the reference qualification"
+
+[[uses]]
+interface = "eval-runner/cli-export-reference"
+from_task = "1-E09-T12"
+purpose = "Export for the release path"
+
+[[uses]]
+interface = "eval-adapter-reviewbench/adapter"
+from_task = "1-E09-T13"
+purpose = "Image and container contract for the submission"
+
+[[uses]]
+interface = "cli-install/cmd-install"
+from_task = "1-E10-T09"
+purpose = "Project installation single-host"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "1-E10-T09"
+purpose = "doctor green as evidence"
+
+[[uses]]
+interface = "plugin-github/app-manifest-flow"
+from_task = "1-E10-T09"
+purpose = "own GitHub App via manifest flow"
+
+[[uses]]
+interface = "ui-run-record/seite-run-record"
+from_task = "1-E10-T10"
+purpose = "Maintainer rates shadow outputs in the Run Record"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "1-E10-T10"
+purpose = "Eval log of the shadow effects as a comparison"
+
+[[uses]]
+interface = "eval-qualifikation/uebernahme-api"
+from_task = "1-E10-T10"
+purpose = "Ratings of the shadow outputs (shadow-ratings)"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "1-E10-T11"
+purpose = "live only with a qualified row"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "1-E10-T12"
+purpose = "Release workflow of the stage"
+
+[[uses]]
+interface = "portabilitaetstest/portability-workflow"
+from_task = "1-E10-T12"
+purpose = "Portability amd64 and arm64"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "1-E10-T12"
+purpose = "BUILT_STAGES extended by stage 1"

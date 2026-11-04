@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "adf"
+title = "ADF renderer and ADF reader"
+kind = "package"
+path = "packages/adf/"
+package = "@guildwork/adf"
+stage = "8"
+purpose = "Pure functions without network and state that convert platform Markdown into Atlassian Document Format and read ADF from tickets and comments as Markdown (FE-1224, FE-1311). No Jira client, no sanitization of untrusted content and no permission check."
+design = [
+  "13-stage-8-providers-and-bases.md#215-adf-renderer-and-adf-reader",
+  "13-stage-8-providers-and-bases.md#20-directories-and-packages",
+]
+built_by = ["8-E01-T03"]
+
+[[provides]]
+name = "markdown-zu-adf"
+kind = "ts-api"
+title = "markdownToAdf(md, { mentions, maxBytes }) with code block fallback, fallbacks and truncation; types AdfDoc, AdfNode, ToAdfOptions"
+defined_in = "13-stage-8-providers-and-bases.md#215-adf-renderer-and-adf-reader"
+from_task = "8-E01-T03"
+
+[[provides]]
+name = "adf-zu-markdown"
+kind = "ts-api"
+title = "adfToMarkdown(doc, { botAccountId, handle }) with [unsupported:<type>] for nodes outside the subset; ADF_SUBSET"
+defined_in = "13-stage-8-providers-and-bases.md#215-adf-renderer-and-adf-reader"
+from_task = "8-E01-T03"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "8-E01-T03"
+purpose = "Result as the return value of markdownToAdf"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "8-E01-T03"
+purpose = "Change untrusted text only via sanitize, otherwise characters unchanged"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/paket-vorlage"
+from_task = "8-E01-T03"
+purpose = "Structure of the new package packages/adf with exports"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "8-E01-T03"
+purpose = "License gate for remark-parse and unified"

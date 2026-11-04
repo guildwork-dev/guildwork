@@ -1,0 +1,165 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "cli-install"
+title = "Command guildwork install with air gap branch"
+kind = "role"
+path = "apps/cli/src/commands/install.ts"
+package = "@guildwork/cli"
+stage = "0"
+purpose = "Command guildwork install: preflight without writing, bundle and signature check, only add to the target folder, pull by digest, migrate, start, one-time code of the emergency admin only on stdout, doctor; with an air gap branch and the test environment tools/airgap-env. Not upgrade (cli) and not the checks themselves (cli-doctor)."
+design = ["06-installation-operations-ui.md#241-guildwork-install", "06-installation-operations-ui.md#41-installation", "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap", "06-installation-operations-ui.md#23-compose-bundle-single-host"]
+built_by = ["0-E18-T06", "0-E18-T17"]
+
+[[provides]]
+name = "cmd-install"
+kind = "cli"
+title = "guildwork install with all options from section 2.4.1 and step IDs install.preflight.*, install.bundle.*, install.write, install.images, install.migrate, install.start, install.break-glass, install.doctor, install.next"
+defined_in = "06-installation-operations-ui.md#241-guildwork-install"
+from_task = "0-E18-T06"
+
+[[provides]]
+name = "zielordner"
+kind = "file"
+title = "Target folder of the installation: compose.yaml, profiles/, .env 0600, secrets/ 0700 (master.key, store/ with initial secrets), postgres-secrets/, worker-secrets/pool-key, installation.yaml, release.json and release.prev.json; a second run only adds; plus the Z1 files egress.yaml (allow_private with the host from public_url), worker.yaml and socket-proxy/policy.json, regenerated per run from installation.yaml (03 FE-328, FE-658)"
+defined_in = "06-installation-operations-ui.md#23-compose-bundle-single-host"
+from_task = "0-E18-T06"
+
+[[provides]]
+name = "install-air-gap"
+kind = "cli"
+title = "guildwork install --air-gap --registry-mirror <host> --bundle <file>: images onto the mirror with the same digest, harness source operator_mirror, telemetry forced off"
+defined_in = "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"
+from_task = "0-E18-T17"
+
+[[provides]]
+name = "airgap-env"
+kind = "cli"
+title = "tools/airgap-env: Docker network without egress, mirror registry, fixture server as SCM, fake LLM, counting at the egress proxy (S8 case)"
+defined_in = "06-installation-operations-ui.md#213-portability-test-and-s8"
+from_task = "0-E18-T17"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "0-E18-T06"
+purpose = "Options, prompts, error codes and exit codes"
+
+[[uses]]
+interface = "cli/ndjson-ausgabe"
+from_task = "0-E18-T06"
+purpose = "StepEvent per installation step"
+
+[[uses]]
+interface = "cli/compose-client"
+from_task = "0-E18-T06"
+purpose = "compose pull, up and InternalCli.call"
+
+[[uses]]
+interface = "cli/bundle-pruefung"
+from_task = "0-E18-T06"
+purpose = "install.bundle.verify and install.bundle.signature"
+
+[[uses]]
+interface = "cli/release-manifest-typ"
+from_task = "0-E18-T06"
+purpose = "Read digests from release.json"
+
+[[uses]]
+interface = "cli/internal-cli.pool-key"
+from_task = "0-E18-T06"
+purpose = "Pool key of the local worker in worker-secrets/pool-key"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "0-E18-T06"
+purpose = "Write compose.yaml into the target folder"
+
+[[uses]]
+interface = "compose-buendel/env-template"
+from_task = "0-E18-T06"
+purpose = "Add to .env from env.template"
+
+[[uses]]
+interface = "compose-buendel/installation-example"
+from_task = "0-E18-T06"
+purpose = "installation.yaml from the template on the first run"
+
+[[uses]]
+interface = "admin-api/internal-cli.break-glass"
+from_task = "0-E18-T06"
+purpose = "internal-cli break-glass init with one-time code"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "0-E18-T06"
+purpose = "Step install.doctor without --strict"
+
+[[uses]]
+interface = "control-plane/health"
+from_task = "0-E18-T06"
+purpose = "Wait for GET /readyz until install.ready_timeout_s"
+
+[[uses]]
+interface = "db-migrator/rolle-migrate"
+from_task = "0-E18-T06"
+purpose = "Step install.migrate"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E18-T06"
+purpose = "Values of the options in installation.yaml"
+
+[[uses]]
+interface = "driver-secret-file/ablageformat"
+from_task = "0-E18-T06"
+purpose = "Create the master key and folder of the SecretStore file"
+
+[[uses]]
+interface = "driver-secret-file/secret-store"
+from_task = "0-E18-T06"
+purpose = "Write initial secrets before the first start with the bundled driver (FE-647)"
+
+[[uses]]
+interface = "socket-proxy/policy-json"
+from_task = "0-E18-T06"
+purpose = "Generate socket-proxy/policy.json with the digests of the release"
+
+[[uses]]
+interface = "egress-proxy/egress-yaml"
+from_task = "0-E18-T06"
+purpose = "Generate egress.yaml from installation.yaml"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "0-E18-T06"
+purpose = "Generate worker.yaml of the local worker"
+
+[[uses]]
+interface = "config-resolver-regeln/harness-pins"
+from_task = "0-E18-T17"
+purpose = "harness_pins.<harness>.source operator_mirror in the air gap"
+
+[[uses]]
+interface = "egress-proxy/konfig-egress"
+from_task = "0-E18-T17"
+purpose = "egress.air_gap_allow with SCM, LLM and mirror"
+
+[[uses]]
+interface = "produkt-telemetrie/telemetrie-konfig"
+from_task = "0-E18-T17"
+purpose = "telemetry.* forced off in the air gap"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "0-E18-T17"
+purpose = "Fixture server as SCM in tools/airgap-env"
+
+[[uses]]
+interface = "testkit/fake-anthropic"
+from_task = "0-E18-T17"
+purpose = "Fake LLM as the only LLM target in tools/airgap-env"
+
+[[uses]]
+interface = "dummy-service/befehl-dummy"
+from_task = "0-E18-T17"
+purpose = "Smoke run in the air gap with @agent dummy"

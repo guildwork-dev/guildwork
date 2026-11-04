@@ -1,0 +1,470 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-docs"
+title = "Docs service: drift check, docstrings, sync, release"
+kind = "service"
+path = "services/docs/"
+package = "@guildwork/service-docs"
+stage = "10"
+purpose = "Keeps documentation current without changing code: drift check on PRs (never blocking), docstrings of touched symbols as a follow-up PR, docs PR after merge and release notes as a changelog PR. Not for merges, tags or publications (always done by a human) and not for code changes."
+design = [
+  "15-stage-10-edge-layers.md#23-docs-service-10-e01",
+  "15-stage-10-edge-layers.md#231-manifest-and-commands",
+  "15-stage-10-edge-layers.md#232-types",
+  "15-stage-10-edge-layers.md#233-drift-check-mode-drift",
+  "15-stage-10-edge-layers.md#234-mode-docstrings",
+  "15-stage-10-edge-layers.md#235-mode-sync",
+  "15-stage-10-edge-layers.md#236-mode-release-and-analyzer-git-cliff",
+  "15-stage-10-edge-layers.md#237-verifier",
+  "15-stage-10-edge-layers.md#238-tool-gw-docs-scan",
+  "15-stage-10-edge-layers.md#41-drift-check-on-a-pr",
+  "15-stage-10-edge-layers.md#42-docstrings",
+  "15-stage-10-edge-layers.md#43-docs-sync-after-merge",
+  "15-stage-10-edge-layers.md#44-release",
+  "15-stage-10-edge-layers.md#49-states",
+  "15-stage-10-edge-layers.md#81-docs-10-e01",
+]
+built_by = ["10-E01-T01", "10-E01-T02", "10-E01-T03", "10-E01-T04"]
+
+[[provides]]
+name = "service-manifest"
+kind = "contract"
+title = "ServiceManifest docs: commands docs and release, subscriptions, write requests propose_change, propose_check, propose_comment, jobs, qualification"
+defined_in = "15-stage-10-edge-layers.md#231-manifest-and-commands"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "docs-artefakt"
+kind = "ts-api"
+title = "Types DocsRequest, DocsArtifact, DriftFinding, DocPatch, ReleaseNotes, DocsVerifierReport in packages/contracts/src/artifacts/docs.ts"
+defined_in = "15-stage-10-edge-layers.md#232-types"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "DocsController: accept, plan, onStepResult, finalize (in the process of the control plane)"
+defined_in = "15-stage-10-edge-layers.md#232-types"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "work-items"
+kind = "ts-api"
+title = "Work item kinds docs.drift, docs.docstrings, docs.sync, docs.release with DocsWorkInput, DocsStepResult, DocsNext and step handlers in the worker"
+defined_in = "15-stage-10-edge-layers.md#232-types"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "gw-docs-scan.refs"
+kind = "cli"
+title = "gw-docs-scan refs: docs references to changed paths and symbols (RefsOutput), bundled in the image sandbox-base"
+defined_in = "15-stage-10-edge-layers.md#238-tool-gw-docs-scan"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "gw-docs-scan.docstrings"
+kind = "cli"
+title = "gw-docs-scan gaps, order, comments-only, entities with ast-grep rules per language"
+defined_in = "15-stage-10-edge-layers.md#238-tool-gw-docs-scan"
+from_task = "10-E01-T02"
+
+[[provides]]
+name = "check-docs-drift"
+kind = "contract"
+title = "Check docs-drift at the head SHA: only success or neutral with annotations, never failure (FE-1501)"
+defined_in = "15-stage-10-edge-layers.md#233-drift-check-mode-drift"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "event-docs-done"
+kind = "event"
+title = "Internal event docs.done { runId, mode, output }"
+defined_in = "15-stage-10-edge-layers.md#32-artifacts-events-markers"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "Configuration section services.docs.* (mode, modes, paths, models.drift_judge, drift, docstrings, sync, release, knowledge.use)"
+defined_in = "15-stage-10-edge-layers.md#7-configuration"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "pipeline-docs-after-merge"
+kind = "config"
+title = "Pipeline docs-after-merge on change.merged with stage docs (mode sync), merge.mode fixed human (K7)"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E01-T03"
+
+[[provides]]
+name = "policy-docs-paths-only"
+kind = "contract"
+title = "Policy rule docs.paths_only for effects of docs: paths in docs.paths, docstring files only with note comments_only_ok, changelog only release.changelog_path"
+defined_in = "15-stage-10-edge-layers.md#33-effects-of-this-stage"
+from_task = "10-E01-T03"
+
+[[provides]]
+name = "prompt-drift-judge"
+kind = "prompt"
+title = "Prompt drift-judge.md for the single call services.docs.models.drift_judge"
+defined_in = "15-stage-10-edge-layers.md#233-drift-check-mode-drift"
+from_task = "10-E01-T01"
+
+[[provides]]
+name = "prompt-docstrings"
+kind = "prompt"
+title = "Prompt docstrings.md of the AgentStage docs.docstrings with its own prompt_v (K8)"
+defined_in = "15-stage-10-edge-layers.md#234-mode-docstrings"
+from_task = "10-E01-T02"
+
+[[provides]]
+name = "prompt-sync"
+kind = "prompt"
+title = "Prompt sync.md of the AgentStage docs.sync with its own prompt_v (K8)"
+defined_in = "15-stage-10-edge-layers.md#235-mode-sync"
+from_task = "10-E01-T03"
+
+[[provides]]
+name = "prompt-release-notes"
+kind = "prompt"
+title = "Prompt release-notes.md for the single call services.docs.release.notes_model (schema sections, breaking, prs per line)"
+defined_in = "15-stage-10-edge-layers.md#236-mode-release-and-analyzer-git-cliff"
+from_task = "10-E01-T04"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "Metrics docs_drift_errors_total, docs_drift_dropped_total, docs_drift_not_checked_total, docs_schema_invalid_total, docs_docstrings_blocked_total, docs_comments_only_violation_total, docs_build_failed_total, docs_entity_missing_total, docs_sync_noop_total, docs_release_skipped_total, docs_release_dropped_lines_total, docs_release_unassigned_total, docs_release_breaking_filled_total and audit actions docs.*"
+defined_in = "15-stage-10-edge-layers.md#51-metrics-of-this-stage"
+from_task = "10-E01-T04"
+
+[[uses]]
+interface = "core/result"
+from_task = "10-E01-T01"
+purpose = "Result for controller, handlers and gw-docs-scan"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "10-E01-T01"
+purpose = "Error codes and mapping of the exit codes 2 and 3 of gw-docs-scan (FE-1541)"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E01-T01"
+purpose = "sha256 for DriftFinding.id and quoteHash, canonicalJson"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "10-E01-T01"
+purpose = "Clock for the release date from the control plane"
+
+[[uses]]
+interface = "core/logger"
+from_task = "10-E01-T01"
+purpose = "Log events of the steps without repo content"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "10-E01-T01"
+purpose = "Counters docs_* via Metrics.count"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "10-E01-T01"
+purpose = "Enter the metrics of the docs service in the catalog (section 5.1)"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "10-E01-T01"
+purpose = "RepoRef, ChangeRef, Actor, Result in DocsRequest and DocsArtifact"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "10-E01-T01"
+purpose = "TypeBox schemas DocsRequestSchema, DocsArtifactSchema and output schemas"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "10-E01-T01"
+purpose = "Docs paragraphs, code excerpts, PR titles and commit messages as Untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "10-E01-T01"
+purpose = "Single call drift_judge with strict schema (ADR-58)"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "10-E01-T01"
+purpose = "Capabilities CHECK_RUN, CHECK_ANNOTATIONS, DRAFT_CHANGE in the manifest"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "10-E01-T04"
+purpose = "factsRef of the ReleaseFacts and log references in the BlobStore"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "10-E01-T01"
+purpose = "ResolvedEvent, Skipped and CommandName docs and release"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "10-E01-T01"
+purpose = "Check arguments of @agent docs and @agent release"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "10-E01-T01"
+purpose = "Single-service run from routes with services [docs]"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "10-E01-T01"
+purpose = "Routes change.opened, change.synchronized, change.ready_for_review and command_permissions docs, release"
+
+[[uses]]
+interface = "control-plane-router/skip-gruende"
+from_task = "10-E01-T01"
+purpose = "Skipped(mode_disabled), Skipped(invalid_args), Skipped(invalid_version)"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "10-E01-T01"
+purpose = "Register DocsController as ServiceControllerModule"
+
+[[uses]]
+interface = "control-plane-orchestrator/status-comment-render"
+from_task = "10-E01-T01"
+purpose = "Status comment for mode off, red build and release answers"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "10-E01-T01"
+purpose = "Define service docs with job kinds docs.*"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "10-E01-T01"
+purpose = "Step handlers docs.* in the worker with JobContext and readInputs"
+
+[[uses]]
+interface = "sdk-service/plattform-mcp-client"
+from_task = "10-E01-T02"
+purpose = "change_get and kb.* from the sandbox; a missing kb tool counts as unavailable (FE-1544)"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "10-E01-T01"
+purpose = "Create work items docs.drift to docs.release in the transaction"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "10-E01-T01"
+purpose = "DocsWorkInput in the envelope with size limits"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "10-E01-T01"
+purpose = "DocsStepResult as schema JSON back in Z0 (FE-1542)"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "10-E01-T01"
+purpose = "PreparedSandbox and AgentJobContext of the handlers"
+
+[[uses]]
+interface = "agent-step/untrusted-reporter"
+from_task = "10-E01-T01"
+purpose = "report seen Untrusted inputs before the run (foreign_input_seen)"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "10-E01-T02"
+purpose = "AgentStage docs.docstrings and docs.sync with its own prompt_v (K8)"
+
+[[uses]]
+interface = "agent-step/prompt-builder"
+from_task = "10-E01-T02"
+purpose = "Style examples and docs paragraphs as marked Untrusted blocks"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "10-E01-T02"
+purpose = "Capabilities STRUCTURED_OUTPUT, NATIVE_TOOLS_LOCKABLE, BUDGET_ABORT in the manifest"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "10-E01-T01"
+purpose = "gw-docs-scan as a bundled script in the image sandbox-base"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "10-E01-T01"
+purpose = "Schema services/docs.ts with x-qualification and only lowering inheritance"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "10-E01-T01"
+purpose = "Check rule docs-merge-human against the real pipeline docs-after-merge"
+
+[[uses]]
+interface = "config-resolver/snapshot"
+from_task = "10-E01-T01"
+purpose = "ConfigSnapshot in the intake (paths, modes, limits)"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "10-E01-T01"
+purpose = "Manifest allows only propose_change, propose_check, propose_comment"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "10-E01-T01"
+purpose = "effective mode off, shadow or live of the service docs"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "10-E01-T03"
+purpose = "Rule docs.paths_only with a fixed ID"
+
+[[uses]]
+interface = "plugin-rahmen/capability-resolver"
+from_task = "10-E01-T01"
+purpose = "Fallback chain comment without CHECK_RUN or without branch workflow with audit capability.fallback"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "10-E01-T01"
+purpose = "Write requests propose_check, propose_comment, propose_change"
+
+[[uses]]
+interface = "effect-gateway/effect-check"
+from_task = "10-E01-T03"
+purpose = "Checkers docs.paths_only and note comments_only_ok in the gateway"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "10-E01-T01"
+purpose = "Check docs-drift at the head SHA"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "10-E01-T01"
+purpose = "Fallback chain comment with finding list or collapsed patch"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "10-E01-T02"
+purpose = "Follow-up PR, docs PR and changelog PR as draft"
+
+[[uses]]
+interface = "effekt-executoren/request-reviewers"
+from_task = "10-E01-T03"
+purpose = "Docs PR to author and CODEOWNERS of the docs paths"
+
+[[uses]]
+interface = "orchestrator-effekte/orchestrator-effects-api"
+from_task = "10-E01-T03"
+purpose = "Platform effect request_reviewers after the docs PR"
+
+[[uses]]
+interface = "orchestrator-effekte/policy-regeln-orchestrator"
+from_task = "10-E01-T03"
+purpose = "Policy rule orchestrator.request_reviewers"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "10-E01-T01"
+purpose = "Audit for drift errors, discarded files and fallback chain"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "10-E01-T01"
+purpose = "DocsArtifact v1 as artifact of the run"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "10-E01-T01"
+purpose = "Object lock per PR and service docs"
+
+[[uses]]
+interface = "worker-umgebungs-snapshot/env-snapshot-dienst"
+from_task = "10-E01-T02"
+purpose = "Sandbox of the docstrings from the environment snapshot; without snapshot no_snapshot"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "10-E01-T02"
+purpose = "commands.build and commands.lint for the check phase"
+
+[[uses]]
+interface = "worker-sandbox-phasen/phasenwechsel"
+from_task = "10-E01-T02"
+purpose = "Check phase check without network (FE-1507)"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/pipeline-runner"
+from_task = "10-E01-T03"
+purpose = "PipelineDef of the pipeline docs-after-merge (K7)"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/stage-registry"
+from_task = "10-E01-T03"
+purpose = "StageHandler of the stage docs with on_disabled skip"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "10-E01-T04"
+purpose = "Run analyzer-git-cliff in the tool sandbox"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "10-E01-T04"
+purpose = "Read AnalyzerReport of the run release_facts"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "10-E01-T04"
+purpose = "Check SARIF of the analyzer and read run.properties"
+
+[[uses]]
+interface = "plugin-analyzer-git-cliff/analyzer"
+from_task = "10-E01-T04"
+purpose = "Generate release facts deterministically"
+
+[[uses]]
+interface = "plugin-analyzer-git-cliff/beutel-release-facts"
+from_task = "10-E01-T04"
+purpose = "Read ReleaseFacts from guildwork/release-facts@1"
+
+[[uses]]
+interface = "plugin-analyzer-git-cliff/konfig"
+from_task = "10-E01-T04"
+purpose = "GitCliffConfig with tagPattern, requestedVersion and date from the control plane"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "10-E01-T04"
+purpose = "License notice git-cliff and release-please with location"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "10-E01-T01"
+purpose = "Integration tests of controller and intake"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "10-E01-T04"
+purpose = "controlled clock in the test `release datum kommt aus der steuerzentrale`"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "10-E01-T01"
+purpose = "recorded model and SCM responses"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "10-E01-T01"
+purpose = "S4 case docs alone on and S2 case merge mode human"

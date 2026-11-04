@@ -1,0 +1,173 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "admin-api"
+title = "Admin API in the role web: session, CSRF, roles, OIDC login, emergency admin"
+kind = "role"
+path = "apps/control-plane/src/admin/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Framework of the admin API under /admin/api/v1 (session, CSRF, role guard, Problem Details, audit per change, route registration for all areas), OIDC login, emergency admin with TOTP and the framework of the internal commands; not the domain endpoints (those are provided by ui-setup-assistent, ui-betrieb, `ui-run-record`, `not-aus` and other areas)."
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#6-security", "06-installation-operations-ui.md#46-states", "06-installation-operations-ui.md#31-tables-of-this-area"]
+built_by = ["0-E17-T01", "0-E17-T02", "0-E17-T03", "1-E07-T09"]
+
+[[provides]]
+name = "admin-routen"
+kind = "ts-api"
+title = "registerAdminRoutes, AdminRouteSpec, AdminRequestContext: the only place for endpoints with an admin session (FE-643)"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T01"
+
+[[provides]]
+name = "admin-typen"
+kind = "ts-api"
+title = "AdminRole, AdminSession, Problem (RFC 9457), AdminErrorCode"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T01"
+
+[[provides]]
+name = "admin-sessions"
+kind = "table"
+title = "Table admin_sessions (migration 0012), only SHA-256 of the session ID"
+defined_in = "06-installation-operations-ui.md#31-tables-of-this-area"
+from_task = "0-E17-T01"
+
+[[provides]]
+name = "admin-konfig"
+kind = "config"
+title = "admin.session_ttl_min, admin.idle_timeout_min, admin.allowed_cidrs, admin.break_glass.*, admin.cli_session_ttl_min, admin.cli_code_ttl_s, admin_sso.oidc.*, admin_sso.break_glass.enabled"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E17-T01"
+
+[[provides]]
+name = "auth-oidc"
+kind = "http"
+title = "GET /admin/auth/login, GET /admin/auth/callback, POST /admin/auth/logout, GET /admin/api/v1/me (with csrf and expiresAt for clients without a browser)"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T02"
+
+[[provides]]
+name = "oidc-discovery-failed"
+kind = "metric"
+title = "Counter oidc_discovery_failed and rejected logins (audit admin.login.rejected)"
+defined_in = "06-installation-operations-ui.md#5-failure-and-abort-paths"
+from_task = "0-E17-T02"
+
+[[provides]]
+name = "cli-sitzung"
+kind = "http"
+title = "Session for command line clients (FE-653): GET /admin/auth/cli, POST /admin/auth/cli/approve, POST /admin/auth/cli/token with one-time code and PKCE; admin_sessions.kind cli with parent_id_sha256 and handoff_challenge"
+defined_in = "06-installation-operations-ui.md#262-session-for-the-command-line"
+from_task = "0-E17-T02"
+
+[[provides]]
+name = "auth-break-glass"
+kind = "http"
+title = "POST /admin/auth/break-glass/login, GET and POST /admin/auth/break-glass/enroll"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T03"
+
+[[provides]]
+name = "break-glass-accounts"
+kind = "table"
+title = "Table break_glass_accounts (migration 0013) with state machine"
+defined_in = "06-installation-operations-ui.md#31-tables-of-this-area"
+from_task = "0-E17-T03"
+
+[[provides]]
+name = "internal-cli-rahmen"
+kind = "ts-api"
+title = "Framework apps/control-plane/src/internal-cli.ts: command registry, JSON on stdout, exit codes, audit with actor cli:local"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E17-T03"
+
+[[provides]]
+name = "internal-cli.break-glass"
+kind = "cli"
+title = "internal-cli break-glass init|reset|lock|unlock (one-time code only on stdout)"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E17-T03"
+
+[[provides]]
+name = "internal-cli.admin-session"
+kind = "cli"
+title = "internal-cli admin session create --role --ttl-min: session kind cli with subject cli:local, ID only on stdout (FE-653)"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E17-T03"
+
+[[provides]]
+name = "personal-modes-status"
+kind = "http"
+title = "Field personalModes in StatusView (operator risk marker with the version from acknowledge_terms); the alarm rule token_expiry is provided by alarm-automat"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "1-E07-T09"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "0-E17-T01"
+purpose = "Mount the admin API as a Fastify plugin into the role web"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E17-T01"
+purpose = "Session store"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E17-T01"
+purpose = "tenantId of the installation tenant per request"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E17-T01"
+purpose = "Migrations 0012 and 0013"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E17-T01"
+purpose = "Audit per modifying request"
+
+[[uses]]
+interface = "core/problem-json"
+from_task = "0-E17-T01"
+purpose = "Errors as Problem Details"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E17-T01"
+purpose = "SHA-256 of the session ID, PKCE"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E17-T01"
+purpose = "admin.* and admin_sso.* from installation.yaml"
+
+[[uses]]
+interface = "credential-broker/secrets"
+from_task = "0-E17-T02"
+purpose = "Client secret secret://oidc/client and TOTP key"
+
+[[uses]]
+interface = "testkit/test-idp"
+from_task = "0-E17-T02"
+purpose = "Login tests against the test IdP from the testkit (FE-048)"
+
+[[uses]]
+interface = "driver-identity-self-issuer/issuer-keyring"
+from_task = "0-E17-T02"
+purpose = "Signing key of the test IdP"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E17-T02"
+purpose = "Counter oidc_discovery_failed"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "0-E17-T03"
+purpose = "Required alert on break-glass login, lock and reset"
+
+[[uses]]
+interface = "config-resolver-regeln/personal-modes-konfig"
+from_task = "1-E07-T09"
+purpose = "acknowledge_terms for StatusView.personalModes"

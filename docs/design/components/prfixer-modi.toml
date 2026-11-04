@@ -1,0 +1,466 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prfixer-modi"
+title = "PR fixer modes dependency_update and ci_doctor"
+kind = "service"
+path = "services/prfixer/src/modes/"
+package = "@guildwork/service-prfixer"
+stage = "10"
+purpose = "Two modes of the PR fixer as strategies of the same controller: dependency_update repairs red bot update PRs as a stacked PR, manifest and lockfile only via the package manager; ci_doctor finds the cause of red CI on the default branch and keeps updating the same issue. Not for the PR fixer core (11 section 2.4), not for pushes or reruns on the default branch and not for the executor issue (effect catalog)."
+design = [
+  "15-stage-10-edge-layers.md#24-pr-fixer-modes-dependency_update-and-ci_doctor-10-e02",
+  "15-stage-10-edge-layers.md#241-profile-dependency_update",
+  "15-stage-10-edge-layers.md#242-mode-ci_doctor",
+  "15-stage-10-edge-layers.md#45-dependency_update",
+  "15-stage-10-edge-layers.md#46-ci_doctor",
+  "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06",
+  "15-stage-10-edge-layers.md#82-pr-fixer-modes-and-executor-issue-10-e02",
+]
+built_by = ["10-E02-T01", "10-E02-T02", "10-E02-T03"]
+
+[[provides]]
+name = "modus-schnittstelle"
+kind = "ts-api"
+title = "PrFixerMode, dependencyUpdateMode, ciDoctorMode, CiDoctorRequest, CiDoctorPlan in services/prfixer/src/modes/mode.ts"
+defined_in = "15-stage-10-edge-layers.md#24-pr-fixer-modes-dependency_update-and-ci_doctor-10-e02"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "dependency-update-facts"
+kind = "ts-api"
+title = "DependencyUpdateFacts in packages/contracts/src/artifacts/fix-result.ts (additive)"
+defined_in = "15-stage-10-edge-layers.md#24-pr-fixer-modes-dependency_update-and-ci_doctor-10-e02"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "ci-doctor-report"
+kind = "ts-api"
+title = "Artifact CiDoctorReport v1 and CiDoctorClass"
+defined_in = "15-stage-10-edge-layers.md#24-pr-fixer-modes-dependency_update-and-ci_doctor-10-e02"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "konfig-dependency-update"
+kind = "config"
+title = "services.prfixer.modes, services.prfixer.bot_allowlist, services.prfixer.dependency_update.ecosystems"
+defined_in = "15-stage-10-edge-layers.md#7-configuration"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "konfig-ci-doctor"
+kind = "config"
+title = "services.prfixer.ci_doctor.issue_labels, .max_bisect, .workflows"
+defined_in = "15-stage-10-edge-layers.md#7-configuration"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "route-akteur-bot-allowlist"
+kind = "config"
+title = "Route actor bot_allowlist in routing[] (K1): PR author fresh in services.prfixer.bot_allowlist"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "vermerk-lockfile-regenerated"
+kind = "contract"
+title = "Bundle note lockfile_regenerated: <hash> and prohibition exception manifest and lockfile in the profile dependency_update (K11), checked in the Effect Gateway"
+defined_in = "15-stage-10-edge-layers.md#241-profile-dependency_update"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "effekt-stacked-pr"
+kind = "contract"
+title = "propose_change as stacked PR agent/fix/<pr>-deps against the update branch with policy rule prfixer.dependency_update"
+defined_in = "15-stage-10-edge-layers.md#33-effects-of-this-stage"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "agent-stage-dependency-update"
+kind = "prompt"
+title = "AgentStage prfixer.dependency_update with its own prompt_v (K8)"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "agent-stage-ci-doctor"
+kind = "prompt"
+title = "AgentStage prfixer.ci_doctor with its own prompt_v (K8), issue text per template"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "effekt-issue-ci-doctor"
+kind = "contract"
+title = "propose_issue in the mode ci_doctor with policy rules prfixer.ci_doctor_issue and prfixer.ci_doctor_no_push"
+defined_in = "15-stage-10-edge-layers.md#33-effects-of-this-stage"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "marker-ci-doctor"
+kind = "contract"
+title = "Hidden issue marker guildwork:ci-doctor:<workflow>:<job> for updating (FE-1519)"
+defined_in = "15-stage-10-edge-layers.md#32-artifacts-events-markers"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "objekt-sperre-repo-branch"
+kind = "table"
+title = "Migration 1002_ci_doctor: runs.object_kind extended by repo_branch, object lock ci:<instance>:<repo>:<branch>"
+defined_in = "15-stage-10-edge-layers.md#31-tables-of-stage-10-ddl"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "metriken-dependency-update"
+kind = "metric"
+title = "New counter prfix_lockfile_rejected_total and new reason values of the counters prfix_skipped_total and prfix_forbidden_change_total from service-prfixer for dependency_update"
+defined_in = "15-stage-10-edge-layers.md#51-metrics-of-this-stage"
+from_task = "10-E02-T01"
+
+[[provides]]
+name = "metriken-ci-doctor"
+kind = "metric"
+title = "ci_doctor_recovered_total, ci_doctor_class_total and audit action prfixer.ci_doctor_classified"
+defined_in = "15-stage-10-edge-layers.md#51-metrics-of-this-stage"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "satz-cd1"
+kind = "file"
+title = "Set CD1 under eval/sets/cd1/ with a manually confirmed cause, gate A report"
+defined_in = "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06"
+from_task = "10-E02-T02"
+
+[[provides]]
+name = "satz-f4"
+kind = "file"
+title = "Set F4 under eval/sets/f4/ and report eval/reports/stufe-10-f4.md"
+defined_in = "15-stage-10-edge-layers.md#28-eval-and-acceptance-10-e01-t05-10-e02-t03-10-e06"
+from_task = "10-E02-T03"
+
+[[provides]]
+name = "propose-dependency-prfixer"
+kind = "contract"
+title = "propose_dependency in the manifest of prfixer, only in runs with source dependency_update (policy prfixer.dependency_update, K15)"
+defined_in = "15-stage-10-edge-layers.md#22-shared-extensions-of-the-core"
+from_task = "10-E02-T01"
+
+[[uses]]
+interface = "core/result"
+from_task = "10-E02-T01"
+purpose = "Result in modes and package manager step"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E02-T01"
+purpose = "Hash of the note lockfile_regenerated"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "10-E02-T01"
+purpose = "Counters prfix_* and ci_doctor_*"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "10-E02-T01"
+purpose = "Metrics of the modes in the catalog (section 5.1)"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "10-E02-T02"
+purpose = "Redact CI log excerpts before storage and issue text"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "10-E02-T01"
+purpose = "RepoRef, ChangeRef, WorkItemRef, Actor"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "10-E02-T01"
+purpose = "Bot PR text, changelog excerpts and CI logs as untrusted"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "10-E02-T01"
+purpose = "getChange (bot author fresh), checkEvidence and ciFailureLogs"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "10-E02-T02"
+purpose = "logRef of the reproduction"
+
+[[uses]]
+interface = "contracts-artefakte/fix-result"
+from_task = "10-E02-T01"
+purpose = "FixRequest with source dependency_update, FixResult, OutOfScopeSuggestion"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "10-E02-T01"
+purpose = "ResolvedEvent for pipeline.ci_failed; where.commit (K10) from 10-E02-T02"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "10-E02-T01"
+purpose = "Route actor bot_allowlist and route pipeline.ci_failed with filter for ci_doctor"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "10-E02-T01"
+purpose = "Routes with services [prfixer]"
+
+[[uses]]
+interface = "control-plane-router/skip-gruende"
+from_task = "10-E02-T01"
+purpose = "Skipped(bot_not_allowlisted)"
+
+[[uses]]
+interface = "control-plane-router/orchestrator-intake"
+from_task = "10-E02-T02"
+purpose = "Second red event as a follow-up job (ADR-68)"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "10-E02-T01"
+purpose = "Keys services.prfixer.modes, bot_allowlist, dependency_update.*, ci_doctor.*"
+
+[[uses]]
+interface = "config-resolver/expr"
+from_task = "10-E02-T02"
+purpose = "Filter !change && commit.ref == repo.default_branch"
+
+[[uses]]
+interface = "service-prfixer/controller"
+from_task = "10-E02-T01"
+purpose = "Modes as strategies of PrFixerController.accept and plan (FE-1543)"
+
+[[uses]]
+interface = "service-prfixer/manifest"
+from_task = "10-E02-T01"
+purpose = "Manifest addition: modes, propose_dependency, propose_issue, AgentStages"
+
+[[uses]]
+interface = "service-prfixer/konfig-services-prfixer"
+from_task = "10-E02-T01"
+purpose = "Schema addition of the modes with x-qualification"
+
+[[uses]]
+interface = "service-prfixer/verbote"
+from_task = "10-E02-T01"
+purpose = "Prohibition exception manifest and lockfile in the profile dependency_update (K11)"
+
+[[uses]]
+interface = "effect-gateway/pruefer-prfixer-forbidden"
+from_task = "10-E02-T01"
+purpose = "Gateway path rule with exception only with the note lockfile_regenerated"
+
+[[uses]]
+interface = "service-prfixer/lieferung"
+from_task = "10-E02-T01"
+purpose = "Stacked PR agent/fix/<pr>-deps (FE-1517)"
+
+[[uses]]
+interface = "service-prfixer/rundenzaehler"
+from_task = "10-E02-T01"
+purpose = "New round in the roundScope auto after a bot rebase"
+
+[[uses]]
+interface = "service-prfixer/fix-agent-ausgabe"
+from_task = "10-E02-T01"
+purpose = "Output schema of the agent in the mode dependency_update"
+
+[[uses]]
+interface = "service-prfixer/check-prfixer-verify"
+from_task = "10-E02-T01"
+purpose = "Prohibitions, reproduction, self-check before delivery"
+
+[[uses]]
+interface = "service-prfixer/metriken"
+from_task = "10-E02-T01"
+purpose = "Existing counters prfix_* with new reason values"
+
+[[uses]]
+interface = "prfixer-quellen/ci-sammeln"
+from_task = "10-E02-T01"
+purpose = "Error signature of the red CI at the update head"
+
+[[uses]]
+interface = "prfixer-quellen/workflow-befehl"
+from_task = "10-E02-T01"
+purpose = "Exact CI command from the workflow file"
+
+[[uses]]
+interface = "prfixer-quellen/check-prfixer-reproduce"
+from_task = "10-E02-T01"
+purpose = "Reproduction at the update head or at the SHA and at the parent"
+
+[[uses]]
+interface = "prfixer-quellen/ci-klassifikation"
+from_task = "10-E02-T02"
+purpose = "Infrastructure patterns for the class infra (FE-1518)"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "10-E02-T01"
+purpose = "AgentStage prfixer.dependency_update and prfixer.ci_doctor (K8)"
+
+[[uses]]
+interface = "agent-step/prompt-builder"
+from_task = "10-E02-T01"
+purpose = "Error output and changelog excerpts as untrusted blocks"
+
+[[uses]]
+interface = "registry-cache/lockfile-parser"
+from_task = "10-E02-T01"
+purpose = "updatedPackages from the lockfile diff base..head"
+
+[[uses]]
+interface = "registry-cache/befuellung"
+from_task = "10-E02-T01"
+purpose = "Registry cache of the item from the lockfile of the update head"
+
+[[uses]]
+interface = "registry-cache/registry-server"
+from_task = "10-E02-T01"
+purpose = "Package manager step only against registry-cache.internal"
+
+[[uses]]
+interface = "plattform-mcp/propose-dependency"
+from_task = "10-E02-T01"
+purpose = "Request a companion update; only after approval in affectedSet"
+
+[[uses]]
+interface = "propose-dependency/tabelle-dependency-requests"
+from_task = "10-E02-T01"
+purpose = "Read approved packages for affectedSet"
+
+[[uses]]
+interface = "worker-sandbox-phasen/phasenwechsel"
+from_task = "10-E02-T01"
+purpose = "Check phase with registry cache, without any other network (FE-1516)"
+
+[[uses]]
+interface = "worker-sandbox-phasen/egress-policy"
+from_task = "10-E02-T01"
+purpose = "Allowlist of the check phase only registry-cache.internal"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "10-E02-T01"
+purpose = "propose_change (stacked PR) and propose_issue with marker"
+
+[[uses]]
+interface = "effect-gateway/effect-check"
+from_task = "10-E02-T01"
+purpose = "Checker of the note lockfile_regenerated (K11)"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "10-E02-T01"
+purpose = "Stacked PR against the update branch with expectedOldSha"
+
+[[uses]]
+interface = "effekt-executoren/issue"
+from_task = "10-E02-T02"
+purpose = "Create the issue or update it via the marker"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "10-E02-T01"
+purpose = "Rules prfixer.dependency_update, prfixer.ci_doctor_issue, prfixer.ci_doctor_no_push"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "10-E02-T01"
+purpose = "Fixed IDs of the new PR fixer rules"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "10-E02-T01"
+purpose = "Bot PR content sets foreign_input_seen"
+
+[[uses]]
+interface = "plugin-github-trigger/trigger-source"
+from_task = "10-E02-T02"
+purpose = "Event pipeline.ci_failed with where.commit from the mapping of workflow_run.completed on the default branch (since 0-E14-T04, 05 FE-556; K10)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "10-E02-T02"
+purpose = "object_kind repo_branch via migration 1002"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "10-E02-T02"
+purpose = "Object lock ci:<instance>:<repo>:<branch>"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "10-E02-T02"
+purpose = "CiDoctorReport v1 as an artifact"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "10-E02-T02"
+purpose = "Migration 1002_ci_doctor with header line phase expand"
+
+[[uses]]
+interface = "migration-lint/lint"
+from_task = "10-E02-T02"
+purpose = "Expand check of migration 1002"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "10-E02-T01"
+purpose = "Audit for Skipped, removed lockfile parts and ci_doctor without issue"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "10-E02-T02"
+purpose = "Sets CD1 and F4 under eval/sets"
+
+[[uses]]
+interface = "eval-dienst/eval-bare"
+from_task = "10-E02-T02"
+purpose = "Bare harness as the comparison arm for CD1 and F4"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "10-E02-T02"
+purpose = "Gate A runs CD1 and F4"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "10-E02-T02"
+purpose = "Gate A against the bare harness"
+
+[[uses]]
+interface = "eval-runner/cli-validate-set"
+from_task = "10-E02-T02"
+purpose = "Check sets CD1 and F4"
+
+[[uses]]
+interface = "eval-runner/cli-fetch"
+from_task = "10-E02-T03"
+purpose = "BUMP subset only via download with pin"
+
+[[uses]]
+interface = "eval-saetze-prfixer/satz-f4"
+from_task = "10-E02-T03"
+purpose = "Extend F4 from stage 4 by the profile dependency_update"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "10-E02-T02"
+purpose = "S4 case prfixer with only ci_doctor on, S1 cases bot PR text and CI log"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "10-E02-T01"
+purpose = "Integration tests of the modes"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "10-E02-T01"
+purpose = "Recorded GitHub responses"

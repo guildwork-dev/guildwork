@@ -1,0 +1,283 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "cli-doctor"
+title = "Command guildwork doctor with all checks"
+kind = "role"
+path = "apps/cli/src/doctor/"
+package = "@guildwork/cli"
+stage = "0"
+purpose = "Command guildwork doctor: framework with check registry, the installation checks D01 to D34 and the per-repo checks R01 to R04 (FE-642); only checks and writes nothing except probe objects, which it deletes, and the report. It calls the check functions of other areas (separation, audit anchor, blueprint, agent_ci) but does not build them."
+design = ["06-installation-operations-ui.md#242-guildwork-doctor", "06-installation-operations-ui.md#25-doctor-checks", "06-installation-operations-ui.md#249-internal-commands-internal-cli"]
+built_by = ["0-E18-T07", "0-E18-T08", "0-E18-T09", "0b-E01-T06", "2-E01-T04", "2-E06-T03", "5-E03-T03", "6-E06-T08", "7-E01-T07", "8-E01-T07", "8-E06-T01"]
+
+[[provides]]
+name = "cmd-doctor"
+kind = "cli"
+title = "guildwork doctor [--json] [--strict] [--only] [--skip]; exit 0 without fail (FE-637), 1 otherwise, 2 on an invalid option"
+defined_in = "06-installation-operations-ui.md#242-guildwork-doctor"
+from_task = "0-E18-T07"
+
+[[provides]]
+name = "doctor-check"
+kind = "ts-api"
+title = "DoctorCheck, CheckOutcome, DoctorContext, DoctorReport and registry checks/index.ts for checks of later stages"
+defined_in = "06-installation-operations-ui.md#242-guildwork-doctor"
+from_task = "0-E18-T07"
+
+[[provides]]
+name = "doctor-json"
+kind = "file"
+title = "doctor --json: StepEvent per check, DoctorReport at the end"
+defined_in = "06-installation-operations-ui.md#32-file-formats"
+from_task = "0-E18-T07"
+
+[[provides]]
+name = "internal-cli.doctor"
+kind = "cli"
+title = "internal-cli schema status, db versions, doctor probe blob|secret|identity and doctor report (latest report as installation_settings doctor_last for the status page); from 0-E18-T08 and T09 the further data commands from 06 section 2.4.9"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T07"
+
+[[provides]]
+name = "doctor-fail-total"
+kind = "metric"
+title = "Metric doctor_fail_total{check} from the reported report"
+defined_in = "06-installation-operations-ui.md#5-failure-and-abort-paths"
+from_task = "0-E18-T07"
+
+[[provides]]
+name = "internal-cli.workers-list"
+kind = "cli"
+title = "internal-cli workers list: version, pool and verified capabilities per worker"
+defined_in = "06-installation-operations-ui.md#249-internal-commands-internal-cli"
+from_task = "0-E18-T09"
+
+[[provides]]
+name = "doctor-repo"
+kind = "cli"
+title = "guildwork doctor --repo <owner/repo> (repeatable) with the checks R01 to R04 per repo; without --repo, D18 summarizes the latest state of all repos"
+defined_in = "06-installation-operations-ui.md#25-doctor-checks"
+from_task = "2-E01-T04"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "0-E18-T07"
+purpose = "Options, exit codes, error code GW-CLI-080"
+
+[[uses]]
+interface = "cli/ndjson-ausgabe"
+from_task = "0-E18-T07"
+purpose = "StepEvent per check with --json"
+
+[[uses]]
+interface = "cli/compose-client"
+from_task = "0-E18-T07"
+purpose = "exec, ps, inspect and InternalCli for checks"
+
+[[uses]]
+interface = "cli/release-manifest-typ"
+from_task = "0-E18-T07"
+purpose = "DoctorContext.release"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E18-T07"
+purpose = "DoctorContext.installation from installation.yaml"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E18-T07"
+purpose = "install.min_* and doctor.* as thresholds"
+
+[[uses]]
+interface = "admin-api/internal-cli-rahmen"
+from_task = "0-E18-T07"
+purpose = "Register internal-cli schema status and doctor report"
+
+[[uses]]
+interface = "db-migrator/startcheck"
+from_task = "0-E18-T07"
+purpose = "schema status for D07"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "0-E18-T07"
+purpose = "BlobStore and SecretStore probes D08, D09"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E18-T07"
+purpose = "put, get, delete in the prefix _doctor"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "0-E18-T07"
+purpose = "get on doctor/probe, put with WRITE"
+
+[[uses]]
+interface = "driver-identity-self-issuer/cloud-identity"
+from_task = "0-E18-T07"
+purpose = "Test JWT for D10"
+
+[[uses]]
+interface = "credential-broker/oidc-endpunkte"
+from_task = "0-E18-T07"
+purpose = "Discovery and JWKS for D10"
+
+[[uses]]
+interface = "ui-setup-assistent/settings-overlay"
+from_task = "0-E18-T07"
+purpose = "doctor report writes doctor_last"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E18-T07"
+purpose = "Audit ops.doctor.run on the report"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E18-T07"
+purpose = "Metric doctor_fail_total{check} in the catalog"
+
+[[uses]]
+interface = "socket-proxy/check-request"
+from_task = "0-E18-T08"
+purpose = "Rejection probes for D16"
+
+[[uses]]
+interface = "socket-proxy/policy-json"
+from_task = "0-E18-T08"
+purpose = "Hash of the policy against the bundle (D16)"
+
+[[uses]]
+interface = "worker/probe"
+from_task = "0-E18-T08"
+purpose = "WorkerCaps.verified for D11"
+
+[[uses]]
+interface = "worker/doctor-dns"
+from_task = "0-E18-T08"
+purpose = "Check function for D17"
+
+[[uses]]
+interface = "worker/doctor-separation"
+from_task = "0-E18-T08"
+purpose = "Check functions of the separation for D16"
+
+[[uses]]
+interface = "egress-proxy/connect-proxy"
+from_task = "0-E18-T08"
+purpose = "HEAD via the proxy for D12 and D15"
+
+[[uses]]
+interface = "egress-proxy/konfig-egress"
+from_task = "0-E18-T08"
+purpose = "Configured targets and air gap allowlist for D12, D15"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "0-E18-T08"
+purpose = "Static check of the networks and mounts for D16"
+
+[[uses]]
+interface = "plugin-github/mint-token"
+from_task = "0-E18-T08"
+purpose = "App JWT for the webhook deliveries (D13) via internal-cli"
+
+[[uses]]
+interface = "audit-kette/doctor-pruefungen"
+from_task = "0-E18-T09"
+purpose = "checkAnchorSink for D20"
+
+[[uses]]
+interface = "config-resolver-regeln/harness-pins"
+from_task = "0-E18-T09"
+purpose = "PinnedVersion per runtime for D22"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E18-T09"
+purpose = "Capability POLL of the ingress plugins for D23"
+
+[[uses]]
+interface = "config-resolver/validate-file"
+from_task = "0-E18-T09"
+purpose = "installation.yaml against the schema for D24"
+
+[[uses]]
+interface = "backup-restore/internal-cli.backup-status"
+from_task = "0-E18-T09"
+purpose = "Backup state for D25"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.workers"
+from_task = "0-E18-T09"
+purpose = "internal-cli workers list for D27"
+
+[[uses]]
+interface = "control-plane-orchestrator/upgrade-lift"
+from_task = "0-E18-T09"
+purpose = "Lifted runs for D28"
+
+[[uses]]
+interface = "produkt-telemetrie/telemetrie-konfig"
+from_task = "0-E18-T09"
+purpose = "Effective telemetry values for D29"
+
+[[uses]]
+interface = "driver-blob-azure/blobstore-azure-blob"
+from_task = "0b-E01-T06"
+purpose = "D08 with the driver azure-blob"
+
+[[uses]]
+interface = "driver-secret-azure-keyvault/secretstore-azure-keyvault"
+from_task = "0b-E01-T06"
+purpose = "D09 with the driver azure-keyvault"
+
+[[uses]]
+interface = "driver-blob-azure/azure-recorder"
+from_task = "0b-E01-T06"
+purpose = "Tests of D08 and D09 against replay"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E01-T04"
+purpose = "R01-blueprint parses .agents/environment.yaml"
+
+[[uses]]
+interface = "blueprint/doctor-r01-blueprint"
+from_task = "2-E01-T04"
+purpose = "internal-cli blueprint check for R01-blueprint"
+
+[[uses]]
+interface = "agent-ci/doctor-r02-agent-ci"
+from_task = "2-E06-T03"
+purpose = "internal-cli agent-ci check for R02-agent-ci and D18"
+
+[[uses]]
+interface = "merge-gate/doctor-branch-protection"
+from_task = "5-E03-T03"
+purpose = "Check R03-branch-protection per repo"
+
+[[uses]]
+interface = "auto-approve/doctor-approval-protection"
+from_task = "6-E06-T08"
+purpose = "Check R04-auto-approve and D19"
+
+[[uses]]
+interface = "plugin-github-scm/approve"
+from_task = "6-E06-T08"
+purpose = "approvalProtection for R04"
+
+[[uses]]
+interface = "embedder/http-embed"
+from_task = "7-E01-T07"
+purpose = "GET /v1/health for D32-embedder"
+
+[[provides]]
+name = "doctor-stufe-8"
+kind = "cli"
+title = "Checks D33-pricing-age (internal-cli pricing status, 8-E06-T01) and D34-identity-link-page (internal-cli identity-link status, 8-E01-T07), both warn only"
+defined_in = "06-installation-operations-ui.md#25-doctor-checks"
+from_task = "8-E01-T07"

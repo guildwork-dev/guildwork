@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "orchestrator-effekte"
+title = "Deterministic effects of the orchestrator (agent-approval-check, ready, request reviewers)"
+kind = "role"
+path = "apps/control-plane/src/orchestrator-effects/"
+package = "@guildwork/control-plane"
+stage = "2"
+purpose = "Effects without a service that the orchestrator triggers itself, each with its own policy rule orchestrator.* and token profile: agent-approval-check, draft to ready, request reviewers from CODEOWNERS, link the ticket and set its status, status comment per run. Not: the executors of the effect types (effekt-executoren) and no exception from deny by default."
+design = ["10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"]
+built_by = ["2-E04-T07", "2-E07-T04"]
+
+[[provides]]
+name = "check-agent-approval"
+kind = "contract"
+title = "Check agent-approval-check per head SHA: in_progress on every new SHA, success only after a human approve at the SHA by a person with write permission (FE-1046, FE-1065)"
+defined_in = "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"
+from_task = "2-E04-T07"
+
+[[provides]]
+name = "orchestrator-effects-api"
+kind = "ts-api"
+title = "OrchestratorEffects.submit and statusComment with OrchestratorEffectRequest and StatusCommentLines"
+defined_in = "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"
+from_task = "2-E07-T04"
+
+[[provides]]
+name = "policy-regeln-orchestrator"
+kind = "config"
+title = "Policy rules orchestrator.agent_approval_check, mark_ready, request_reviewers, ticket_transition, status_comment"
+defined_in = "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"
+from_task = "2-E07-T04"
+
+[[provides]]
+name = "status-kommentar"
+kind = "ui"
+title = "Status comment per run with lines for foreign input, excluded edited contents and undelivered steering instructions"
+defined_in = "10-planner-architect-coder.md#410-ticket-to-pr-in-stage-2"
+from_task = "2-E07-T04"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "2-E04-T07"
+purpose = "Set the check agent-approval-check"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "2-E04-T07"
+purpose = "submitPlatform of the orchestrator effects"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "2-E04-T07"
+purpose = "ProposalV1 of the orchestrator effects"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E04-T07"
+purpose = "Reviews and permission of the approver at the head SHA"
+
+[[uses]]
+interface = "service-coder/event-change-proposed"
+from_task = "2-E04-T07"
+purpose = "change.proposed sets the check to in_progress"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "2-E07-T04"
+purpose = "Policy rules orchestrator.*"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "2-E07-T04"
+purpose = "Rule IDs orchestrator.* in the catalog"
+
+[[uses]]
+interface = "credential-broker/scm-tokens"
+from_task = "2-E07-T04"
+purpose = "Token per effect with the profile of the table"
+
+[[uses]]
+interface = "effekt-executoren/ready-for-review"
+from_task = "2-E07-T04"
+purpose = "Draft to ready"
+
+[[uses]]
+interface = "effekt-executoren/request-reviewers"
+from_task = "2-E07-T04"
+purpose = "Request reviewers from CODEOWNERS"
+
+[[uses]]
+interface = "effekt-executoren/ticket-transition"
+from_task = "2-E07-T04"
+purpose = "Link the ticket and set its status"
+
+[[uses]]
+interface = "effekt-executoren/status-comment"
+from_task = "2-E07-T04"
+purpose = "Status comment per run"
+
+[[uses]]
+interface = "control-plane-orchestrator/status-comment-render"
+from_task = "2-E07-T04"
+purpose = "Debouncing and marker of the status comment"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "2-E07-T04"
+purpose = "Line foreign input seen"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-steer-messages"
+from_task = "2-E07-T04"
+purpose = "undelivered steering instructions"

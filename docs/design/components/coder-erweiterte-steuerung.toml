@@ -1,0 +1,325 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "coder-erweiterte-steuerung"
+title = "handoff and resume, child runs, best-of-N"
+kind = "service"
+path = "services/coder/src/children/"
+package = "@guildwork/service-coder"
+stage = "9"
+purpose = "Extended steering of the coder: handoff to a human and resumption (services/coder/src/handoff.ts), child steps over disjoint phases with a deterministic integrator (services/coder/src/children/) and best-of-N with deterministic selection (services/coder/src/best-of-n.ts). Not: new run states for children, stacked PRs, combination of child runs and best-of-N (FE-1438)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#262-handoff-and-resume",
+  "14-stage-9-breadth-and-hardening.md#263-child-runs",
+  "14-stage-9-breadth-and-hardening.md#264-best-of-n",
+  "14-stage-9-breadth-and-hardening.md#31-tables-block-0900",
+  "14-stage-9-breadth-and-hardening.md#47-handoff-and-resume",
+  "14-stage-9-breadth-and-hardening.md#48-child-runs-and-integrator",
+  "14-stage-9-breadth-and-hardening.md#49-best-of-n",
+  "14-stage-9-breadth-and-hardening.md#412-states",
+  "14-stage-9-breadth-and-hardening.md#86-control-9-e06",
+]
+built_by = ["9-E06-T02", "9-E06-T03", "9-E06-T04"]
+
+[[provides]]
+name = "handoff"
+kind = "ts-api"
+title = "HandoffRequest and ResumeRequest: coder controller for @agent handoff and @agent resume (WIP branch, exportSession, humanCommits)"
+defined_in = "14-stage-9-breadth-and-hardening.md#262-handoff-and-resume"
+from_task = "9-E06-T02"
+
+[[provides]]
+name = "handoff-buendel"
+kind = "file"
+title = "HandoffBundle (schema guildwork.handoff/v1) in the BlobStore under runs/<runId>/handoff/<n>/ with session.tgz"
+defined_in = "14-stage-9-breadth-and-hardening.md#262-handoff-and-resume"
+from_task = "9-E06-T02"
+
+[[provides]]
+name = "run-handoffs"
+kind = "table"
+title = "Table run_handoffs (migration 0906): handoffs and resumptions per run"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E06-T02"
+
+[[provides]]
+name = "kind-runs"
+kind = "ts-api"
+title = "planFanout, FanoutPlan, ChildSpec, IntegrationResult and worker step coder.integrate: child steps coding.child.<n> with their own branch and ledger key"
+defined_in = "14-stage-9-breadth-and-hardening.md#263-child-runs"
+from_task = "9-E06-T03"
+
+[[provides]]
+name = "coder-fanouts"
+kind = "table"
+title = "Tables coder_fanouts and coder_fanout_members (migration 0907): fanout per run with metrics per child or attempt"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E06-T03"
+
+[[provides]]
+name = "fanout-formate"
+kind = "file"
+title = "FanoutPlan, IntegrationResult and Selection (field v: 1) in the BlobStore and in coder_fanouts.result"
+defined_in = "14-stage-9-breadth-and-hardening.md#32-envelopes-events-and-file-formats"
+from_task = "9-E06-T03"
+
+[[provides]]
+name = "konfig-max-children"
+kind = "config"
+title = "services.coder.max_children (x-qualification)"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E06-T03"
+
+[[provides]]
+name = "best-of-n"
+kind = "ts-api"
+title = "selectBest, Attempt, Selection: N attempts coding.bon.<i>, selection by self-check, P0/P1, diff size, index (FE-1444)"
+defined_in = "14-stage-9-breadth-and-hardening.md#264-best-of-n"
+from_task = "9-E06-T04"
+
+[[provides]]
+name = "konfig-best-of-n"
+kind = "config"
+title = "services.coder.best_of_n (x-qualification), rejected together with max_children > 0"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E06-T04"
+
+[[provides]]
+name = "policy-regel-pol-081"
+kind = "ts-api"
+title = "Policy rule POL-081 (apps/control-plane/src/policy/rules/pol-081.ts): no merge gate and no merge with runs.human_commits_seen"
+defined_in = "14-stage-9-breadth-and-hardening.md#262-handoff-and-resume"
+from_task = "9-E06-T02"
+
+[[provides]]
+name = "run-spalten-steuerung"
+kind = "table"
+title = "Columns runs.human_commits_seen, runs.integration_conflict, steps.parent_step_id, steps.fanout_kind, steps.fanout_index (migration 0905)"
+defined_in = "14-stage-9-breadth-and-hardening.md#31-tables-block-0900"
+from_task = "9-E06-T03"
+
+[[provides]]
+name = "admin-api-handoffs"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/handoffs (viewer, RunHandoffView[]) and GET .../handoffs/{seq}/session (approver, audit run.handoff_downloaded)"
+defined_in = "14-stage-9-breadth-and-hardening.md#262-handoff-and-resume"
+from_task = "9-E06-T02"
+
+[[provides]]
+name = "automat-v2-konflikt"
+kind = "file"
+title = "Run state machine version 2 with two rows proposing/draft_pr_open for integration_conflict (FE-1439)"
+defined_in = "14-stage-9-breadth-and-hardening.md#263-child-runs"
+from_task = "9-E06-T03"
+
+[[provides]]
+name = "plan-phase-parallelizable"
+kind = "ts-api"
+title = "PlanPhase.parallelizable (optional, default false) in the schema PlanArtifact and rule in the synthesis prompt"
+defined_in = "14-stage-9-breadth-and-hardening.md#263-child-runs"
+from_task = "9-E06-T03"
+
+[[uses]]
+interface = "core/result"
+from_task = "9-E06-T02"
+purpose = "Result in all functions"
+
+[[uses]]
+interface = "service-coder/controller"
+from_task = "9-E06-T02"
+purpose = "Steps coder.wip_push and coder.implement from the coder controller"
+
+[[uses]]
+interface = "service-coder/konfig-coder"
+from_task = "9-E06-T02"
+purpose = "services.coder.ask_timeout_h and allow_handoff"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "9-E06-T02"
+purpose = "Hook point of the controller extension; registered controller prfixer in the guard of the conflict path"
+
+[[uses]]
+interface = "control-plane-orchestrator/automat-typen"
+from_task = "9-E06-T02"
+purpose = "State handed_off with resume, pr_ready_by_human, stop, deadline"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "9-E06-T02"
+purpose = "Commands handoff and resume"
+
+[[uses]]
+interface = "arbeitsstand-snapshot/work-snapshot-dienst"
+from_task = "9-E06-T02"
+purpose = "Work-state snapshot before the handoff"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "9-E06-T02"
+purpose = "exportSession with capability EXPORT_SESSION"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "9-E06-T02"
+purpose = "HandoffBundle and session.tgz in the BlobStore"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "9-E06-T02"
+purpose = "Create and revoke work items of the steps"
+
+[[uses]]
+interface = "orchestrator-effekte/orchestrator-effects-api"
+from_task = "9-E06-T02"
+purpose = "Comment with resumption instructions"
+
+[[uses]]
+interface = "ui-run-record/seite-run-record"
+from_task = "9-E06-T02"
+purpose = "Authenticated link instead of a transcript in the comment"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "9-E06-T02"
+purpose = "Rule POL-081 no merge gate after resume"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "9-E06-T02"
+purpose = "Rule ID POL-081"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "9-E06-T02"
+purpose = "Migrations 0905 and 0906"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "9-E06-T02"
+purpose = "Policy tenant_isolation for run_handoffs"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "9-E06-T02"
+purpose = "Column human_commits_seen"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-steer-messages"
+from_task = "9-E06-T02"
+purpose = "Undelivered steering instructions in the bundle"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "9-E06-T02"
+purpose = "requested_by and resumed_by"
+
+[[uses]]
+interface = "db/repos"
+from_task = "9-E06-T02"
+purpose = "Access to run_handoffs"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "9-E06-T02"
+purpose = "Audit run.handed_off and run.resumed"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "9-E06-T02"
+purpose = "S6 cases for handed_off"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "9-E06-T02"
+purpose = "Tests with a real database"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "9-E06-T03"
+purpose = "Phases with parallelizable and tasks[].files for planFanout"
+
+[[uses]]
+interface = "service-coder/coder-typen"
+from_task = "9-E06-T03"
+purpose = "ChangeProposal per child and attempt"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "9-E06-T03"
+purpose = "State machine file version 2 with two new rows"
+
+[[uses]]
+interface = "control-plane-orchestrator/upgrade-lift"
+from_task = "9-E06-T03"
+purpose = "Lift open runs to version 2"
+
+[[uses]]
+interface = "limit-ledger/schluesselkette"
+from_task = "9-E06-T03"
+purpose = "Ledger key child:<runId>:<n> under the run"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "9-E06-T03"
+purpose = "Share of the reservation per child"
+
+[[uses]]
+interface = "coder-self-check/self-check-api"
+from_task = "9-E06-T03"
+purpose = "Self-check per child and after the integration"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "9-E06-T03"
+purpose = "Deterministic step coder.integrate"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.steps"
+from_task = "9-E06-T03"
+purpose = "Columns parent_step_id, fanout_kind, fanout_index"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "9-E06-T03"
+purpose = "Key services.coder.max_children with x-qualification"
+
+[[uses]]
+interface = "ui-run-record/run-record-view"
+from_task = "9-E06-T03"
+purpose = "Fanout and metrics in the Run Record"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "9-E06-T04"
+purpose = "Reject max_children and best_of_n together"
+
+[[uses]]
+interface = "eval-saetze-stufe-2/satz-c1p"
+from_task = "9-E06-T04"
+purpose = "Gate A measurement N against 1 on C1p"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "9-E06-T04"
+purpose = "Gain per cost according to gate A"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "9-E06-T02"
+purpose = "Endpoints of the handoffs"
+
+[[uses]]
+interface = "service-planner/plan-artifact-schema"
+from_task = "9-E06-T03"
+purpose = "Field parallelizable added to the schema"
+
+[[uses]]
+interface = "service-planner/prompt-synthesis"
+from_task = "9-E06-T03"
+purpose = "Rule for parallelizable in the synthesis prompt"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "9-E06-T03"
+purpose = "Effective mode of the PR fixer in the guard"

@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-verifier"
+title = "Evidence check, verifier read, recheck and build"
+kind = "service"
+path = "services/reviewer/src/jobs/verify.handler.ts"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Checks candidates deterministically for evidence (prefilter in the controller) and has them confirmed in the work item reviewer.verify in the modes read, recheck or build; sets the effective verifier mode before the claim (FE-835). May only lower severity (FE-810) and creates no findings in the DB."
+design = [
+  "08-reviewer.md#49-verifier",
+  "08-reviewer.md#29-building-blocks-of-the-controller",
+  "08-reviewer.md#33-output-schemas-of-the-models",
+]
+built_by = ["1-E03-T05", "1-E03-T06", "1-E03-T07", "1-E04-T05"]
+
+[[provides]]
+name = "kandidaten"
+kind = "ts-api"
+title = "prepareCandidates() and CandidateRecord: IDs, evidence check, increment filter, pre-dedupe, known_open, verify_cap"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E03-T05"
+
+[[provides]]
+name = "reviewer.verify"
+kind = "queue"
+title = "Handler of the work item reviewer.verify in the modes read and recheck: VerifyInput to VerifyOutput"
+defined_in = "08-reviewer.md#25-steps-and-work-item-envelopes"
+from_task = "1-E03-T06"
+
+[[provides]]
+name = "prompt-verifier-read-recheck"
+kind = "prompt"
+title = "verifier.read.md and verifier.recheck.md"
+defined_in = "08-reviewer.md#49-verifier"
+from_task = "1-E03-T06"
+
+[[provides]]
+name = "verify-build"
+kind = "queue"
+title = "Mode build of the work item reviewer.verify: AgentRuntime edit+shell in a throwaway copy, reproduction"
+defined_in = "08-reviewer.md#49-verifier"
+from_task = "1-E03-T07"
+
+[[provides]]
+name = "prompt-verifier-build"
+kind = "prompt"
+title = "verifier.build.md"
+defined_in = "08-reviewer.md#49-verifier"
+from_task = "1-E03-T07"
+
+[[provides]]
+name = "verifier-modus"
+kind = "ts-api"
+title = "decideVerifierMode(): read or build with reason, input for profile and summary (FE-835)"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E03-T07"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "1-E03-T05"
+purpose = "VerifyInput, VerifyOutput and FindOutput"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E03-T05"
+purpose = "verifier.max_candidates and verifier.batch_size"
+
+[[uses]]
+interface = "reviewer-finder/reviewer.find"
+from_task = "1-E03-T05"
+purpose = "Finder outputs as candidates"
+
+[[uses]]
+interface = "reviewer-gate/reviewer.prepare"
+from_task = "1-E03-T05"
+purpose = "Files, line counts and increment files for the evidence check"
+
+[[uses]]
+interface = "service-reviewer/modell-ausgabeschemas"
+from_task = "1-E03-T06"
+purpose = "VerifierVerdictSchema and RecheckVerdictSchema"
+
+[[uses]]
+interface = "service-reviewer/job-arten"
+from_task = "1-E03-T06"
+purpose = "Handler of the kind reviewer.verify replaces the fake"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "1-E03-T06"
+purpose = "verifier.read.md and verifier.recheck.md"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-excerpts"
+from_task = "1-E03-T06"
+purpose = "Excerpts per candidate in the sandbox"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "1-E03-T06"
+purpose = "one generate per batch with outputSchema"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "1-E03-T06"
+purpose = "JobContext with model and sandbox"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "1-E03-T07"
+purpose = "AgentTask with nativeTools edit+shell for the mode build"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "1-E03-T07"
+purpose = "Build verifier via claude-code"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "1-E03-T07"
+purpose = "Throwaway copy of the clone, exportBundle never called"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.pools"
+from_task = "1-E03-T07"
+purpose = "Isolation of the pools for the effective mode"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "1-E03-T07"
+purpose = "repo_class at the claim"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "1-E03-T07"
+purpose = "Log excerpts of the reproduction redacted"
+
+[[uses]]
+interface = "service-reviewer/profilbeitrag"
+from_task = "1-E03-T07"
+purpose = "effective verifier mode in the profile"
+
+[[uses]]
+interface = "reviewer-befunde/fingerprint-v1"
+from_task = "1-E04-T05"
+purpose = "Fingerprint of the candidates for the exclusion known_open"

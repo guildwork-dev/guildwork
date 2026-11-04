@@ -1,0 +1,1451 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area plugins of stage 0. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+stage = "0"
+
+[[epic]]
+id = "0-E13"
+title = "Plugin framework and contracts v1alpha1"
+goal = "Package `contracts` with base types, event schema, the eight binding contracts (TriggerSource, SCMProvider, AgentRuntime, ModelProvider, ExecutionBackend, BlobStore, SecretStore, CloudIdentity) and four sketches; manifest schema, loader with load conditions, capabilities, error and retry model, in-process transport; contract harness with cassettes, replay, recording without external effect, and abstract suites per kind"
+sources = ["01 sections 1, 2, 3, 5 to 8, 13", "06 section 3", "11 section 5", "ADR-09, ADR-10, ADR-41"]
+depends_on = ["0-E01"]
+
+[[epic]]
+id = "0-E14"
+title = "GitHub plugin"
+goal = "Triggers `webhook` and `reconcile`, SCM, issues read-only, app via manifest flow, contract suite from recorded responses"
+sources = ["01 sections 3, 5, 11", "ADR-45"]
+depends_on = ["0-E13", "0-E04"]
+
+[[epic]]
+id = "0-E15"
+title = "claude-code runtime and ModelProvider"
+goal = "Harness `claude-code` with pinned version, managed settings and start paths (API key via relay, `subscription` from host file); ModelProvider `anthropic-api` and `claude-cli`"
+sources = ["01 sections 6, 7, 11.4", "ADR-39, ADR-57, ADR-58"]
+depends_on = ["0-E13", "0-E12"]
+
+# ---------------------------------------------------------------- 0-E13
+
+[[task]]
+id = "0-E13-T01"
+title = "Package contracts: base types, Untrusted and API snapshot"
+description = """Creates `packages/contracts` (exports via `src/index.ts`) with all files under `src/common/` per detailed design 05 section 2.3: Result, PluginError, ok/err/isRetryable, Refs (TenantRef, RepoRef, ChangeRef, WorkItemRef, Actor, PermissionLevel, ServiceId, ScopeRef), Untrusted with `untrusted()`, `sanitize()` and `renderUntrustedBlock()` (FE-535), SecretRef, SecretValue (not enumerable, toJSON and inspect return "[secret]"), SecretDecl, JSONSchema, Page, Usage, RateLimitSnapshot, LimitSnapshot, HealthReport, CapabilitySet, PluginContext, EgressHttp, AuditSink, Clock, PluginBase. In addition the test `contracts.api-surface`, which compares the declarations against a snapshot and allows additive changes (FE-502)."""
+design = ["05-plugins-and-contracts.md#23-shared-base-types-common", "05-plugins-and-contracts.md#24-manifest-and-versioning"]
+result = "packages/contracts/src/common/*.ts, packages/contracts/src/index.ts, packages/contracts/test/common/*.test.ts, packages/contracts/test/api-surface.test.ts, packages/contracts/api-snapshot/"
+done = [
+  "Tests 'untrusted.sanitize' (zero-width, bidi, HTML comments) and 'untrusted.render' (masking of </untrusted) green",
+  "Test 'result.isRetryable' green: only rate_limited and transient",
+  "Test 'secrets.value-not-leaked': JSON.stringify, String() and util.inspect of a SecretValue yield '[secret]'",
+  "Test 'contracts.api-surface': removed method red, new optional method green",
+  "`pnpm --filter @guildwork/contracts test` and `tsc --noEmit` green",
+]
+sources = ["01 sections 1.1, 1.2", "05 section 4 point 2", "08 principle 3"]
+depends_on = ["0-E01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T01-S01"
+  title = "Test: sanitizer, Untrusted hash and block format"
+  done = "Tests red because untrusted.ts is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T01-S02"
+  title = "Implement untrusted.ts"
+  done = "Tests from S01 green"
+  depends_on = ["0-E13-T01-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T01-S03"
+  title = "Test and implementation: Result, PluginError, SecretValue"
+  done = "Tests 'result.isRetryable' and 'secrets.value-not-leaked' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T01-S04"
+  title = "Refs, limits, health, capability, context, PluginBase as types"
+  done = "`tsc --noEmit` green, all types exported via index.ts"
+  depends_on = ["0-E13-T01-S03"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T01-S05"
+  title = "API snapshot test with compatibility check (additive green, breaking red)"
+  done = "Test 'contracts.api-surface' green on the current state, red with a deliberately removed method in a fixture"
+  depends_on = ["0-E13-T01-S04"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T02"
+title = "Event schema, command parser, dedupe and routing keys"
+description = """Implements `packages/contracts/src/events/` per detailed design 05 section 2.11.1, the single definition of the event schema (FE-501): TriggerEvent (with the additive fields `where.commit`, `incident`, `command.alias` per FE-556), ResolvedEvent, StoredEvent, Skipped, CommandName (with `tests`), Headers; `parseCommand()` with configurable handle (FE-519, ADR-32) and `COMMAND_ALIASES`, `dedupeKey()` per 02 FE-211 with `where.commit` (FE-556) using `canonicalJson` from `@guildwork/core`, `routingName()` with the mapping to the vocabulary of `routing.on` (02 FE-206, M38), `objectKey()` per 01 FE-111. Normalization fixtures under packages/contracts/test/fixtures/events/ for ingress and router (02 section 4.2). Takes over the scope of 0-E04-T01 in the consistency run 2026-11-01."""
+design = ["05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"]
+result = "packages/contracts/src/events/*.ts, packages/contracts/test/events/*.test.ts"
+done = [
+  "Test 'events.parseCommand' green: start of line, after whitespace, arguments, code block and quote ignored, foreign handle null, unknown command without command",
+  "Test 'events.dedupeKey' green: same inputs same key, different headSha different key, same action on two objects different keys (events.dedupe_key_distinguishes_objects)",
+  "Test 'events.schema_matches_contract' green (TypeBox schema equal to the fields from 01 section 2, fixtures validate)",
+  "Test 'events.object_key_stable_on_rename' green",
+  "Test 'events.routingName' green for every row of the table in section 2.11.1, unknown combination yields null",
+  "Test 'events.routing_name_table_complete' green",
+  "Tests 'events.dedupe-key.commit' and 'events.parseCommand.alias-tests' green (where.commit, incident, alias tests per FE-556)",
+]
+sources = ["01 section 2", "04 section 3 routing", "ADR-32", "ADR-08"]
+depends_on = ["0-E13-T01", "0-E01-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M38 (mapping of routing.on to TriggerEvent.what) is done here."
+
+  [[task.part]]
+  id = "0-E13-T02-S01"
+  title = "Test: parseCommand with all edge cases"
+  done = "Test red because command.ts is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T02-S02"
+  title = "Implement trigger-event.ts and command.ts"
+  done = "Test 'events.parseCommand' green"
+  depends_on = ["0-E13-T02-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T02-S03"
+  title = "Test and implementation: dedupeKey, routingName, objectKey"
+  done = "Tests 'events.dedupeKey', 'events.routingName' and 'events.object_key_stable_on_rename' green"
+  depends_on = ["0-E13-T02-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T03"
+title = "Contracts of the five plugin kinds and capability catalogs"
+description = """Writes `kinds/trigger-source.ts`, `kinds/scm-provider.ts` (with optional `approve`, `withdrawApprove`, `approvalProtection`, `merge`, `setLabels`, `rerunFailedJobs` and required `repoInfo`), `kinds/agent-runtime.ts`, `kinds/model-provider.ts`, `kinds/execution-backend.ts` (with `SandboxHandle.spawn`, `trustedCaCerts`, `WorkerCaps.harnesses[].health`) and `capabilities/catalog.ts` with all capability enums as `as const` lists, the list of required methods per kind and `OPTIONAL_METHOD_CAP`, exactly per detailed design 05 sections 2.6 and 2.11.2 to 2.11.6 (rulings FE-510, FE-511, FE-512, FE-540, FE-541)."""
+design = ["05-plugins-and-contracts.md#211-binding-contracts-v1alpha1-complete-types", "05-plugins-and-contracts.md#26-capabilities"]
+result = "packages/contracts/src/kinds/{trigger-source,scm-provider,agent-runtime,model-provider,execution-backend}.ts, packages/contracts/src/capabilities/catalog.ts, packages/contracts/test/kinds/*.test-d.ts"
+done = [
+  "Type tests (`expectTypeOf`) per contract green: required methods present, optional methods optional, no method 'approve' on the submitReview verdict",
+  "Test 'catalog.complete' green: every capability from 01 sections 3, 5, 6, 7, 8 is in the catalog, no additional one",
+  "API snapshot from 0-E13-T01 contains the five contracts",
+]
+sources = ["01 sections 3, 5, 6, 7, 8", "ADR-10, ADR-14"]
+depends_on = ["0-E13-T01", "0-E13-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T03-S01"
+  title = "Test: catalog completeness against a list from 01"
+  done = "Test 'catalog.complete' red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T03-S02"
+  title = "catalog.ts with enums, required methods and OPTIONAL_METHOD_CAP"
+  done = "Test 'catalog.complete' green"
+  depends_on = ["0-E13-T03-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T03-S03"
+  title = "TriggerSource and SCMProvider with type tests"
+  done = "Type tests of both contracts green"
+  depends_on = ["0-E13-T03-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T03-S04"
+  title = "AgentRuntime, ModelProvider, ExecutionBackend with type tests"
+  done = "Type tests of the three contracts green, snapshot updated"
+  depends_on = ["0-E13-T03-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T04"
+title = "Driver contracts and sketches"
+description = """Writes `drivers/blob-store.ts`, `drivers/secret-store.ts` (additive `version` parameter and `publicKey`), `drivers/cloud-identity.ts` per section 2.11.7 and the sketches `kinds/work-item-provider.ts` (incl. `WorkItemReader`), `kinds/knowledge-store.ts`, `kinds/notifier.ts`, `kinds/analyzer.ts` with `/** @sketch */` per section 2.12; the snapshot test excludes sketches (FE-503)."""
+design = ["05-plugins-and-contracts.md#2117-drivers", "05-plugins-and-contracts.md#212-sketches-sketch-not-binding-in-v1alpha1"]
+result = "packages/contracts/src/drivers/*.ts, packages/contracts/src/kinds/{work-item-provider,knowledge-store,notifier,analyzer}.ts, tests"
+done = [
+  "Type tests of the three driver contracts green",
+  "Test 'contracts.api-surface' ignores changes to @sketch files and captures driver changes",
+]
+sources = ["01 sections 4, 9, 10, 12, 13", "ADR-41"]
+depends_on = ["0-E13-T03"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T04-S01"
+  title = "Driver contracts with type tests"
+  done = "Type tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T04-S02"
+  title = "Sketches with @sketch and snapshot exception"
+  done = "Snapshot test green, a change to a sketch leaves it green"
+  depends_on = ["0-E13-T04-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T05"
+title = "Manifest schema and validation"
+description = """`manifest/manifest.schema.ts` (TypeBox) with `PluginManifest` and `DriverManifest`, export as JSON Schema to `packages/contracts/schemas/plugin-manifest.schema.json`, `validate.ts` with Ajv and all rules of the table in section 2.4 (SPDX parser with pinned identifier list, license rule for bundled, third_party never in_process, configSchema with additionalProperties false, secret declarations, egress hosts, contractSuite format); `api-version.ts` with SUPPORTED_API_VERSIONS and BINDING_KINDS_V1ALPHA1. In addition `manifest/service-manifest.ts` per section 2.4.1 (FE-554): `ServiceManifest`, `ServiceManifestSchema`, `validateServiceManifest` with the rules of the table there and export to `packages/contracts/schemas/service-manifest.schema.json`."""
+design = ["05-plugins-and-contracts.md#24-manifest-and-versioning", "05-plugins-and-contracts.md#241-service-manifest-ruling-fe-554"]
+result = "packages/contracts/src/manifest/*.ts, packages/contracts/src/api-version.ts, packages/contracts/schemas/plugin-manifest.schema.json, packages/contracts/schemas/service-manifest.schema.json, packages/contracts/data/spdx-ids.json, tests"
+done = [
+  "Test 'manifest.validate' green: per rule of the table one valid and one invalid case with the JSON path in the error",
+  "Test 'manifest.service-validate' and 'manifest.service-schema-export' green (section 8.1)",
+  "Test 'manifest.schema-export': the checked-in JSON Schema file equals the export from TypeBox",
+  "Test 'manifest.bundled-license': bundled with a license outside bundled_licenses yields LICENSE_NOT_ALLOWED_BUNDLED",
+]
+sources = ["01 section 1.1 rules 1, 4, 6, 7", "11 section 5", "ADR-50"]
+depends_on = ["0-E13-T01", "0-E13-T03"]   # Gap round: ServiceManifest uses Isolation, AgentTask.nativeTools and the capability catalog (05 section 2.4.1)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T05-S01"
+  title = "Test: validation cases per rule"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T05-S02"
+  title = "TypeBox schema, SPDX parser and validate.ts"
+  done = "Test 'manifest.validate' green"
+  depends_on = ["0-E13-T05-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T05-S03"
+  title = "JSON Schema export with up-to-date test"
+  done = "Test 'manifest.schema-export' green"
+  depends_on = ["0-E13-T05-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T06"
+title = "Loader: registry, load conditions, instance states"
+description = """Implements `host/registry.ts`, `host/loader.ts`, `host/conditions.ts`, `host/attestation.ts` per section 2.5: checks 1 to 15 in fixed order with the error codes `LoadErrorCode`, effective trust level `min(manifest, installation)` (FE-505, M115), level 0 only in_process (FE-536), attestation and fixtures hash (FE-504), operating mode private without POLL, state machine declared to disabled, audit `plugin.loaded`, `plugin.rejected`, `plugin.health_changed`, `plugin.disabled` via `AuditSink`, metrics `plugin_load_failed{code}`. A load error blocks only the instance (FE-506). Aligns the columns of `plugin_instances` with detailed design 01 (open point 1)."""
+design = ["05-plugins-and-contracts.md#25-loader-and-load-conditions", "05-plugins-and-contracts.md#5-failure-and-abort-paths"]
+result = "packages/contracts/src/host/{registry,loader,conditions,attestation}.ts, packages/contracts/test/host/*.test.ts"
+done = [
+  "Test 'loader.conditions' green: per LoadErrorCode one case that produces exactly this code, the state failed and the audit plugin.rejected",
+  "Test 'loader.lifecycle' green: all transitions of the state table, a faulty instance leaves others ready",
+  "Test 'loader.private-mode' green (PRIVATE_MODE_NO_POLL)",
+  "Test 'loader.trust' green (TRUST_NOT_GRANTED without a grant from the installation)",
+  "Test 'loader.fixtures-hash' green: one changed fixture byte yields FIXTURES_HASH_MISMATCH",
+  "Columns of plugin_instances are in detailed design 01 or listed as a deviation in the PR",
+]
+sources = ["01 section 1.1 rules 1, 2, 4, 6", "11 sections 1.1, 5", "05 section 9 row plugin supply chain"]
+depends_on = ["0-E13-T05", "0-E13-T07", "0-E13-T09"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "M115 (the installation grants the trust level) partially implemented: the effective level is the minimum; signature verification for third parties follows in stage 9."
+
+  [[task.part]]
+  id = "0-E13-T06-S01"
+  title = "Test: one case per error code with audit and state"
+  done = "Test 'loader.conditions' red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T06-S02"
+  title = "conditions.ts as pure functions"
+  done = "Test 'loader.conditions' green for checks 1 to 12"
+  depends_on = ["0-E13-T06-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T06-S03"
+  title = "attestation.ts: suite versions, plugin version, fixtures hash"
+  done = "Test 'loader.fixtures-hash' green"
+  depends_on = ["0-E13-T06-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T06-S04"
+  title = "Test: state transitions, init timeout, health change"
+  done = "Test 'loader.lifecycle' red"
+  depends_on = ["0-E13-T06-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T06-S05"
+  title = "registry.ts and loader.ts with state machine"
+  done = "Tests 'loader.lifecycle', 'loader.private-mode', 'loader.trust' green"
+  depends_on = ["0-E13-T06-S04", "0-E13-T06-S03"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T07"
+title = "Contract harness: cassettes, replay, recording without external effect, attestation"
+description = """Builds the harness in `packages/testkit/src/contract/` per section 2.10: `defineContractSuite`, `runContractSuite`, cassette format `guildwork-cassette/1` with canonical bytes and `fixturesHash`, `ReplayHttp` (strict matching, unused interactions are errors, no network), `RecordingHttp` with recording profile, read-only by default, GraphQL mutations blocked, writing only with `--allow-writes` against repos on the allowlist (FE-509), redaction with abort on a remaining hit, re-signing of webhook fixtures, `attest.ts` for `contract-attestation.json`, make targets `make contract` and `make contract-record` (the latter calls gitleaks and the deny list scanner)."""
+design = ["05-plugins-and-contracts.md#210-contract-harness"]
+result = "packages/testkit/src/contract/{harness,cassette,replay-http,record-http,redact,attest}.ts, packages/testkit/test/contract/*.test.ts, make targets contract and contract-record"
+done = [
+  "Test 'cassette.hash' green",
+  "Test 'replay.strict' green: deviation with diff, unused interaction red",
+  "Test 'record.read-only-blocks-write' green: local test server counts 0 requests on POST in mode read_only",
+  "Tests 'record.graphql-mutation-blocked', 'record.writes-only-allowlisted', 'record.redaction', 'record.webhook-resign' green",
+  "Test 'attest.current' green; `make contract` writes the attestation reproducibly (second run without diff except passedAt)",
+]
+sources = ["01 section 1.1 rule 1", "07 section 5 last paragraph", "05 section 3 point 4"]
+depends_on = ["0-E13-T01", "0-E13-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T07-S01"
+  title = "Test and implementation: cassette format and fixturesHash"
+  done = "Test 'cassette.hash' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T07-S02"
+  title = "Test and implementation: ReplayHttp strict matching"
+  done = "Test 'replay.strict' green"
+  depends_on = ["0-E13-T07-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T07-S03"
+  title = "Test: protection rules of the recording against a local test server"
+  done = "Tests of the protection rules red"
+  depends_on = ["0-E13-T07-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T07-S04"
+  title = "RecordingHttp, target profile, redaction, re-signing"
+  done = "Tests from S03 green"
+  depends_on = ["0-E13-T07-S03"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T07-S05"
+  title = "harness.ts, attest.ts and make targets"
+  done = "Test 'attest.current' green, `make contract` green locally"
+  depends_on = ["0-E13-T07-S02", "0-E13-T07-S04"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T08"
+title = "Abstract contract suites per kind with reference fakes"
+description = """Writes the five suites of the plugin kinds under `packages/testkit/src/contract/suites/` (TriggerSource, SCMProvider, AgentRuntime, ModelProvider, ExecutionBackend) with the required cases of the table in section 2.10, at least one failure path case per error code of the kind, and per kind a reference fake under `reference/` that passes its suite (self-test of the harness). The driver suites (BlobStore, SecretStore, CloudIdentity) are built by 0-E03-T01 under `packages/testkit/src/contract/drivers/` (FE-545). In addition `suites/versions.ts` (FE-539) and the fake binary `fake-claude/` for the AgentRuntime suite. Epic 0-E12 runs the ExecutionBackend suite against its implementations."""
+design = ["05-plugins-and-contracts.md#210-contract-harness"]
+result = "packages/testkit/src/contract/suites/*.suite.ts, packages/testkit/src/contract/suites/versions.ts, packages/testkit/src/contract/reference/*.ts, packages/testkit/src/contract/fake-claude/"
+done = [
+  "Tests 'reference.<kind>' green for all five plugin kinds",
+  "Test 'suites.error-paths' green: every suite has at least one case with errorPath true per error code of its kind",
+  "Fake binary plays back an NDJSON transcript and checks the expected argv file",
+]
+sources = ["01 sections 1.1 rule 1, 13 contract suite", "07 section 5", "08 stage 0 done criterion"]
+depends_on = ["0-E13-T03", "0-E13-T04", "0-E13-T07"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T08-S01"
+  title = "Suites TriggerSource and SCMProvider with reference fakes"
+  done = "Tests 'reference.trigger-source' and 'reference.scm-provider' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T08-S02"
+  title = "Suites AgentRuntime (with fake-claude) and ModelProvider"
+  done = "Tests 'reference.agent-runtime' and 'reference.model-provider' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T08-S03"
+  title = "Suite ExecutionBackend with reference fake without Docker"
+  done = "Test 'reference.execution-backend' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T08-S04"
+  title = "Suites BlobStore, SecretStore, CloudIdentity with reference fakes"
+  done = "Tests 'reference.blob-store', 'reference.secret-store', 'reference.cloud-identity' green"
+  status = "dropped"
+  note = "Component catalog 2026-11-01, detailed design 05 FE-545: the driver suites are built by 0-E03-T01 under packages/testkit/src/contract/drivers/ with the cases from detailed design 04"
+
+  [[task.part]]
+  id = "0-E13-T08-S05"
+  title = "Test: failure path coverage per suite and versions.ts"
+  done = "Test 'suites.error-paths' green"
+  depends_on = ["0-E13-T08-S01", "0-E13-T08-S02", "0-E13-T08-S03"]
+  status = "open"
+
+[[task]]
+id = "0-E13-T09"
+title = "Capability resolver, fallback level log and retry model"
+description = """`host/capabilities.ts` with `CapabilityResolver` (none yields Skipped `capability_missing:<cap>`, minLevel) and `FallbackRecorder` (audit `capability.fallback`, entry for the run summary, rule 2); `host/retry.ts` with `withRetry` and `RetryPolicy` per section 2.7 (full jitter, retryAfterMs as lower bound, no retry on auth, permission, invalid, not_found, conflict, unsupported; deadline); named values `plugins.retry.*` (FE-507)."""
+design = ["05-plugins-and-contracts.md#26-capabilities", "05-plugins-and-contracts.md#27-error-and-rate-limit-model"]
+result = "packages/contracts/src/host/{capabilities,retry}.ts, tests"
+done = [
+  "Test 'capabilities.resolver' green",
+  "Test 'capabilities.optional-methods' green (capability native without method yields KIND_METHODS_MISSING via conditions)",
+  "Test 'retry.withRetry' green with FakeClock: growing pauses, retryAfterMs respected, auth not retried, deadline takes effect",
+]
+sources = ["01 section 1.1 rules 2 and 3", "ADR-10"]
+depends_on = ["0-E13-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T09-S01"
+  title = "Test and implementation: withRetry"
+  done = "Test 'retry.withRetry' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T09-S02"
+  title = "Test and implementation: CapabilityResolver and FallbackRecorder"
+  done = "Tests 'capabilities.resolver' and 'capabilities.optional-methods' green"
+  status = "open"
+
+[[task]]
+id = "0-E13-T10"
+title = "In-process transport with timeout, error encapsulation and write guard"
+description = """`host/in-process.ts` and `host/transport.ts` per section 2.8: proxy per plugin object, only methods of the loaded kinds, timeout `plugins.call_timeout_ms`, thrown errors become `transient` with providerCode `uncaught`, switch to degraded after `plugins.uncaught_max` within `plugins.uncaught_window_s`, OTel span and metrics per call, write guard for SCM write methods via a caller context (AsyncLocalStorage, mark `effect_gateway`). The loader rejects other transports with TRANSPORT_UNSUPPORTED (FE-536). In addition the test `plugins.no-direct-network` and the Biome rule against direct network access in plugins/** (FE-508)."""
+design = ["05-plugins-and-contracts.md#28-transport-in-process-and-subprocess", "05-plugins-and-contracts.md#29-plugincontext-and-egress"]
+result = "packages/contracts/src/host/{in-process,transport}.ts, biome.json (rule noRestrictedImports for plugins/**), tools/tests/no-direct-network.test.ts"
+done = [
+  "Tests 'in-process.uncaught', 'in-process.timeout', 'in-process.write-guard' green",
+  "Test 'plugins.no-direct-network' green on the current state and red with a fixture that uses fetch( directly",
+  "`make check` green with the new Biome rule",
+]
+sources = ["06 section 3 plugin mechanics", "01 section 1.1 rules 4 and 5"]
+depends_on = ["0-E13-T06", "0-E13-T04"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E13-T10-S01"
+  title = "Test: uncaught, timeout, write-guard"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T10-S02"
+  title = "In-process proxy and transport interface"
+  done = "Tests from S01 green"
+  depends_on = ["0-E13-T10-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E13-T10-S03"
+  title = "Biome rule and test against direct network access"
+  done = "Test 'plugins.no-direct-network' green, red with fixture"
+  status = "open"
+
+[[task]]
+id = "0-E13-T11"
+title = "Package sdk-service: service definition and controller contract (types only)"
+description = """`packages/sdk-service/src/{index,define,controller}.ts` per detailed design 00 section 2.13: `ServiceDefinition`, `JobKind`, `defineService` with the check of the job kinds, `ServiceRun`, `StepRequest`, `CompletedStep`, `FailedStep`, `ControllerDecision`, `ServiceStepEvent`, `ServiceRunEvent`, `ServiceController`, `ControllerHost` and `ReadonlySCM`. Only types and `defineService`, no implementation: the host and the adapter are built by the orchestrator (0-E05-T09, FE-242), the service loader and the test helpers by the dummy service (0-E16-T01), the job side by the reviewer (1-E01-T02). A separate task before 0-E05 so that the orchestrator (0-E05-T09) and policy (0-E06-T08, POL-010) use the types without a cycle via 0-E16 (proposal from 02 section 10, catalog reconciliation 2026-11-01)."""
+design = ["00-codebase-and-conventions.md#213-package-sdk-service"]
+result = "packages/sdk-service/package.json, packages/sdk-service/src/index.ts, packages/sdk-service/src/define.ts, packages/sdk-service/src/controller.ts, packages/sdk-service/test/define.test.ts"
+done = [
+  "Test 'sdk-service/define > rejects job kinds without the service prefix' green (00 section 8)",
+  "Test 'sdk-service/define > rejects a handler without input or output schema' green (00 section 8)",
+  "Dependency rule from 00 section 2.2 green: sdk-service imports no app",
+]
+sources = ["02 section 0", "01 section 14"]
+depends_on = ["0-E13-T03", "0-E11-T01", "0-E01", "0-E13-T05"]   # Gap round: ServiceDefinition.manifest is ServiceManifest from 0-E13-T05 (FE-554)
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+# ---------------------------------------------------------------- 0-E14
+
+[[task]]
+id = "0-E14-T01"
+title = "Check task: back GitHub API facts with the primary docs"
+description = """Reads the GitHub primary docs (read-only retrievals, no accounts, no external effect) for every row marked (u) in detailed design 05 sections 2.14.2 to 2.14.9: endpoints and parameters per SCM method, headers (API version, delivery, event, signature, rate limit, retry-after), webhook event names and actions, fields of the app manifest and of the conversion response, form URL of the manifest flow, `hook_attributes.active: false`, permissions per endpoint (which app permission `ciFailureLogs`, reactions, reading rulesets need), bot login scheme, `x-access-token` for askpass, claims of the app JWT, marking of secondary rate limits. Records per row evidence (URL, retrieval date) or a correction in detailed design 05; deviations change the tables in the same PR."""
+design = ["05-plugins-and-contracts.md#214-github-plugin", "05-plugins-and-contracts.md#10-open-points"]
+result = "docs/design/05-plugins-and-contracts.md (column evidence in 2.14.6, markers (u) replaced)"
+done = [
+  "No row in section 2.14 still carries (u) without the note 'not verifiable' with reason",
+  "Open point 6 in section 10 closed",
+  "Every changed fact is carried over into the tables, fixtures list and tests of sections 3.4 and 8.1 (follow-up list in the PR)",
+]
+sources = ["01 sections 5, 11.1, 11.2", "05 section 2", "11 section 2.3", "09 section 4"]
+depends_on = []
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T01-S01"
+  title = "Back endpoints and permissions of the SCM methods with evidence"
+  done = "Table 2.14.6 with evidence per row"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T01-S02"
+  title = "Back webhook events, headers and signature with evidence"
+  done = "Table 2.14.3 and section 2.14.2 backed by evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T01-S03"
+  title = "Back manifest flow, conversion fields, inactive webhook, app JWT with evidence"
+  done = "Sections 2.14.5 and 2.14.9 backed by evidence; result on 'inactive webhook' also reported in 09 section 4 as a note for the architecture"
+  status = "open"
+
+[[task]]
+id = "0-E14-T02"
+title = "GitHub client: REST, GraphQL, error mapping, pagination, rate limit"
+description = """`plugins/github/src/client/` per section 2.14.2: REST via `ctx.http` with pinned API version, GraphQL with variables, error mapping per table 2.7 (incl. secondary rate limit), pagination via the link header with an upper limit, `RateLimitSnapshot` from response headers per resource. No Octokit (FE-514)."""
+design = ["05-plugins-and-contracts.md#2142-client-and-error-mapping-ruling-fe-514", "05-plugins-and-contracts.md#27-error-and-rate-limit-model"]
+result = "plugins/github/src/client/{rest,graphql,errors,paginate,rate-limit}.ts, plugins/github/test/client/*.test.ts"
+done = [
+  "Tests 'github.errors.401', '.403-rate-limit', '.403-secondary', '.404', '.422', '.502' green with cassettes, retryAfterMs set where intended",
+  "Test 'github.paginate' green: upper limit takes effect, link header is followed",
+  "Test 'github.graphql-errors' green: errors field yields invalid or rate_limited",
+]
+sources = ["01 section 1.1 rule 3", "01 section 11.5 row GitHub"]
+depends_on = ["0-E13-T07", "0-E13-T09", "0-E14-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T02-S01"
+  title = "Test: error mapping per status from cassettes"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T02-S02"
+  title = "rest.ts, errors.ts, rate-limit.ts"
+  done = "Tests 'github.errors.*' green"
+  depends_on = ["0-E14-T02-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T02-S03"
+  title = "Test and implementation: pagination and GraphQL"
+  done = "Tests 'github.paginate' and 'github.graphql-errors' green"
+  depends_on = ["0-E14-T02-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T03"
+title = "Manifests github and github-issues, configuration schema, init, health, capabilities"
+description = """Creates `plugins/github/manifest.github.json` and `manifest.github-issues.json` (FE-513), the instance schema per table 2.14.1, `init` (check configuration, check app ID and key via ctx.secrets for existence only), `health` (webhook configuration and reachability of the API, app not suspended), `capabilities` with the levels from section 2.14.6 (CI_RERUN, APPROVE_HUMAN, MERGE_SHA_GUARDED, MERGE_QUEUE, COMMENT_HIDE, CODE_SCANNING_* none) and the registration as a built-in package."""
+design = ["05-plugins-and-contracts.md#2141-manifests-and-configuration-ruling-fe-513", "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"]
+result = "plugins/github/manifest.*.json, plugins/github/src/{index,config}.ts, tests"
+done = [
+  "Test 'github.manifest.valid' green: both manifests pass validateManifest",
+  "Test 'github.config.unknown-key' green: unknown key yields CONFIG_INVALID",
+  "Test 'github.capabilities' green: table 2.14.6, optional methods are missing exactly where none",
+  "Loader loads both packages in the integration test with reference configuration (state ready)",
+]
+sources = ["01 sections 1.1, 5, 11.2", "04 section 3 plugins"]
+depends_on = ["0-E13-T05", "0-E13-T06", "0-E14-T02"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T03-S01"
+  title = "Manifests and configuration schema with tests"
+  done = "Tests 'github.manifest.valid' and 'github.config.unknown-key' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T03-S02"
+  title = "init, health, capabilities and registration"
+  done = "Test 'github.capabilities' and loader integration test green"
+  depends_on = ["0-E14-T03-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T04"
+title = "TriggerSource: verify, parse, isSelf, ack"
+description = """`plugins/github/src/trigger/` per section 2.14.3: HMAC-SHA-256 over the raw body before every parse, comparison with timingSafeEqual; mapping of the events per table (Untrusted texts, parseCommand, links from Closes and Fixes, editedAfterTrigger on edited, Skipped with reason); actor kind; isSelf via bot login and app ID; ack as reaction `eyes` with token (FE-510), runs as effect kind `ack` via the Effect Gateway (alignment with detailed design 04, open point 5). Webhook fixtures and golden events per section 3.4 (provisionally derived from the docs and signed with a test secret, until 0-E14-T13 delivers real recordings)."""
+design = ["05-plugins-and-contracts.md#2143-webhook-verify-parse-ack-isself", "05-plugins-and-contracts.md#34-fixtures-of-the-github-plugin-pluginsgithubcontractfixtures"]
+result = "plugins/github/src/trigger/{verify,parse,map-events,ack,self}.ts, plugins/github/contract/fixtures/webhooks/, plugins/github/contract/fixtures/golden/, tests"
+done = [
+  "Tests 'github.verify.ok', '.bad-signature', '.missing-header', '.tampered-body', '.before-parse' green",
+  "Tests 'github.parse.<fixture>' green for every webhook fixture from section 3.4; star.created yields Skipped(unsupported_event)",
+  "Tests 'github.parse.untrusted' and 'github.isSelf' green",
+  "Test 'github.ack.requires-token' green",
+  "TriggerSource suite from 0-E13-T08 runs green against the plugin for the cases verify and parse",
+]
+sources = ["01 sections 2, 3, 11.1", "05 section 4", "ADR-08, ADR-32"]
+depends_on = ["0-E13-T02", "0-E13-T08", "0-E14-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T04-S01"
+  title = "Test: verify cases"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T04-S02"
+  title = "verify.ts"
+  done = "Tests 'github.verify.*' green"
+  depends_on = ["0-E14-T04-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T04-S03"
+  title = "Create webhook fixtures and golden events, test per fixture"
+  done = "Tests 'github.parse.<fixture>' red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T04-S04"
+  title = "parse.ts and map-events.ts per the event table"
+  done = "Tests 'github.parse.*' and 'github.parse.untrusted' green"
+  depends_on = ["0-E14-T04-S03"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T04-S05"
+  title = "isSelf and ack with tests"
+  done = "Tests 'github.isSelf' and 'github.ack.requires-token' green"
+  depends_on = ["0-E14-T04-S04"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T05"
+title = "reconcile and poll"
+description = """`plugins/github/src/trigger/reconcile.ts` per section 2.14.4 (FE-518): per installation repo, changed PRs, issue and review comments since `since`, same dedupeKey as the webhook event, `mode: poll`, cursor with overlap `trigger.reconcile_overlap_s`, upper limit `reconcile.max_pages` with audit `github.reconcile_truncated`; `poll(cursor)` on the same path for the operating mode private."""
+design = ["05-plugins-and-contracts.md#2144-reconcile-and-poll-ruling-fe-518"]
+result = "plugins/github/src/trigger/reconcile.ts, cassettes reconcile.since.json and poll.cursor.json, tests"
+done = [
+  "Test 'github.reconcile.same-dedupe-key' green",
+  "Test 'github.reconcile.truncated' green (audit written)",
+  "Test 'github.poll.cursor-monotonic' green",
+  "Loader test: instance with mode [poll] can be loaded in operating mode private",
+]
+sources = ["01 sections 2, 3, 11.5", "11 section 1.1", "ADR-08"]
+depends_on = ["0-E14-T04", "0-E14-T06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T05-S01"
+  title = "Test: same dedupeKey for webhook and reconcile"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T05-S02"
+  title = "reconcile with cursor and overlap"
+  done = "Test 'github.reconcile.same-dedupe-key' green"
+  depends_on = ["0-E14-T05-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T05-S03"
+  title = "Upper limit with audit, and poll"
+  done = "Tests 'github.reconcile.truncated' and 'github.poll.cursor-monotonic' green"
+  depends_on = ["0-E14-T05-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T06"
+title = "Auth: app JWT, mintToken per permission profile, cloneSpec"
+description = """`plugins/github/src/auth/` per section 2.14.5: app JWT with node:crypto (RS256, key via ctx.secrets), installation per owner, token request with repository_ids and exactly the permissions of the profile (table), error profile_not_granted, one owner per call; cloneSpec with user x-access-token, askpass, token never in the URL. Test that no request contains workflows, administration or actions: write."""
+design = ["05-plugins-and-contracts.md#2145-auth-app-jwt-minttoken-permission-profiles-clonespec"]
+result = "plugins/github/src/auth/{app-jwt,mint-token,profiles}.ts, plugins/github/src/scm/clone-spec.ts, tests"
+done = [
+  "Test 'github.mint-token.profiles' green (per profile exactly the table permissions)",
+  "Test 'github.profiles.never' green",
+  "Test 'github.mint-token.not-granted' green",
+  "Test 'github.clone-spec.no-token-in-url' green",
+  "Test 'github.app-jwt.claims' green (iat, exp, iss, RS256 verifiable with the public test key)",
+]
+sources = ["05 section 2 permission profiles", "05 section 3 file permissions", "ADR-45"]
+depends_on = ["0-E14-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T06-S01"
+  title = "Test and implementation: app JWT"
+  done = "Test 'github.app-jwt.claims' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T06-S02"
+  title = "Test: profiles, never, not-granted"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T06-S03"
+  title = "profiles.ts and mint-token.ts"
+  done = "Tests from S02 green"
+  depends_on = ["0-E14-T06-S01", "0-E14-T06-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T06-S04"
+  title = "cloneSpec with test"
+  done = "Test 'github.clone-spec.no-token-in-url' green"
+  status = "open"
+
+[[task]]
+id = "0-E14-T07"
+title = "SCM read: file, compare, permissions, CODEOWNERS, change, threads, merge status, checks, repo info, CI logs"
+description = """One file per read method under `plugins/github/src/scm/read/` per table 2.14.6: getFile, compare, getPermission, codeowners (own parser, last matching rule wins), getChange (with headRepo and state), listChangedFiles with hunks and truncated, getThreads via GraphQL, mergeStatus with `unknown` for unreadable parts, checkEvidence from check runs and commit status, repoInfo, ciFailureLogs (truncated from the end, Untrusted), rateLimitState. `scm/diff-positions.ts` for the position mapping."""
+design = ["05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"]
+result = "plugins/github/src/scm/read/*.ts, plugins/github/src/scm/{codeowners,diff-positions}.ts, cassettes from section 3.4, tests"
+done = [
+  "Tests 'github.read.<method>.ok' and '.not-found' green per read method",
+  "Tests 'github.compare.truncated', 'github.merge-status.unknown', 'github.diff-positions', 'github.codeowners.last-match-wins' green",
+  "Test 'github.ci-logs.untrusted-truncated' green: result is Untrusted and at most maxBytes long",
+  "SCMProvider suite from 0-E13-T08 green for all read cases",
+]
+sources = ["01 sections 5, 11.2", "05 section 3 repo class", "ADR-63"]
+depends_on = ["0-E14-T02", "0-E14-T03", "0-E14-T06"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T07-S01"
+  title = "getFile, compare, listChangedFiles with diff-positions"
+  done = "associated tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T07-S02"
+  title = "getPermission, codeowners, getChange, repoInfo"
+  done = "associated tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T07-S03"
+  title = "getThreads (GraphQL) and mergeStatus with unknown"
+  done = "associated tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T07-S04"
+  title = "checkEvidence, ciFailureLogs, rateLimitState"
+  done = "associated tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T07-S05"
+  title = "Connect SCMProvider suite for read cases"
+  done = "Suite green for read cases"
+  depends_on = ["0-E14-T07-S01", "0-E14-T07-S02", "0-E14-T07-S03", "0-E14-T07-S04"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T08"
+title = "SCM write: summary, review with fallback chain, threads, checks, change, reviewers, labels"
+description = """One file per write method under `plugins/github/src/scm/write/` per table 2.14.6 and section 4.4: upsertSummary with hidden marker, submitReview with pre-filter via diff-positions, fallback chain none, single_inline, summary_only and idempotency via a marker in the review text, reply, resolveThread via GraphQL, renderSuggestion, startCheck and updateCheck with annotations in blocks of 50 and at most 3 actions, openChange as draft (an open PR with the same head, the same base and the effect marker is returned, detailed design 04 FE-434), updateChange (ready via GraphQL), requestReview, setLabels. All methods require a ScopedToken with a matching profile, otherwise invalid."""
+design = ["05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github", "05-plugins-and-contracts.md#44-fallback-chain-of-submitreview-on-github"]
+result = "plugins/github/src/scm/write/*.ts, cassettes from section 3.4, tests"
+done = [
+  "Tests 'github.submit-review.batch', '.fallback-single-inline', '.fallback-summary-only', '.idempotent' green",
+  "Test 'github.update-check.annotations-chunked' green (75 yields 50 plus 25)",
+  "Tests '.ok' green per further write method; test 'github.write.wrong-profile' green (token with profile read yields invalid)",
+  "SCMProvider suite from 0-E13-T08 green for all write cases except push",
+  "Tests 'github.open-change.returns-existing-with-marker' and 'github.open-change.foreign-pr-same-head-is-conflict' green",
+]
+sources = ["01 sections 5, 11.2", "03 section 5 row fallback level", "05 section 2"]
+depends_on = ["0-E14-T06", "0-E14-T07"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T08-S01"
+  title = "Test: submitReview per level of the fallback chain, and idempotency"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T08-S02"
+  title = "submit-review.ts with fallback chain"
+  done = "Tests 'github.submit-review.*' green"
+  depends_on = ["0-E14-T08-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T08-S03"
+  title = "upsertSummary, reply, resolveThread, renderSuggestion"
+  done = "associated tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T08-S04"
+  title = "startCheck and updateCheck with annotation blocks and actions"
+  done = "Test 'github.update-check.annotations-chunked' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T08-S05"
+  title = "openChange, updateChange, requestReview, setLabels, profile check"
+  done = "associated tests and 'github.write.wrong-profile' green"
+  status = "open"
+
+[[task]]
+id = "0-E14-T09"
+title = "push via Git bundle without force"
+description = """`plugins/github/src/scm/push.ts` per section 2.14.7 (FE-516): bundle from the BlobStore into a temporary directory (deleted in finally), git bundle verify, ls-remote comparison with expectedOldSha, normal push without --force and without --force-with-lease, check of the prefix agent/ in the plugin (only exception: token with profile audit_anchor on the configured anchor branch, detailed design 04 FE-407), result conflict when the branch has moved; if the branch is already at the head of the bundle, result ok without push (detailed design 04 FE-434). Tests against a local bare repo via file:// without network. Reports to detailed design 06 that the image control-plane needs git."""
+design = ["05-plugins-and-contracts.md#2147-push-via-git-bundle-without-force-ruling-fe-516"]
+result = "plugins/github/src/scm/push.ts, plugins/github/test/scm/push.test.ts"
+done = [
+  "Tests 'github.push.ok', '.expected-old-sha-mismatch', '.branch-moved', '.non-agent-branch', '.never-force' green",
+  "Test 'github.push.tempdir-cleaned': temporary directory is removed even after an error",
+  "Note 'git in the image control-plane' is in detailed design 06 or listed there as an open point (evidence in the PR)",
+  "Tests 'github.push.already-at-target-is-ok' and 'github.push.audit-anchor-branch-with-profile' green; the same branch with profile write_branch yields invalid",
+]
+sources = ["01 section 5 push check", "05 section 2 point 4"]
+depends_on = ["0-E14-T06", "0-E13-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T09-S01"
+  title = "Test: push cases against a local bare repo"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T09-S02"
+  title = "push.ts without force with prior comparison"
+  done = "Tests 'github.push.*' green"
+  depends_on = ["0-E14-T09-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T10"
+title = "github-issues read"
+description = """`plugins/github/src/issues/` per section 2.14.8: WorkItemReader (getItem with status category and Untrusted texts, getComments, search restricted to repos of the installation, getAttachments empty with ATTACHMENTS none, getLinks, userPermission, whoami, renderMention); uses the token of the linked scm instance via the broker."""
+design = ["05-plugins-and-contracts.md#2148-github-issues-reading-and-writing", "05-plugins-and-contracts.md#212-sketches-sketch-not-binding-in-v1alpha1"]
+result = "plugins/github/src/issues/*.ts, cassettes issues.*.json, tests"
+done = [
+  "Test 'github-issues.read' green for getItem, getComments, search",
+  "Test 'github-issues.search.scoped' green: hits outside the installation are discarded",
+  "Test 'github-issues.untrusted' green: title, body and comments are Untrusted",
+]
+sources = ["01 section 4", "08 stage 1 issues read"]
+depends_on = ["0-E14-T02", "0-E14-T03"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T10-S01"
+  title = "Test: read cases from cassettes"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T10-S02"
+  title = "Implement issues/*.ts"
+  done = "Tests green"
+  depends_on = ["0-E14-T10-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T11"
+title = "GitHub App via manifest flow: build, state, code exchange, storage in the SecretStore"
+description = """`plugins/github/src/app-manifest/` per section 2.14.9 (ADR-45, FE-517): buildAppManifest with default profiles read, review, comment_issue, labels and an option for write_branch and merge, form URL for account or organization, state with 1 h expiry, exchangeManifestCode via POST /app-manifests/{code}/conversions, storeAppCredentials only into the SecretStore, audit github.app_created, never output of secrets. Inactive webhook for operating mode private with fallback to a placeholder URL and switching off. The CLI (`guildwork github-app create`, epic 0-E18) and the setup wizard (epic 0-E17) only call these functions. Contains the offline permissions test of the manifest (part of the permissions test from 08 stage 1)."""
+design = ["05-plugins-and-contracts.md#2149-github-app-via-manifest-flow-adr-45-ruling-fe-517", "05-plugins-and-contracts.md#47-github-app-via-manifest-flow"]
+result = "plugins/github/src/app-manifest/{build,exchange,state}.ts, cassette app-manifest.conversion.json, tests"
+done = [
+  "Test 'github.app-manifest.permissions' green (default exactly four profiles, option adds contents: write, never workflows, administration, actions: write)",
+  "Test 'github.app-manifest.state-mismatch' green",
+  "Test 'github.app-manifest.exchange-stores-secrets' green (values only in the SecretStore fake, no value in the log capture)",
+  "Test 'github.app-manifest.inactive-webhook' green for webhookUrl null",
+]
+sources = ["05 section 2", "11 sections 1.1, 2.2, 2.3", "ADR-45"]
+depends_on = ["0-E14-T06", "0-E13-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T11-S01"
+  title = "Test: manifest permissions and option"
+  done = "Test 'github.app-manifest.permissions' red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T11-S02"
+  title = "build.ts and state.ts"
+  done = "Tests 'github.app-manifest.permissions' and '.state-mismatch' green"
+  depends_on = ["0-E14-T11-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T11-S03"
+  title = "exchange.ts and storeAppCredentials with log capture test"
+  done = "Test 'github.app-manifest.exchange-stores-secrets' green"
+  depends_on = ["0-E14-T11-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T11-S04"
+  title = "inactive webhook with fallback"
+  done = "Test 'github.app-manifest.inactive-webhook' green"
+  depends_on = ["0-E14-T11-S03"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T12"
+title = "Owner: test account, test repo and test app for recordings"
+description = """Owner step with external effect (account): the agent prepares a decision sheet (what is created, costs 0 for a public or private test repo to be checked against the docs, permissions of the test app, what can go wrong, how to delete it again). The owner creates a test organization or uses their account, creates one private and one public test repo and creates the test app via the manifest flow from 0-E14-T11 (locally via the back channel of the CLI or a test script). Secrets stay with the owner (password manager or local file), never in the repo."""
+design = ["05-plugins-and-contracts.md#210-contract-harness"]
+result = "Decision sheet in the ops repo; plugins/github/contract/targets/test-org.yaml (without secrets, with repo allowlist)"
+done = [
+  "Decision sheet exists and is confirmed by the owner",
+  "Test app exists, target profile test-org.yaml is checked in and names only the test repos",
+  "No secret in the repo (gitleaks over the PR green)",
+]
+sources = ["ADR-45", "README work plan section 5"]
+depends_on = ["0-E14-T11"]
+owner = "owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T12-S01"
+  title = "Write the decision sheet (agent)"
+  done = "Sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T12-S02"
+  title = "Create test repos and test app (owner)"
+  done = "App ID and installation repos given to the agent, secrets with the owner"
+  depends_on = ["0-E14-T12-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T12-S03"
+  title = "Check in target profile test-org.yaml"
+  done = "File in the repo, gitleaks green"
+  depends_on = ["0-E14-T12-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E14-T13"
+title = "Real recording of the GitHub fixtures and contract suite green with attestation"
+description = """Owner run with agent: `make contract-record PLUGIN=github TARGET=test-org` first in mode read_only (read methods, reconcile, issues), then with --allow-writes against the test repos (write methods, reaction, check run, draft PR) and capture of real webhook deliveries of the test app (re-signed). Replaces the provisional fixtures from 0-E14-T04 and 0-E14-T07, checks the golden events, runs all suites and writes contract-attestation.json. Measure costs and counters (API rate limit) before and after the run and state them in the PR."""
+design = ["05-plugins-and-contracts.md#210-contract-harness", "05-plugins-and-contracts.md#82-contract-and-suite-cases-with-the-real-system-owner-runs"]
+result = "plugins/github/contract/fixtures/** (real, redacted), plugins/github/contract-attestation.json, manifest.github*.json with fixturesHash"
+done = [
+  "TriggerSource and SCMProvider suite green against real cassettes (`make contract PLUGIN=github`)",
+  "Test 'attest.current' green, loader loads github and github-issues with the new attestation (state ready)",
+  "gitleaks and deny list scanner over the new fixtures with 0 hits",
+  "Rate limit counters before and after the recording in the PR",
+]
+sources = ["01 section 1.1 rule 1", "08 stage 0 done criterion contract suites"]
+depends_on = ["0-E14-T12", "0-E14-T04", "0-E14-T05", "0-E14-T07", "0-E14-T08", "0-E14-T09", "0-E14-T10", "0-E14-T14"]
+owner = "agent+owner"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E14-T13-S01"
+  title = "Recording read_only"
+  done = "Cassettes of the read methods replaced, tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T13-S02"
+  title = "Recording with --allow-writes against test repos (owner starts)"
+  done = "Cassettes of the write methods replaced, tests green"
+  depends_on = ["0-E14-T13-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T13-S03"
+  title = "Capture real webhook deliveries and re-sign them"
+  done = "Webhook fixtures replaced, golden events checked"
+  depends_on = ["0-E14-T13-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E14-T13-S04"
+  title = "Suites, attestation, fixtures hash in the manifest, scans"
+  done = "all done criteria of the task backed by evidence"
+  depends_on = ["0-E14-T13-S02", "0-E14-T13-S03"]
+  status = "open"
+
+# ---------------------------------------------------------------- 0-E15
+
+[[task]]
+id = "0-E14-T14"
+title = "github-issues write: addComment and updateComment"
+description = """`plugins/github/src/issues/write/{add-comment,update-comment}.ts` per section 2.14.8 (write methods): comment on the issue with hidden marker, changes only to the app's own comments, token per effect with profile comment_issue (otherwise invalid). Basis of the executors comment, status_comment (0-E09-T05), plan, human_input, ticket_transition (stage 2) and notify (1-E05-T11) on the ticket."""
+design = ["05-plugins-and-contracts.md#2148-github-issues-reading-and-writing", "04-effects-audit-credentials.md#215-executors"]
+result = "plugins/github/src/issues/write/*.ts, cassettes, plugins/github/test/issues/write.test.ts"
+done = [
+  "Tests 'github-issues.add-comment.ok', '.update-comment.ok', '.update-foreign-comment-is-permission', '.wrong-profile-is-invalid' green against cassettes",
+  "WorkItemProvider cases addComment and updateComment green in the contract suite",
+]
+sources = ["01 section 4 (WorkItemProvider)", "05 section 2 (profile comment_issue)", "ADR-06"]
+depends_on = ["0-E14-T06", "0-E14-T10"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "Red Team work plan round 1: github-issues was planned as read-only; without these methods the executors on the ticket would have ended live with unsupported."
+
+  [[task.part]]
+  id = "0-E14-T14-S01"
+  title = "Tests against cassettes"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "0-E14-T14-S02"
+  title = "addComment and updateComment with marker"
+  done = "Tests green"
+  depends_on = ["0-E14-T14-S01"]
+
+[[task]]
+id = "0-E15-T01"
+title = "Check spike: back Claude Code facts and flag combination with evidence"
+description = """Backs with the docs and the pinned CLI (help output, package contents, one trial run by the owner with their own token) the unverified points from detailed design 05 section 10 open point 7: format of --output-format stream-json and fields of the result message (structured_output, total_cost_usd, usage, session_id), flags --max-turns, --model, --fallback-model, --append-system-prompt-file, --mcp-config format, path and keys of the managed settings under Linux, names of the native tools, whether the npm package runs without install scripts or downloads a binary, interplay of --bare with --setting-sources user (case in 01 section 6 'whether both flags work together'), whether CLAUDE.md from the workspace loads despite --setting-sources user (09 section 4), pattern of the subscription token, error detection on budget and turn abort. Result as an evidence table in detailed design 05 (sections 2.15.2 to 2.15.6 adjusted, (u) replaced) and as a note for 09 section 4."""
+design = ["05-plugins-and-contracts.md#215-runtime-claude-code", "05-plugins-and-contracts.md#10-open-points"]
+result = "docs/design/05-plugins-and-contracts.md (evidence in 2.15), plugins/claude-code/contract/spike/ (help outputs, redacted)"
+done = [
+  "Every (u) marker in section 2.15 is backed by evidence, corrected, or marked as 'not verifiable' with reason",
+  "Result on CLAUDE.md and on the flag combination named in the PR as a note to 09 section 4",
+  "If the npm package cannot run without downloading, official_installer is entered as default in 2.15.2",
+  "No token in the checked-in spike files (gitleaks green)",
+]
+sources = ["01 section 6", "05 section 3 point 5", "09 section 4", "backlog M87"]
+depends_on = []
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+note = "M87 (spike on load-bearing assumptions) done here for the part flag combination and harness installation; the ruleset question stays with stage 5."
+
+  [[task.part]]
+  id = "0-E15-T01-S01"
+  title = "Docs and help output: flags, output format, managed settings, tool names"
+  done = "Evidence table part 1 in the detailed design"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T01-S02"
+  title = "Package contents: check installation without scripts"
+  done = "Result entered in 2.15.2"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T01-S03"
+  title = "Owner trial run: flag combination, CLAUDE.md, abort identifiers"
+  done = "Result entered in 2.15.3 and 2.15.4, note to 09 in the PR"
+  depends_on = ["0-E15-T01-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T02"
+title = "Harness installation at the operator with pin, checksum and cache"
+description = """`plugins/claude-code/src/install/` per section 2.15.2 (ADR-39, FE-521, FE-522): PinnedVersion from `harness_pins` of the installation, download via ctx.http (npm, operator_mirror or official_installer per spike), SHA-256 check, unpacking without install scripts into the harness cache on the worker host (runtimes.claude_code.cache_dir from worker.yaml, 03 FE-333) with lock, atomic rename and marker .verified, copyIn of the entry to /opt/guildwork/harness in the sandbox (read-only, owner root), version probe (FE-553). Resolver rule `harness-pins.ts` (org version must have a pin) in packages/config. Key harness_pins into the JSON Schema of 0-E06 (open point 4)."""
+design = ["05-plugins-and-contracts.md#2152-installation-at-the-operator-adr-39-ruling-fe-521-fe-522", "05-plugins-and-contracts.md#48-states"]
+result = "plugins/claude-code/src/install/*.ts, packages/config/src/rules/harness-pins.ts, tests"
+done = [
+  "Tests 'claude-code.install.pin-mismatch' (invalid, audit harness.pin_mismatch, no cache entry), '.cache-hit', '.version-mismatch', '.concurrent' green",
+  "Test 'rules.harness-pins.missing' green",
+  "Test 'claude-code.install.copy-failed' green (copyIn fails or .verified missing afterwards yields harness_copy_failed)",
+  "harness_pins is in the JSON Schema of the installation (evidence in the PR)",
+]
+sources = ["01 section 6 PinnedVersion", "06 section 8", "11 section 2.1", "ADR-39"]
+depends_on = ["0-E15-T01", "0-E13-T03", "0-E12-T03", "0-E12-T08", "0-E06-T05", "0-E06-T06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T02-S01"
+  title = "Test: checksum, cache, version probe"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T02-S02"
+  title = "pin.ts, fetch.ts, cache.ts"
+  done = "Tests 'pin-mismatch' and 'cache-hit' green"
+  depends_on = ["0-E15-T02-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T02-S03"
+  title = "install.ts with visibility check in the volume and version probe"
+  done = "Tests 'version-mismatch' and 'copy-failed' green"
+  depends_on = ["0-E15-T02-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T02-S04"
+  title = "Resolver rule harness-pins and schema entry"
+  done = "Test 'rules.harness-pins.missing' green"
+  status = "open"
+
+[[task]]
+id = "0-E15-T03"
+title = "Start path builder: argv, environment from allowlist, managed settings, MCP configuration, config directory, prompt"
+description = """`plugins/claude-code/src/launch/` per section 2.15.3 (FE-523, FE-524, FE-525, FE-535): argv per credential kind (api_key with --bare and --max-budget-usd, subscription without --bare), shared hardening flags, environment share runtimeExtra from an empty map (CLAUDE_CONFIG_DIR, OTel variables via harnessOtelEnv, never credential variables; the worker sets these via buildHarnessEnv, FE-550), managed settings per nativeTools with WebFetch and WebSearch always forbidden, endpoint pin only for api_key, MCP configuration only with the platform MCP, empty config directory per item, system.md with agent files from the base SHA, prompt.md with Untrusted blocks. Exports `@guildwork/plugin-claude-code/launch` for claude-cli."""
+design = ["05-plugins-and-contracts.md#2153-start-path-per-credential-kind"]
+result = "plugins/claude-code/src/launch/*.ts, plugins/claude-code/package.json (export ./launch), tests"
+done = [
+  "Test 'claude-code.env.runtime-extra-only' green (worker environment with foreign credential variables incl. a foreign CLAUDE_CODE_OAUTH_TOKEN is never read, a credential variable in runtimeExtra yields credential_in_runtime_env)",
+  "Tests 'claude-code.argv.api-key' and 'claude-code.argv.subscription' green",
+  "Tests 'claude-code.managed-settings.none', '.read', '.edit', '.edit-shell' green",
+  "Test 'claude-code.prompt.untrusted' green",
+]
+sources = ["01 section 6 start path and environment", "05 section 3 points 1, 2, 5", "06 section 4", "ADR-17, ADR-57", "backlog M3"]
+depends_on = ["0-E15-T01", "0-E13-T03", "0-E12-T08", "0-E19-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T03-S01"
+  title = "Test and implementation: env.ts with runtimeExtra per kind"
+  done = "Test 'claude-code.env.runtime-extra-only' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T03-S02"
+  title = "Test and implementation: argv.ts per kind"
+  done = "Tests 'claude-code.argv.*' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T03-S03"
+  title = "Test and implementation: managed-settings.ts per nativeTools"
+  done = "Tests 'claude-code.managed-settings.*' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T03-S04"
+  title = "mcp-config.ts, config-dir.ts, prompt.ts"
+  done = "Test 'claude-code.prompt.untrusted' green"
+  status = "open"
+
+[[task]]
+id = "0-E15-T04"
+title = "Run: spawn, NDJSON parser, result, schema check, budget, abort, OTel"
+description = """`plugins/claude-code/src/run/` per sections 2.15.4 and 2.15.5 (FE-511, FE-526, FE-527): files via copyIn, start via SandboxHandle.spawn (implemented in the ExecutionBackend of 0-E12, open point 3), line parser with mapping to RuntimeEvent with hashes only, transcript redacted as a worker-local file (transcriptRef local:, upload by the worker, FE-550), wall time and output token limit with SIGTERM and SIGKILL after kill_grace_ms, AbortSignal, result table (ok, schema_invalid with Ajv check, budget_exceeded with exit.reason, cancelled, rate_limited, auth_failed, failed), usage, cost source per kind, sessionRef, limitEvents, OTel variables with TRACEPARENT. Plugin package with manifest (distribution operator_supplied, FE-520), capabilities per instance (FE-537), supports (FE-529)."""
+design = ["05-plugins-and-contracts.md#2154-run-event-stream-result", "05-plugins-and-contracts.md#2155-otel", "05-plugins-and-contracts.md#2151-manifest-capabilities-supports", "05-plugins-and-contracts.md#45-run-of-the-runtime-in-the-worker"]
+result = "plugins/claude-code/manifest.json, plugins/claude-code/src/{index,config,capabilities,supports}.ts, plugins/claude-code/src/run/*.ts, tests with fake-claude"
+done = [
+  "Tests 'claude-code.run.<transcript>' green for all transcripts from section 3.5 (provisionally from the spike, final after 0-E15-T07)",
+  "Tests 'claude-code.run.wall-timeout', '.abort', '.no-text-in-events' green",
+  "Tests 'claude-code.supports' and 'claude-code.capabilities' green (table 2.15.1)",
+  "Test 'claude-code.otel-env' green: TRACEPARENT and OTLP endpoint in the process environment",
+  "AgentRuntime suite from 0-E13-T08 green with fake-claude",
+]
+sources = ["01 sections 6, 11.3", "03 section 5", "06 section 4", "ADR-39"]
+depends_on = ["0-E15-T03", "0-E13-T08", "0-E13-T06", "0-E12-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T04-S01"
+  title = "Test: transcripts against expected results and event sequences"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T04-S02"
+  title = "stream-parser.ts and result.ts"
+  done = "Tests 'claude-code.run.<transcript>' green"
+  depends_on = ["0-E15-T04-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T04-S03"
+  title = "Test and implementation: budget.ts with wall time, abort, process end"
+  done = "Tests '.wall-timeout' and '.abort' green"
+  depends_on = ["0-E15-T04-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T04-S04"
+  title = "run.ts with spawn, transcript storage, OTel environment"
+  done = "Tests '.no-text-in-events' and 'claude-code.otel-env' green"
+  depends_on = ["0-E15-T04-S03"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T04-S05"
+  title = "Connect manifest, capabilities, supports, suite"
+  done = "Tests 'claude-code.supports', 'claude-code.capabilities' and AgentRuntime suite green"
+  depends_on = ["0-E15-T04-S04"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T05"
+title = "Start path subscription: constraints in the run, token expiry, cost source"
+description = """`plugins/claude-code/src/subscription/` per section 2.15.6 (ADR-57, FE-530, FE-550): only the worker reads and checks the host file (readSubscriptionToken from 0-E12-T08, key runtimes.claude_code.subscription_token_file in worker.yaml, FE-553); the plugin never sees the token, the spawn wrapper of the worker sets CLAUDE_CODE_OAUTH_TOKEN; test with this wrapper that the token never ends up in a log, event or transcript (redaction rule sk-ant-oat from core); second line of the constraints in run (nativeTools at most read without operator_test, worker with singleOperator); cost without usd with source subscription_utilization (constraint 6); pure function subscriptionHealth with expiresAt from mtime plus 365 days and early warning subscription.token_warn_days, export @guildwork/plugin-claude-code/subscription for the worker, reported via WorkerCaps.harnesses[].health (FE-512)."""
+design = ["05-plugins-and-contracts.md#2156-start-path-subscription-and-host-file-adr-57"]
+result = "plugins/claude-code/src/subscription/{constraints,health}.ts, plugins/claude-code/package.json (export ./subscription), tests"
+done = [
+  "Test 'claude-code.subscription.no-token-in-plugin' green",
+  "Test 'claude-code.subscription.never-logged' green (log capture, events, redacted transcript without token)",
+  "Test 'claude-code.subscription.constraint' green",
+  "Test 'claude-code.subscription-health.expiry' green",
+  "Test 'claude-code.subscription.cost-no-usd' green",
+]
+sources = ["01 section 6 row subscription", "05 section 6 constraints 1 to 7", "ADR-57"]
+depends_on = ["0-E15-T04"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T05-S01"
+  title = "Test and implementation: no token in the plugin, connection to the spawn wrapper of the worker"
+  done = "Test 'claude-code.subscription.no-token-in-plugin' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T05-S02"
+  title = "Test: token never in log, event, transcript; constraints in the run"
+  done = "Tests '.never-logged' and '.constraint' green"
+  depends_on = ["0-E15-T05-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T05-S03"
+  title = "health with expiry and cost source"
+  done = "Tests 'claude-code.subscription-health.expiry' and 'claude-code.subscription.cost-no-usd' green"
+  status = "open"
+
+[[task]]
+id = "0-E15-T06"
+title = "Contract suite AgentRuntime offline with fake-claude and attestation"
+description = """Connects the AgentRuntime suite from 0-E13-T08 fully to plugins/claude-code: fake-claude plays back every transcript from section 3.5 and checks the argv companion file; fixtures hash over contract/transcripts; contract-attestation.json and fixturesHash in the manifest. Until 0-E15-T07 the transcripts are derived from the spike and marked as provisional."""
+design = ["05-plugins-and-contracts.md#210-contract-harness", "05-plugins-and-contracts.md#35-transcripts-of-the-runtime-pluginsclaude-codecontracttranscripts"]
+result = "plugins/claude-code/contract/transcripts/*, plugins/claude-code/contract-attestation.json"
+done = [
+  "`make contract PLUGIN=claude-code` green",
+  "Loader loads claude-code with the attestation (state ready)",
+  "Test 'claude-code.argv-files-match': every argv companion file matches the start path builder",
+]
+sources = ["01 section 1.1 rule 1", "08 stage 0 done criterion contract suites"]
+depends_on = ["0-E15-T04", "0-E15-T05"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T06-S01"
+  title = "Complete transcripts and argv companion files"
+  done = "Test 'claude-code.argv-files-match' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T06-S02"
+  title = "Suite run, attestation, fixtures hash in the manifest"
+  done = "`make contract PLUGIN=claude-code` green, loader test ready"
+  depends_on = ["0-E15-T06-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T07"
+title = "Contract test 'start with subscription' against the real CLI with secret scan"
+description = """Owner run with agent (the owner's own subscription token, model call with external effect on the quota): test `contract.start-subscription` starts, on a worker with a real sandbox (0-E12) and work API (0-E11), a work item with runtime claude-code and kind subscription; the token is only in the host file; the worker environment deliberately contains foreign credential variables (also a foreign CLAUDE_CODE_OAUTH_TOKEN). Checks: the model call succeeds, the token came only from the host file, /proc/<pid>/environ of the claude process contains no foreign credential variable, a secret scan (gitleaks with its own rule sk-ant-oat) over all tables of the database (dump), work item envelopes, snapshots, logs and BlobStore does not find the token. Records the final transcripts for section 3.5 along the way (redacted) and replaces the provisional ones. Counters: record subscription usage before and after the run."""
+design = ["05-plugins-and-contracts.md#82-contract-and-suite-cases-with-the-real-system-owner-runs", "05-plugins-and-contracts.md#2156-start-path-subscription-and-host-file-adr-57"]
+result = "tests/contract/start-subscription.test.ts (runs only with GUILDWORK_LIVE_SUBSCRIPTION=1), report with command and output in the PR, plugins/claude-code/contract/transcripts/* (real)"
+done = [
+  "Test 'contract.start-subscription' green with evidence (command and output) in the PR",
+  "Secret scan over DB dump, envelopes, snapshots, logs, BlobStore with 0 hits of the token",
+  "/proc/<pid>/environ without foreign credential variables",
+  "Transcripts replaced, `make contract PLUGIN=claude-code` still green",
+]
+sources = ["08 stage 0 done criterion start with subscription", "01 section 6 contract test per row", "05 section 6 constraint 4", "ADR-57"]
+depends_on = ["0-E15-T05", "0-E15-T06", "0-E11", "0-E02", "0-E12"]
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T07-S01"
+  title = "Test scaffold with live switch, foreign variables and scan tool"
+  done = "Test runs as skipped without the switch, with the switch up to the start"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T07-S02"
+  title = "Owner run with own token, record transcripts"
+  done = "Run green, transcripts redacted in the repo"
+  depends_on = ["0-E15-T07-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T07-S03"
+  title = "Secret scan over all stores and evidence in the PR"
+  done = "0 hits, evidence in the PR"
+  depends_on = ["0-E15-T07-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T08"
+title = "ModelProvider anthropic-api on the Vercel AI SDK"
+description = """`plugins/model-anthropic/` per section 2.16 (ADR-03, ADR-31, FE-531, FE-532): first a check of the AI SDK facts (package names, functions, fields for cache usage, license for the license gate) with an entry in detailed design 05; then the adapter with baseURL of the relay and placeholder, fetch from ctx.http, mapping of Msg incl. Untrusted parts, structured output with Ajv re-check, tools, cache, usage, limits from anthropic-ratelimit headers, countTokens, costs from the price table with date, capabilities per table (REGION_EU none). Provisional cassettes from the docs, real ones in 0-E15-T11."""
+design = ["05-plugins-and-contracts.md#216-modelprovider-anthropic-api-adr-03-adr-31-ruling-fe-531-fe-532"]
+result = "plugins/model-anthropic/{manifest.json,price-tables/anthropic.yaml}, plugins/model-anthropic/src/*.ts, cassettes, tests"
+done = [
+  "AI SDK facts backed by evidence in detailed design 05 section 2.16, open point 8 closed",
+  "Tests 'anthropic-api.generate.text', '.structured', '.tool-call', '.cache-usage', '.limits-from-headers', '.rate-limited', '.auth', '.schema-invalid', '.abort' green",
+  "Tests 'anthropic-api.base-url-relay' and 'anthropic-api.cost.price-table' green",
+  "ModelProvider suite from 0-E13-T08 green with provisional cassettes",
+]
+sources = ["01 sections 7, 11.4", "05 section 3 point 1", "11 section 1 principle 1", "ADR-03, ADR-31"]
+depends_on = ["0-E13-T08", "0-E13-T06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T08-S01"
+  title = "Check AI SDK facts and back them in the detailed design"
+  done = "Section 2.16 without (u) on the SDK names"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T08-S02"
+  title = "Test: generate cases from cassettes"
+  done = "Tests red"
+  depends_on = ["0-E15-T08-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T08-S03"
+  title = "generate.ts, usage.ts, limits.ts"
+  done = "Tests 'anthropic-api.generate.*' green"
+  depends_on = ["0-E15-T08-S02"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T08-S04"
+  title = "models.ts with price table, count-tokens.ts, manifest and suite"
+  done = "Tests '.cost.price-table', '.base-url-relay' and suite green"
+  depends_on = ["0-E15-T08-S03"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T09"
+title = "ModelProvider claude-cli"
+description = """`plugins/model-claude-cli/` per section 2.17 (ADR-58, FE-533): uses the launcher from 0-E15-T03 with start path subscription, nativeTools none, empty MCP configuration, --json-schema, --max-turns 1; renders messages into a prompt with Untrusted blocks; tools yields unsupported; result with structured, usage, cost source none, limits from rate_limit; FallbackRecorder writes fallback level and startup overhead; manifest operator_supplied (FE-520). Runs as a model_call item in the worker (item kind in detailed design 03, open point 3)."""
+design = ["05-plugins-and-contracts.md#217-modelprovider-claude-cli-adr-58-ruling-fe-533", "05-plugins-and-contracts.md#46-single-call-via-claude-cli"]
+result = "plugins/model-claude-cli/{manifest.json,contract-attestation.json}, plugins/model-claude-cli/src/*.ts, tests with fake-claude"
+done = [
+  "Tests 'claude-cli.generate.structured', '.tools-unsupported', '.no-mcp', '.native-tools-none', '.fallback-audited', '.cost-none' green",
+  "ModelProvider suite from 0-E13-T08 green with fake-claude, attestation written",
+]
+sources = ["01 section 7 claude-cli", "05 section 6 constraint 1", "ADR-58"]
+depends_on = ["0-E15-T03", "0-E15-T04", "0-E15-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T09-S01"
+  title = "Test: generate cases with fake-claude"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T09-S02"
+  title = "render-messages.ts and generate.ts"
+  done = "Tests green except fallback-audited"
+  depends_on = ["0-E15-T09-S01"]
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T09-S03"
+  title = "Fallback log, manifest, suite, attestation"
+  done = "Test '.fallback-audited' and suite green"
+  depends_on = ["0-E15-T09-S02"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T10"
+title = "Resolver rule: reachability of the ModelProviders"
+description = """`packages/config/src/rules/model-reachability.ts` per section 2.18 (ADR-58): model references of a service (models.*, gate_model, notes_model) must point to an entry in models whose plugin is loaded, whose region the data_policy allows and which, for claude-cli, points to an enabled subscription runtime that is permitted for the service; a service with a mandatory single call without its own reference needs a reachable entry. Wired into the resolver of 0-E06; an error rejects only the service."""
+design = ["05-plugins-and-contracts.md#218-resolver-rules-of-this-area"]
+result = "packages/config/src/rules/model-reachability.ts, packages/config/test/rules/model-reachability.test.ts"
+done = [
+  "Tests 'rules.model-reachability.<code>' green for every error code",
+  "Case S2 'service whose model reference points to no reachable ModelProvider' registered as a test in the S2 collection and green",
+]
+sources = ["01 section 7 resolver rule", "04 section 5", "07 S2", "ADR-58"]
+depends_on = ["0-E06-T05", "0-E06-T06", "0-E13-T06"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E15-T10-S01"
+  title = "Test: one case per error code"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T10-S02"
+  title = "Implement the rule and hook it into the resolver, register the S2 case"
+  done = "Tests green"
+  depends_on = ["0-E15-T10-S01"]
+  status = "open"
+
+[[task]]
+id = "0-E15-T11"
+title = "Cassettes for anthropic-api from the public docs, suite and attestation"
+description = """The project has no API key or Console access (owner decision O28). The agent replaces the provisional cassettes with cassettes from the public docs of the Messages API per detailed design 05 FE-564 (`recorder.target = "doc"`, `source` with URLs and reading date; example requests and responses, `anthropic-ratelimit-*` headers, error responses 401, 429, 529 per the docs; unbacked values as a note in `<case>.notes.md`), runs `make contract PLUGIN=model-anthropic` and writes the attestation. Optional owner run, not a done criterion: `make contract-record PLUGIN=model-anthropic TARGET=relay-local` via a locally started credential relay (0-E12) with an API key from the owner's environment; the recording then replaces the docs cassettes."""
+design = ["05-plugins-and-contracts.md#210-contract-harness", "05-plugins-and-contracts.md#82-contract-and-suite-cases-with-the-real-system-owner-runs"]
+result = "plugins/model-anthropic/contract/fixtures/** (from the docs, with sources), plugins/model-anthropic/contract-attestation.json"
+done = [
+  "ModelProvider suite green against the docs cassettes (`make contract PLUGIN=model-anthropic`), every cassette with `source` and reading date",
+  "gitleaks over the cassettes with 0 hits",
+]
+sources = ["08 stage 0 done criterion contract suites", "01 section 1.1 rule 1", "O28"]
+depends_on = ["0-E15-T08", "0-E12-T05"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "Planned as an owner run with an API key until 2026-11-01; after O28 built from the docs, the real recording is optional."
+
+  [[task.part]]
+  id = "0-E15-T11-S01"
+  title = "Cassettes from the docs of the Messages API with sources (agent)"
+  done = "Cassettes with source and notes checked in"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E15-T11-S02"
+  title = "Suite and attestation"
+  done = "Suite green, attestation written"
+  depends_on = ["0-E15-T11-S01"]
+  status = "open"

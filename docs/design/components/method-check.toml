@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "method-check"
+title = "Method checkers EARS, MADR, C4 checklist"
+kind = "package"
+path = "packages/method-check/"
+package = "@guildwork/method-check"
+stage = "2"
+purpose = "Deterministic checkers for method artifacts: EARS patterns, required sections of the pinned MADR template, rule-based questions of the C4 review checklist and the call of the Mermaid check. Plus the pure building block of plan conformance (subpath @guildwork/method-check/conformance, FE-1077), which builds the model request and evaluates the response without calling a model itself. Not: model-based checks (Architect) and not the tool image mermaid-check (service-architect)."
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"]
+built_by = ["2-E03-T03", "2-E03-T08"]
+
+[[provides]]
+name = "method-check-api"
+kind = "ts-api"
+title = "checkEars, checkMadr with MadrTemplate, checkC4 with C4Question and C4Rule, mermaidCheckCommand"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T03"
+
+[[provides]]
+name = "c4-checkliste"
+kind = "file"
+title = "packages/method-check/data/c4-checklist.v1.json (pinned version, kind rule or model per question, attribution CC BY 4.0)"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T03"
+
+[[provides]]
+name = "madr-vorlage"
+kind = "file"
+title = "packages/method-check/data/madr-template.v1.json (required sections of the pinned MADR template)"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T03"
+
+[[provides]]
+name = "conformance-api"
+kind = "ts-api"
+title = "@guildwork/method-check/conformance: ConformanceInput with ConformancePlanView and ConformanceDesignView, ConformanceResult, CONFORMANCE_OUTPUT_SCHEMA, conformanceRequest, interpretConformance, traceability (FE-1077)"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T08"
+
+[[provides]]
+name = "prompt-conformance"
+kind = "prompt"
+title = "packages/method-check/prompts/conformance.v1.md with prompt_v (in the Reviewer finder.plan_conformance)"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T08"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "2-E03-T08"
+purpose = "GenerateRequest in conformanceRequest"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "2-E03-T08"
+purpose = "FileChange in the ConformanceInput"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "2-E03-T03"
+purpose = "Result in the checkers"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E03-T03"
+purpose = "Result, ok and err as the return value of the public functions"

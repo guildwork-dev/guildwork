@@ -1,0 +1,168 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "db-migrator"
+title = "Migrator with gates, schema check at start and role migrate"
+kind = "package"
+path = "packages/db/src/migrator/"
+package = "@guildwork/db"
+stage = "0"
+purpose = "Applies the numbered SQL migrations forward only (lock against parallel runs, checksums, backup gate, halt points, minimum versions of PostgreSQL and pgvector) and checks at the start of each role whether schema and release match. Not here: content of the migrations (db-schema-kern and the areas), linter (migration-lint), flow of guildwork upgrade (CLI)."
+design = ["01-data-model.md#2-modules-and-responsibility", "01-data-model.md#21-audit-port-locks-and-test-callback", "01-data-model.md#31a-migration-blocks-and-table-directory", "01-data-model.md#41-migration", "01-data-model.md#42-schema-check-at-startup", "01-data-model.md#5-failure-and-abort-paths", "06-installation-operations-ui.md#210-upgrade-and-way-back"]
+built_by = ["0-E02-T02", "0-E02-T03", "0-E18-T12"]
+
+[[provides]]
+name = "migrator"
+kind = "ts-api"
+title = "createMigrator, loadMigrationFiles, MigrationFile, MigrateOptions (with haltPoints), MigratePlan, MigrateResult, MigrateErrorCode"
+defined_in = "01-data-model.md#2-modules-and-responsibility"
+from_task = "0-E02-T02"
+
+[[provides]]
+name = "migrationsdatei"
+kind = "file"
+title = "Migration file packages/db/migrations/NNNN_name.sql with header lines phase, transactional, min_app_release, haltepunkt (FE-113)"
+defined_in = "01-data-model.md#41-migration"
+from_task = "0-E02-T02"
+
+[[provides]]
+name = "tabellenverzeichnis"
+kind = "file"
+title = "Number blocks per stage (machine-readable packages/db/migrations/blocks.json) and table directory: each table exactly once with migration and leading document (FE-126, FE-128)"
+defined_in = "01-data-model.md#31a-migration-blocks-and-table-directory"
+from_task = "0-E02-T02"
+
+[[provides]]
+name = "rolle-migrate"
+kind = "cli"
+title = "Role migrate of the control plane: runMigrateRole(MigrateRoleInput, MigrateRoleDeps), then exit 0, 1 or 2"
+defined_in = "01-data-model.md#25-role-migrate"
+from_task = "0-E02-T02"
+
+[[provides]]
+name = "test-rueckruf"
+kind = "ts-api"
+title = "@guildwork/db/testing: migrateForTests(adminUrl) and roleUrls for testkit.startPostgres (FE-130)"
+defined_in = "01-data-model.md#21-audit-port-locks-and-test-callback"
+from_task = "0-E02-T02"
+
+[[provides]]
+name = "startcheck"
+kind = "ts-api"
+title = "startCheck(db, { release, requiredVersions }) with StartCheck results; requiredVersions from generated/required-versions.ts; BYPASSRLS allowed only for DbConfig.role ops (FE-141)"
+defined_in = "01-data-model.md#42-schema-check-at-startup"
+from_task = "0-E02-T03"
+
+[[provides]]
+name = "konfig.migrate"
+kind = "config"
+title = "installation.yaml: migrate.lock_wait_s, migrate.recent_backup_max_age"
+defined_in = "01-data-model.md#7-configuration"
+from_task = "0-E02-T03"
+
+[[provides]]
+name = "metriken.start"
+kind = "metric"
+title = "guildwork.db.startup_unreachable, guildwork.app.not_ready, guildwork.migrate.lock_timeout"
+defined_in = "01-data-model.md#24-metrics"
+from_task = "0-E02-T03"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E02-T02"
+purpose = "Result of loadMigrationFiles"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E02-T02"
+purpose = "Error code invalid on loading, exit codes of the role migrate"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E02-T02"
+purpose = "sha256Hex for the checksum of the files"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E02-T02"
+purpose = "Log events migrate.* of the role"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E02-T02"
+purpose = "Metrics in MigrateRoleDeps; from 0-E02-T03 counters and gauge of the start check"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E02-T02"
+purpose = "Clock for duration_ms and waiting time for the lock; parseDuration for recent_backup_max_age"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E02-T03"
+purpose = "Register guildwork.db.startup_unreachable, guildwork.app.not_ready, guildwork.migrate.lock_timeout"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E02-T02"
+purpose = "Connection as guildwork_owner with role migrate"
+
+[[uses]]
+interface = "db/sperren"
+from_task = "0-E02-T02"
+purpose = "MIGRATE_LOCK for the session advisory lock"
+
+[[uses]]
+interface = "db/audit-port"
+from_task = "0-E02-T02"
+purpose = "schema.migration_failed and schema.migration_refused; from 0-E02-T03 schema.app_too_old"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E02-T02"
+purpose = "Key migrate.lock_wait_s, from 0-E02-T03 migrate.recent_backup_max_age in the schema"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E02-T02"
+purpose = "Postgres 17 and 18 for the migrator tests"
+
+[[uses]]
+interface = "testkit/postgres-rollen"
+from_task = "0-E02-T02"
+purpose = "Roles and URLs for migrateForTests and the role test"
+
+[[uses]]
+interface = "testkit/integration-setup"
+from_task = "0-E02-T02"
+purpose = "Migration callback migrateForTests in the global setup"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.schema-migrations"
+from_task = "0-E02-T03"
+purpose = "Bookkeeping and start check against the real migration 0001 (0-E02-T02 uses a test migration with the same DDL)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.schema-state"
+from_task = "0-E02-T03"
+purpose = "schema_version, min_app_release, last_release for start check and halt points"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.backup-runs"
+from_task = "0-E02-T03"
+purpose = "Backup gate: last successful backup"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.tenants"
+from_task = "0-E02-T03"
+purpose = "Installation tenant for the audit entries of the migrator"
+
+[[uses]]
+interface = "control-plane-orchestrator/upgrade-lift"
+from_task = "0-E18-T12"
+purpose = "Lifting of open runs before the migrations (ADR-67)"
+
+[[uses]]
+interface = "cli/release-manifest-typ"
+from_task = "0-E18-T12"
+purpose = "haltPoints from release.json upgrade for MigrateOptions"

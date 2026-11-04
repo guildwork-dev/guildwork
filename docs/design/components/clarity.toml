@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "clarity"
+title = "Clarity gate"
+kind = "package"
+path = "packages/clarity/"
+package = "@guildwork/clarity"
+stage = "2"
+purpose = "Building block for the clarity gate of planner (stage 2) and triage (stage 7): builds the model request with schema and checks the response for clear, tooLarge, questions and split proposal. Not: the model call itself, which the step handler makes via the ModelProvider path."
+design = ["10-planner-architect-coder.md#211-clarity-gate-guildworkclarity"]
+built_by = ["2-E02-T01", "7-E04-T03"]
+
+[[provides]]
+name = "clarity-api"
+kind = "ts-api"
+title = "ClarityInput, ClarityResult, clarityRequest, interpretClarity"
+defined_in = "10-planner-architect-coder.md#211-clarity-gate-guildworkclarity"
+from_task = "2-E02-T01"
+
+[[provides]]
+name = "clarity-api-erstbau-triage"
+kind = "ts-api"
+title = "The same API as clarity-api, in case stage 7 is built before stage 2: 7-E04-T03 first checks whether the package exists and builds it otherwise (FE-1216)"
+defined_in = "10-planner-architect-coder.md#211-clarity-gate-guildworkclarity"
+from_task = "7-E04-T03"
+
+[[provides]]
+name = "prompt-clarity"
+kind = "prompt"
+title = "packages/clarity/prompts/clarity.v1.md with prompt_v"
+defined_in = "10-planner-architect-coder.md#211-clarity-gate-guildworkclarity"
+from_task = "2-E02-T01"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "2-E02-T01"
+purpose = "GenerateRequest in clarityRequest"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "2-E02-T01"
+purpose = "Untrusted fields in ClarityInput, marked in the prompt"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "2-E02-T01"
+purpose = "Result in interpretClarity"
+
+[[uses]]
+interface = "service-triage/typen"
+from_task = "7-E04-T03"
+purpose = "TriageRequest as the input for the same clarity gate"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E02-T01"
+purpose = "Result, ok and err as the return value of the public functions"

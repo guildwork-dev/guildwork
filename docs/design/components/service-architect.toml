@@ -1,0 +1,372 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-architect"
+title = "Architect: modes review, spec, adr, threat_model, conformance"
+kind = "service"
+path = "services/architect/"
+package = "@guildwork/service-architect"
+stage = "2"
+purpose = "Reviews and creates architecture: design review on PRs with check ai-design-review, specification in EARS with C4 diagrams and tasks, ADR drafts according to MADR, threat model according to STRIDE and the mode conformance (building block in method-check, FE-1077); executes no repo code. Not: the method checkers (method-check) and not the integration into the pipeline (pipeline-ticket-to-pr)."
+design = ["10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check", "10-planner-architect-coder.md#43-architect", "10-planner-architect-coder.md#83-architect-2-e03"]
+built_by = ["2-E03-T01", "2-E03-T02", "2-E03-T04", "2-E03-T05", "2-E03-T06", "2-E03-T07", "2-E03-T08", "2-E03-T10"]
+
+[[provides]]
+name = "manifest-architect"
+kind = "contract"
+title = "Service manifest architect: propose_comment, propose_check ai-design-review, propose_change only doc_paths, request_human_input"
+defined_in = "10-planner-architect-coder.md#62-permission-profiles-and-effects-per-service-stage-2"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "architect.controller and step handler per mode"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "befehl-architect"
+kind = "ui"
+title = "Commands @agent architect [spec|adr|review] in the ticket and on PRs, trigger PR on review_paths"
+defined_in = "10-planner-architect-coder.md#43-architect"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "design-artifact"
+kind = "ts-api"
+title = "DesignRequest, DesignArtifact, DesignFinding, EarsPattern"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "design-artifact-schema"
+kind = "file"
+title = "JSON Schema packages/contracts/schemas/artifacts/v1alpha1/DesignArtifact.json"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "tabelle-design-versions"
+kind = "table"
+title = "design_versions (migration 0202)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "design-blobs"
+kind = "file"
+title = "Design versions t/<tenant>/runs/<runId>/design/<designId>/v<n>.json"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "admin-api-designs"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/designs/{designId}/versions/{n}"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "mcp-design-get"
+kind = "mcp-tool"
+title = "design.get: approved design for the coder"
+defined_in = "10-planner-architect-coder.md#218-platform-mcp-tools-per-service-stage-2"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "policy-doc-paths"
+kind = "config"
+title = "Policy rule architect.doc_paths (doc_paths = adr_path and spec_path, FE-1009)"
+defined_in = "10-planner-architect-coder.md#62-permission-profiles-and-effects-per-service-stage-2"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "konfig-architect"
+kind = "config"
+title = "services.architect.{modes, spec_path, adr_path, quality_scenarios_path, review_paths, required_if, threat_model}"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E03-T01"
+
+[[provides]]
+name = "mcp-change-threads"
+kind = "mcp-tool"
+title = "change.threads: review threads of a PR as untrusted"
+defined_in = "10-planner-architect-coder.md#218-platform-mcp-tools-per-service-stage-2"
+from_task = "2-E03-T02"
+
+[[provides]]
+name = "check-ai-design-review"
+kind = "contract"
+title = "Check ai-design-review on the PR (success, neutral, failure; never silent green) with annotations and one summary comment"
+defined_in = "10-planner-architect-coder.md#43-architect"
+from_task = "2-E03-T02"
+
+[[provides]]
+name = "event-design-ready"
+kind = "event"
+title = "design.ready { runId, designId, version, hash, verdict }"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E03-T02"
+
+[[provides]]
+name = "prompt-review"
+kind = "prompt"
+title = "services/architect/prompts/review.v1.md"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T02"
+
+[[provides]]
+name = "image-mermaid-check"
+kind = "file"
+title = "Tool image deploy/images/mermaid-check, called in the role check without network (FE-1011)"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T04"
+
+[[provides]]
+name = "prompt-spec"
+kind = "prompt"
+title = "services/architect/prompts/spec.v1.md"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T05"
+
+[[provides]]
+name = "vorlagen-spec"
+kind = "file"
+title = "Templates services/architect/templates/spec/ and spec files docs/specs/<key>/requirements.md, design.md, tasks.md in the target repo"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T05"
+
+[[provides]]
+name = "vorlagen-madr"
+kind = "file"
+title = "Template services/architect/templates/madr/ and ADR files under adr_path"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T06"
+
+[[provides]]
+name = "prompt-threat-model"
+kind = "prompt"
+title = "services/architect/prompts/threat-model.v1.md"
+defined_in = "10-planner-architect-coder.md#212-architect-servicesarchitect-and-guildworkmethod-check"
+from_task = "2-E03-T07"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "2-E03-T01"
+purpose = "defineService with controller and jobs"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "2-E03-T01"
+purpose = "ServiceController of the architect"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "2-E03-T01"
+purpose = "Step handler per mode"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "2-E03-T01"
+purpose = "registerControllers with architect.controller"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "2-E03-T01"
+purpose = "Service manifest architect"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E03-T01"
+purpose = "services.architect.* with x-qualification"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "2-E03-T01"
+purpose = "Resolver rule spec_path and adr_path not in forbidden_paths"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "2-E03-T01"
+purpose = "Policy rule architect.doc_paths"
+
+[[uses]]
+interface = "policy-engine/regel-ids"
+from_task = "2-E03-T01"
+purpose = "Rule ID architect.doc_paths in the catalog"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E03-T01"
+purpose = "Commands @agent architect [spec|adr|review]"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "2-E03-T01"
+purpose = "Route PR on review_paths"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "2-E03-T01"
+purpose = "DesignArtifact as an artifact row"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E03-T01"
+purpose = "Migration 0202 design_versions"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E03-T01"
+purpose = "Repository design_versions"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "2-E03-T01"
+purpose = "Design versions in the BlobStore"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "2-E03-T01"
+purpose = "JSON Schema DesignArtifact"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E03-T01"
+purpose = "GET /admin/api/v1/runs/{runId}/designs/{designId}/versions/{n}"
+
+[[uses]]
+interface = "plattform-mcp/tool-registry"
+from_task = "2-E03-T01"
+purpose = "Tool design.get"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "2-E03-T01"
+purpose = "prompt_v per mode"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "2-E03-T02"
+purpose = "Agent phase architect.review"
+
+[[uses]]
+interface = "method-check/method-check-api"
+from_task = "2-E03-T02"
+purpose = "C4 rule questions in the mode review"
+
+[[uses]]
+interface = "method-check/c4-checkliste"
+from_task = "2-E03-T02"
+purpose = "Questions of the C4 checklist in the prompt"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E03-T02"
+purpose = "getThreads for change.threads, files at the base SHA and head"
+
+[[uses]]
+interface = "plattform-mcp/change"
+from_task = "2-E03-T02"
+purpose = "change.get and change.files in the mode review"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "2-E03-T02"
+purpose = "Check ai-design-review with annotations"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "2-E03-T02"
+purpose = "one summary comment"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "2-E03-T02"
+purpose = "Write requests propose_check and propose_comment"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "2-E03-T02"
+purpose = "Event design.ready"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "2-E03-T02"
+purpose = "Harness with nativeTools read"
+
+[[uses]]
+interface = "herkunft-foreign-input/untrusted-inputs-endpunkt"
+from_task = "2-E03-T02"
+purpose = "Report of the untrusted inputs before the start"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E03-T04"
+purpose = "Tool sandbox mermaid-check without network in the role check"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "2-E03-T04"
+purpose = "Build the image mermaid-check in the matrix of images.yml, by digest (the image itself is provided by this component)"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "2-E03-T04"
+purpose = "License gate for the image mermaid-check"
+
+[[uses]]
+interface = "effekt-executoren/change"
+from_task = "2-E03-T05"
+purpose = "propose_change with spec files as a draft PR"
+
+[[uses]]
+interface = "effekt-executoren/push"
+from_task = "2-E03-T05"
+purpose = "Bundle of the worker commit on agent/<key>-arch-<mode>"
+
+[[uses]]
+interface = "effekt-executoren/human-input"
+from_task = "2-E03-T05"
+purpose = "Clarifying questions instead of assumptions"
+
+[[uses]]
+interface = "service-planner/plan-artifact"
+from_task = "2-E03-T05"
+purpose = "Plan version and designChoices as input of spec and adr"
+
+[[uses]]
+interface = "method-check/madr-vorlage"
+from_task = "2-E03-T06"
+purpose = "Required sections for checkMadr"
+
+[[uses]]
+interface = "method-check/conformance-api"
+from_task = "2-E03-T08"
+purpose = "Mode conformance of the architect via the same building block (FE-1077)"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-1/projekt-installation"
+from_task = "2-E03-T10"
+purpose = "Project installation in which the architect runs in shadow mode"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "2-E03-T10"
+purpose = "Costs per run for the decision sheet"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E03-T01"
+purpose = "canonicalJson and sha256Hex for the design hash"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E03-T02"
+purpose = "new counters of stage 2 in the metric catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E03-T01"
+purpose = "real Postgres per test file for the migrations and repositories"

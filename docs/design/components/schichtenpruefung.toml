@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "schichtenpruefung"
+title = "Layer check of the package dependencies and package generator"
+kind = "tool"
+path = "tools/ci/check_layers.py"
+stage = "R"
+purpose = "Enforces the allowed dependencies between workspace packages from quality/layers.toml (package.json, imports, testkit only in tests, freedom from cycles) and creates new packages only via the generator. Checks no rules within a package (Opengrep does that) and no external licenses (license gate)."
+design = ["00-codebase-and-conventions.md#22-packages-and-dependency-rules", "00-codebase-and-conventions.md#21-monorepo-layout"]
+built_by = ["R-E01-T08"]
+
+[[provides]]
+name = "layers-toml"
+kind = "file"
+title = "quality/layers.toml: groups, may_import, type_only, test_only"
+defined_in = "00-codebase-and-conventions.md#22-packages-and-dependency-rules"
+from_task = "R-E01-T08"
+
+[[provides]]
+name = "make-layers"
+kind = "cli"
+title = "make layers (check_layers.py, exit codes 0, 1, 2)"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E01-T08"
+
+[[provides]]
+name = "new-package"
+kind = "cli"
+title = "pnpm new:package <location>/<name> (new_package.py): package scaffold with SPDX headers and entry in layers.toml"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E01-T08"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E01-T08"
+purpose = "check_layers.py and new_package.py run under ruff and mypy from pyproject.toml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E01-T08"
+purpose = "Enter the gate layers in quality/gates.toml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/paket-vorlage"
+from_task = "R-E01-T08"
+purpose = "new_package.py generates exactly the package structure with package.json form and exports"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "R-E01-T08"
+purpose = "Workspace patterns from pnpm-workspace.yaml and tsconfig project references for new packages"

@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-gate"
+title = "Deterministic gate G1 to G9 and prepare job with gate model"
+kind = "service"
+path = "services/reviewer/src/controller/gate-rules.ts"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Decides deterministically whether a reviewer run takes place (rules G1 to G9), and builds the PrepareOutput in the prepare job with the context tool and the gate model. The gate model never decides on skipping (FE-803)."
+design = [
+  "08-reviewer.md#44-gate",
+  "08-reviewer.md#25-steps-and-work-item-envelopes",
+  "08-reviewer.md#29-building-blocks-of-the-controller",
+]
+built_by = ["1-E02-T01", "1-E02-T07"]
+
+[[provides]]
+name = "gate-regeln"
+kind = "ts-api"
+title = "evaluateGate(GateInput): GateDecision for G1 to G8, BUILTIN_GENERATED_GLOBS, gateCheckOutcome(decision); G9 as the result of the reservation"
+defined_in = "08-reviewer.md#29-building-blocks-of-the-controller"
+from_task = "1-E02-T01"
+
+[[provides]]
+name = "metrik-skipped"
+kind = "metric"
+title = "reviewer_skipped_total{reason}"
+defined_in = "08-reviewer.md#44-gate"
+from_task = "1-E02-T01"
+
+[[provides]]
+name = "reviewer.prepare"
+kind = "queue"
+title = "Handler of the work item reviewer.prepare: PrepareInput to PrepareOutput in the sandbox"
+defined_in = "08-reviewer.md#25-steps-and-work-item-envelopes"
+from_task = "1-E02-T07"
+
+[[provides]]
+name = "prompt-gate"
+kind = "prompt"
+title = "gate.md for models.gate with GateModelOutputSchema"
+defined_in = "08-reviewer.md#44-gate"
+from_task = "1-E02-T07"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "1-E02-T01"
+purpose = "ReviewRequest in the GateInput"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E02-T01"
+purpose = "mode, review_drafts, auto_pause_after, path_filters, generated_paths, max_diff_lines, max_files"
+
+[[uses]]
+interface = "service-reviewer/speicher-port"
+from_task = "1-E02-T01"
+purpose = "Read review_pr_state and set paused at G6"
+
+[[uses]]
+interface = "service-reviewer/controller"
+from_task = "1-E02-T01"
+purpose = "Step gate_rules in the step plan"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "1-E02-T01"
+purpose = "Actor with kind for G4"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "1-E02-T01"
+purpose = "getChange and listChangedFiles with profile read"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E02-T01"
+purpose = "ReadonlySCM from ControllerHost.scm"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "1-E02-T01"
+purpose = "Trigger and isSelf flag of the ResolvedEvent"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "1-E02-T01"
+purpose = "G9: a rejected reservation at intake (02 section 4.5) yields paused_budget without a controller call"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "1-E02-T01"
+purpose = "Audit per skipped with reason"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "1-E02-T01"
+purpose = "Counter reviewer_skipped_total{reason}"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "1-E02-T07"
+purpose = "PrepareInput and PrepareOutput"
+
+[[uses]]
+interface = "service-reviewer/modell-ausgabeschemas"
+from_task = "1-E02-T07"
+purpose = "GateModelOutputSchema for models.gate"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "1-E02-T07"
+purpose = "Load gate.md with prompt_v"
+
+[[uses]]
+interface = "service-reviewer/job-arten"
+from_task = "1-E02-T07"
+purpose = "Handler of the registered kind reviewer.prepare replaces the fake"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "1-E02-T07"
+purpose = "JobHandler and JobContext with sandbox and model"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "1-E02-T07"
+purpose = "SandboxHandle exec, copyIn, copyOut, destroy"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "1-E02-T07"
+purpose = "generate with outputSchema for the gate model"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "1-E02-T07"
+purpose = "PR title and description as untrusted in the gate prompt"
+
+[[uses]]
+interface = "worker/item-lebenszyklus"
+from_task = "1-E02-T07"
+purpose = "Clone with profile read, destroy in finally"
+
+[[uses]]
+interface = "plugin-github/mint-token"
+from_task = "1-E02-T07"
+purpose = "cloneSpec with profile read, token discarded afterwards"
+
+[[uses]]
+interface = "container-images/image.sandbox-base"
+from_task = "1-E02-T07"
+purpose = "Image with gw-review-context for the prepare job"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-diff"
+from_task = "1-E02-T07"
+purpose = "Diff, hunks, line mapping in the prepare job"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-symbols"
+from_task = "1-E02-T07"
+purpose = "Symbols, neighborhood and callers in the prepare job"
+
+[[uses]]
+interface = "guidelines/lader-stufe-1"
+from_task = "1-E02-T07"
+purpose = "Guidelines from the base SHA in the prepare job"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "1-E02-T07"
+purpose = "recorded response of the gate model in the test prepare.output_matches_schema"

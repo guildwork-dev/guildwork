@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "prozess-abnahme-stufe-8"
+title = "Documentation fixtures instead of accounts, optional owner runs, qualification, stage report and release for stage 8"
+kind = "process"
+path = "-"
+stage = "8"
+purpose = "Work without own product code: fixtures and cassettes from the public documentation for Jira and the cloud providers (O28, 13 FE-1366), runner repo and dispatch app on the owner's GitHub account, apply workflows; Jira test site, cloud accounts, real OpenTofu applies and qualification runs per combination only as optional owner runs; suites, stage report and signed release of stage 8. Builds no plugins or drivers; costs money only with the owner's go (O22)."
+design = [
+  "13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets",
+  "13-stage-8-providers-and-bases.md#27-qualification-and-acceptance-8-e06",
+  "13-stage-8-providers-and-bases.md#86-price-tables-qualification-acceptance-8-e06",
+  "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8",
+]
+built_by = ["8-E01-T01", "8-E02-T01", "8-E04-T10", "8-E05-T01", "8-E06-T02", "8-E06-T03"]
+
+[[provides]]
+name = "jira-testsite"
+kind = "file"
+title = "Jira cassettes and webhook or relay fixtures from the public documentation (05 FE-564) with source URL and read date; optionally (owner run, O28) a note on the Jira test site, automation rule and Atlassian OAuth app, secrets only in the SecretStore of the test installation"
+defined_in = "13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets"
+from_task = "8-E01-T01"
+
+[[provides]]
+name = "cloud-konten"
+kind = "file"
+title = "Cassettes and token fixtures per provider (Claude API WIF, Bedrock, Vertex, Foundry) from the public documentation (05 FE-564); optionally (owner run, O28) a note per provider with federation rule or role"
+defined_in = "13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets"
+from_task = "8-E02-T01"
+
+[[provides]]
+name = "runner-repo-und-dispatch-app"
+kind = "file"
+title = "Note on runner repo, dispatch app (only actions write, only on the runner repo, API query of the installations) and runner choice without paid runners"
+defined_in = "13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets"
+from_task = "8-E05-T01"
+
+[[provides]]
+name = "tofu-applies"
+kind = "file"
+title = "Workflows .github/workflows/tofu-apply-aws.yml, tofu-apply-gcp.yml, tofu-apply-hetzner.yml (only workflow_dispatch, environment with required reviewer); evidence of real applies only from optional owner runs (O28), otherwise a note in the stage report"
+defined_in = "13-stage-8-providers-and-bases.md#28-owner-steps-and-decision-sheets"
+from_task = "8-E04-T10"
+
+[[provides]]
+name = "qualifikation-stufe-8"
+kind = "file"
+title = "eval/reports/stufe-8-qualifikation.md and rows in qualification per new combination with Gate A and Gate B status or adoption note, costs per run with source"
+defined_in = "13-stage-8-providers-and-bases.md#27-qualification-and-acceptance-8-e06"
+from_task = "8-E06-T02"
+
+[[provides]]
+name = "suite-faelle-stufe-8"
+kind = "file"
+title = "Suite cases with from_stage 8 that do not depend on a build task: S1-credential-exfiltration-<kind> per new kind and S8-upgrade-from-stage-2-or-0b"
+defined_in = "13-stage-8-providers-and-bases.md#87-suite-cases-of-stage-8"
+from_task = "8-E06-T03"
+
+[[provides]]
+name = "stufenbericht-und-release"
+kind = "file"
+title = "docs/berichte/stufe-8.md with every done criterion from 08 stage 8 and evidence, signed release with SBOM, BUILT_STAGES extended by 8"
+defined_in = "13-stage-8-providers-and-bases.md#27-qualification-and-acceptance-8-e06"
+from_task = "8-E06-T03"
+
+[[uses]]
+interface = "credential-broker/oidc-endpunkte"
+from_task = "8-E02-T01"
+purpose = "Issuer URL and JWKS of the test installation for the token fixtures and the optional federation rules"
+
+[[uses]]
+interface = "tofu-cloud-module/modul-aws"
+from_task = "8-E04-T10"
+purpose = "Apply of the module aws"
+
+[[uses]]
+interface = "tofu-cloud-module/modul-gcp"
+from_task = "8-E04-T10"
+purpose = "Apply of the module gcp"
+
+[[uses]]
+interface = "tofu-cloud-module/modul-hetzner"
+from_task = "8-E04-T10"
+purpose = "Apply of the module hetzner"
+
+[[uses]]
+interface = "tofu-azure/azure-apply-workflow"
+from_task = "8-E04-T10"
+purpose = "Template of the apply workflows with environment and required reviewer"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "8-E04-T10"
+purpose = "tofu-apply-*.yml pass the workflow policy"
+
+[[uses]]
+interface = "portabilitaetstest/smoke"
+from_task = "8-E04-T10"
+purpose = "Smoke test after the apply"
+
+[[uses]]
+interface = "cli-doctor/cmd-doctor"
+from_task = "8-E04-T10"
+purpose = "doctor --strict on the throwaway environment"
+
+[[uses]]
+interface = "workflow-policy/policy-toml"
+from_task = "8-E05-T01"
+purpose = "Runner choice without paid runners (allowed_runners)"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "8-E06-T02"
+purpose = "Qualification row per combination with Gate A and Gate B"
+
+[[uses]]
+interface = "eval-qualifikation/referenz-dienst"
+from_task = "8-E06-T02"
+purpose = "Adoption of the reference qualification"
+
+[[uses]]
+interface = "eval-dienst/tabellen-qualifikation"
+from_task = "8-E06-T02"
+purpose = "Rows in qualification and qualification_adoptions"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "8-E06-T02"
+purpose = "Measurement runs with the eval runner"
+
+[[uses]]
+interface = "eval-gates/gates-reviewer"
+from_task = "8-E06-T02"
+purpose = "Gate A of the reviewer"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "8-E06-T02"
+purpose = "qualification_key_nocred for the adoption"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "8-E06-T02"
+purpose = "Report eval/reports/stufe-8-qualifikation.md"
+
+[[uses]]
+interface = "pricing/price-lookup"
+from_task = "8-E06-T02"
+purpose = "Costs per run with source price_table"
+
+[[uses]]
+interface = "eval-querschnitts-suites/cli-suites"
+from_task = "8-E06-T03"
+purpose = "guildwork-eval suites --stage 8"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "8-E06-T03"
+purpose = "Cases with from_stage 8"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-bericht"
+from_task = "8-E06-T03"
+purpose = "Suite report as evidence in the stage report"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "8-E06-T03"
+purpose = "S1-credential-exfiltration per new kind"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "8-E06-T03"
+purpose = "S8-upgrade-from-stage-2-or-0b"
+
+[[uses]]
+interface = "release-werkzeuge/release-workflow"
+from_task = "8-E06-T03"
+purpose = "Signed release with SBOM"
+
+[[uses]]
+interface = "effect-gateway/katalog-waechter"
+from_task = "8-E06-T03"
+purpose = "BUILT_STAGES extended by 8"

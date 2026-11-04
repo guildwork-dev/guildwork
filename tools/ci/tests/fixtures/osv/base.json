@@ -1,0 +1,75 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/repo/pnpm-lock.yaml",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "minimatch",
+            "version": "10.2.6",
+            "ecosystem": "npm",
+            "purl": "pkg:npm/minimatch@10.2.6"
+          },
+          "groups": [
+            {
+              "ids": ["GHSA-g3hv-75wg-m249"],
+              "aliases": ["CVE-2026-118764", "GHSA-g3hv-75wg-m249"],
+              "max_severity": "6.9"
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "id": "GHSA-g3hv-75wg-m249",
+              "aliases": ["CVE-2026-118764"],
+              "summary": "minimatch has potential denial of service via globparts amplification",
+              "modified": "2026-10-30T23:15:07.420159385Z",
+              "published": "2026-10-30T23:09:55Z",
+              "schema_version": "1.9.2",
+              "affected": [
+                {
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/10/GHSA-g3hv-75wg-m249/GHSA-g3hv-75wg-m249.json"
+                  },
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "minimatch",
+                    "purl": "pkg:npm/minimatch"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "11.0.1"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": ["CWE-405"],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-10-30T23:09:55Z",
+                "nvd_published_at": "2026-10-29T17:18:07Z",
+                "severity": "MODERATE"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "experimental_config": {
+    "licenses": {
+      "summary": false,
+      "allowlist": null
+    }
+  }
+}

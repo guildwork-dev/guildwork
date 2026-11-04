@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-kb-zoekt"
+title = "KnowledgeStore Zoekt"
+kind = "plugin"
+path = "plugins/kb-zoekt/"
+package = "@guildwork/plugin-kb-zoekt"
+stage = "9"
+purpose = "Additional lexical search leg across many repos (trigram and regex) as a KnowledgeStore with search only; the worker builds the shards, the service zoekt has neither a token nor an outbound network. Not: replacement for pg-kb, own clone with token (FE-1441)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#272-zoekt-as-a-knowledgestore",
+  "14-stage-9-breadth-and-hardening.md#5-failure-and-abort-paths",
+  "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07",
+]
+built_by = ["9-E07-T02"]
+
+[[provides]]
+name = "knowledge-store"
+kind = "contract"
+title = "KnowledgeStore Zoekt with LEXICAL_MULTI_REPO, FTS and CROSS_REPO; query.search and applyIncrement (layer zoekt), remaining methods unsupported (ZoektConfig, ZoektSearchRequest)"
+defined_in = "14-stage-9-breadth-and-hardening.md#272-zoekt-as-a-knowledgestore"
+from_task = "9-E07-T02"
+
+[[provides]]
+name = "indexer-schicht-zoekt"
+kind = "ts-api"
+title = "Indexer layer zoekt (services/indexer/src/zoekt/): work item indexer.zoekt (ZoektIndexJobInput, ZoektIndexJobOutput) in the worker, stored via applyIncrement in the index volume with meta.json"
+defined_in = "14-stage-9-breadth-and-hardening.md#272-zoekt-as-a-knowledgestore"
+from_task = "9-E07-T02"
+
+[[provides]]
+name = "konfig-zoekt"
+kind = "config"
+title = "services.<id>.knowledge.zoekt (x-qualification), plugins.knowledge as a list with entry kb-zoekt (FE-1451), Helm switch zoekt.enabled and Compose profile zoekt (deploy/compose/profiles/zoekt.yaml)"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E07-T02"
+
+[[provides]]
+name = "kb-zoekt-errors-total"
+kind = "metric"
+title = "guildwork.kb.zoekt_errors with stage (build, search): failures of the service zoekt, search degrades to pg-kb"
+defined_in = "14-stage-9-breadth-and-hardening.md#51-metrics-of-this-area"
+from_task = "9-E07-T02"
+
+[[uses]]
+interface = "contracts/vertrag-knowledge-store-learnings"
+from_task = "9-E07-T02"
+purpose = "KnowledgeStore v1alpha1 with query.search only"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "9-E07-T02"
+purpose = "New capability LEXICAL_MULTI_REPO"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E07-T02"
+purpose = "Manifest with egress only to the service zoekt"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E07-T02"
+purpose = "PluginContext with ctx.http"
+
+[[uses]]
+interface = "kb/hybride-suche"
+from_task = "9-E07-T02"
+purpose = "SearchRequest, SearchHit and rrf for the third leg"
+
+[[uses]]
+interface = "kb/layer-delta"
+from_task = "9-E07-T02"
+purpose = "Shards as the artifact of an indexer job"
+
+[[uses]]
+interface = "indexer-schichten/indexer-controller"
+from_task = "9-E07-T02"
+purpose = "Plan the shard build"
+
+[[uses]]
+interface = "indexer-schichten/delta-annahme"
+from_task = "9-E07-T02"
+purpose = "Storage via applyIncrement in the index volume"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "9-E07-T02"
+purpose = "Indexer job zoekt in the worker"
+
+[[uses]]
+interface = "worker/worker-steps"
+from_task = "9-E07-T02"
+purpose = "Deterministic step for the shard build"
+
+[[uses]]
+interface = "plugin-pg-kb/query-search"
+from_task = "9-E07-T02"
+purpose = "Fusion with the search result of pg-kb"
+
+[[uses]]
+interface = "plattform-mcp/kb"
+from_task = "9-E07-T02"
+purpose = "kb.search additionally queries zoekt"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/is-visible-for"
+from_task = "9-E07-T02"
+purpose = "Visibility filter for Zoekt hits"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "9-E07-T02"
+purpose = "Key services.<id>.knowledge.zoekt with x-qualification"
+
+[[uses]]
+interface = "compose-buendel/compose-fragmente"
+from_task = "9-E07-T02"
+purpose = "Compose profile zoekt"
+
+[[uses]]
+interface = "helm-chart/werte"
+from_task = "9-E07-T02"
+purpose = "Helm switch zoekt.enabled"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "9-E07-T02"
+purpose = "License gate for the Zoekt image"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "9-E07-T02"
+purpose = "Metric kb_zoekt_errors_total"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E07-T02"
+purpose = "Contract suite kb-zoekt"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E07-T02"
+purpose = "E2E kb search via zoekt"
+
+[[uses]]
+interface = "indexer-schichten/konfig-l1"
+from_task = "9-E07-T02"
+purpose = "services.indexer.max_file_bytes for the shard build"

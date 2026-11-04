@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Python environment of the repository tools (FE-004). The tools themselves use
+# the standard library only; the dev group holds the checkers that run on them.
+# Pinned binaries (uv, gitleaks, opengrep, osv-scanner, actionlint) are not
+# Python packages; they live in tools/bootstrap/tools.toml (FE-005).
+
+[project]
+name = "guildwork-tools"
+version = "0.0.0"
+description = "Repository tools of Guildwork: quality gates, bootstrap and plan checks."
+license = "Apache-2.0"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "check-jsonschema==0.38.2",
+  "mypy==2.4.0",
+  "pre-commit==4.7.0",
+  "pre-commit-hooks==6.0.0",
+  "ruff==0.17.2",
+  "zizmor==1.31.1",
+]
+
+[tool.uv]
+# The repository is not an installable package; uv only manages .venv/.
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["."]
+include = ["tools/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tools"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["tools"]

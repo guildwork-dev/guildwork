@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# The maintainers team owns the whole repository (see GOVERNANCE.md).
+# Pull requests request a review from the maintainers. The ruleset requires
+# a code owner approval only once there is a second maintainer (GOVERNANCE.md).
+
+* @guildwork-dev/maintainers
+
+# Quality gates, CI, rules and license files. Listed on their own so that
+# they stay with the maintainers even if area owners are added above.
+/tools/ @guildwork-dev/maintainers
+/quality/ @guildwork-dev/maintainers
+/.github/ @guildwork-dev/maintainers
+/.opengrep/ @guildwork-dev/maintainers
+/.gitleaks.toml @guildwork-dev/maintainers
+/Makefile @guildwork-dev/maintainers
+/LICENSE @guildwork-dev/maintainers
+/LICENSES/ @guildwork-dev/maintainers
+/NOTICE @guildwork-dev/maintainers
+/GOVERNANCE.md @guildwork-dev/maintainers
+/SECURITY.md @guildwork-dev/maintainers

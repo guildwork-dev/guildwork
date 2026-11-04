@@ -1,0 +1,214 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "lokaler-review"
+title = "Local review via CLI with NDJSON and remote execution"
+kind = "service"
+path = "services/reviewer/src/local/"
+package = "@guildwork/service-reviewer"
+stage = "6"
+purpose = "Reviewer as a library with a local input (merge base, uncommitted changes, rules from the default branch) and the command guildwork review --local with NDJSON v1; with --remote a work item run origin cli via upload and event stream, without permitted write requests. Not here: dev token and login (entwickler-mcp) and the review pipeline itself (08)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli",
+  "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats",
+  "09-reviewer-companion-features-and-learnings.md#34-endpoints",
+  "09-reviewer-companion-features-and-learnings.md#44-local-review",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E04-T01", "6-E04-T02", "6-E04-T03"]
+
+[[provides]]
+name = "lokaler-eingang"
+kind = "ts-api"
+title = "LocalReviewInput, buildLocalInput(cwd, opts), runLocalReview(input, rt, out, signal), LocalRuntime"
+defined_in = "09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli"
+from_task = "6-E04-T01"
+
+[[provides]]
+name = "cli-review-local"
+kind = "cli"
+title = "guildwork review --local [--uncommitted] [--base] [--format ndjson|text] [--min-severity] with exit codes 0, 1, 2 (FE-917)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli"
+from_task = "6-E04-T02"
+
+[[provides]]
+name = "ndjson-v1"
+kind = "file"
+title = "NDJSON v1 (NdjsonEvent finding, heartbeat, complete; LocalFinding), schema in packages/contracts (FE-918)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli"
+from_task = "6-E04-T02"
+
+[[provides]]
+name = "http-remote-review"
+kind = "http"
+title = "POST /api/v1/uploads, POST /api/v1/reviews/local, GET /api/v1/reviews/local/:runId/events (dev token review:remote)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "6-E04-T03"
+
+[[provides]]
+name = "cli-review-remote"
+kind = "cli"
+title = "Option --remote of guildwork review --local (upload of bundle and patch, event stream)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli"
+from_task = "6-E04-T03"
+
+[[provides]]
+name = "work-item-local"
+kind = "queue"
+title = "Remote run reviewer.local: full review run with origin cli, work items with input.workspace (bundleRef, patchRef, mergeBase, headSha, rulesSha), no effects (FE-947, FE-958)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#33-envelopes-and-formats"
+from_task = "6-E04-T03"
+
+[[provides]]
+name = "metrik-remote-rejected"
+kind = "metric"
+title = "guildwork.local_review.remote_rejected"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E04-T03"
+
+[[provides]]
+name = "agent-prompt"
+kind = "ts-api"
+title = "renderAgentPrompt(f): fixed text for LocalFinding.agentPrompt and findings.fix_prompt (FE-957)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#26-local-review-via-cli"
+from_task = "6-E04-T01"
+
+[[uses]]
+interface = "reviewer-bibliothek/review-change"
+from_task = "6-E04-T01"
+purpose = "the same pipeline as the PR review"
+
+[[uses]]
+interface = "reviewer-bibliothek/review-executor"
+from_task = "6-E04-T01"
+purpose = "Port ReviewExecutor, here LocalExecutor"
+
+[[uses]]
+interface = "reviewer-befunde/fingerprint-v1"
+from_task = "6-E04-T01"
+purpose = "the same fingerprints locally and in the PR"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "6-E04-T01"
+purpose = "PrepareInput, FindInput, VerifyInput in the process"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "6-E04-T01"
+purpose = "Finding and ReviewRequest"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-diff"
+from_task = "6-E04-T01"
+purpose = "Merge base diff and hunks locally"
+
+[[uses]]
+interface = "guidelines/lader-stufe-1"
+from_task = "6-E04-T01"
+purpose = "Rules from the state origin/<default>"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "6-E04-T01"
+purpose = "Configuration of the repo at the rulesSha"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "6-E04-T01"
+purpose = "FileChange"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "6-E04-T02"
+purpose = "Command review in the CLI with exit codes"
+
+[[uses]]
+interface = "cli/sea-binary"
+from_task = "6-E04-T02"
+purpose = "Reviewer library in the CLI binary"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "6-E04-T02"
+purpose = "Schema NDJSON v1 in packages/contracts"
+
+[[uses]]
+interface = "plugin-model-claude-cli/model-provider"
+from_task = "6-E04-T02"
+purpose = "Single calls via the local claude"
+
+[[uses]]
+interface = "contract-harness/fake-claude"
+from_task = "6-E04-T02"
+purpose = "Tests without a real claude"
+
+[[uses]]
+interface = "entwickler-mcp/dev-token-pruefung"
+from_task = "6-E04-T03"
+purpose = "Dev token with scope review:remote"
+
+[[uses]]
+interface = "entwickler-mcp/cli-login"
+from_task = "6-E04-T03"
+purpose = "Server and token from guildwork login"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "6-E04-T03"
+purpose = "Endpoints /api/v1/uploads and /api/v1/reviews/local in the role web"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "6-E04-T03"
+purpose = "presignPut for bundle and patch"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "6-E04-T03"
+purpose = "BlobStore of the installation"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.blob-refs"
+from_task = "6-E04-T03"
+purpose = "Upload with an expiry of 24 hours"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "6-E04-T03"
+purpose = "command.origin cli on the event of the remote run"
+
+[[uses]]
+interface = "control-plane-orchestrator/create-run"
+from_task = "6-E04-T03"
+purpose = "Create the run of the Reviewer with origin cli"
+
+[[uses]]
+interface = "service-reviewer/controller"
+from_task = "6-E04-T03"
+purpose = "Run with input.workspace instead of a clone"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "6-E04-T03"
+purpose = "no permitted write request with origin cli (FE-947)"
+
+[[uses]]
+interface = "limit-ledger/reserve"
+from_task = "6-E04-T03"
+purpose = "Limits of the user"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "6-E04-T03"
+purpose = "Audit of rejected remote runs"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E04-T03"
+purpose = "Metric local_review.remote_rejected"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "6-E04-T03"
+purpose = "API tests against real Postgres"

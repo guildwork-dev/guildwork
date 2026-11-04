@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-analyzer-trivy"
+title = "Analyzer trivy"
+kind = "plugin"
+path = "plugins/analyzer-trivy/"
+package = "@guildwork/plugin-analyzer-trivy"
+stage = "2"
+purpose = "Analyzer plugin for trivy (dependencies and IaC) with an offline database like osv-scanner. Not: container image scans of the releases (stage R)."
+design = ["10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"]
+built_by = ["2-E05-T06"]
+
+[[provides]]
+name = "analyzer-vertrag"
+kind = "contract"
+title = "Implementation of the analyzer contract v1alpha1 (mode run, manifest, image deploy/images/analyzer-trivy by digest, offline), contract suite AN1 with 20 fixture repos"
+defined_in = "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins"
+from_task = "2-E05-T06"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E05-T06"
+purpose = "Implement the analyzer contract v1alpha1 (run, describe, AnalyzerManifestExt)"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "2-E05-T06"
+purpose = "Plugin manifest with license, distribution bundled, offline"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "2-E05-T06"
+purpose = "Contract suite AN1 with 20 fixture repos"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "2-E05-T06"
+purpose = "Fingerprints and required fields of the SARIF output"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "2-E05-T06"
+purpose = "Execution in the tool sandbox without network"
+
+[[uses]]
+interface = "container-images/image.analyzer-trivy"
+from_task = "2-E05-T06"
+purpose = "Image by digest"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "2-E05-T06"
+purpose = "License gate of the image"
+
+[[uses]]
+interface = "analyzer-runner/offline-db"
+from_task = "2-E05-T06"
+purpose = "Offline database volume like osv-scanner"

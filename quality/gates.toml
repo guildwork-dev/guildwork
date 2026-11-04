@@ -1,0 +1,245 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# The only list of quality gates (FE-006). tools/ci/gates.py checks the Makefile
+# against it, generates docs/quality/gates.md from it and runs `make check` and
+# the group targets from it; `make help` prints the descriptions below.
+#
+# [[gate]]    a quality gate, built by `make <make>`
+#   name         unique name of the gate
+#   make         make target that runs the gate
+#   ci_job       CI job that runs it: ts, tools, security, denylist, or none
+#   in_check     true: part of `make check` and of the group check-<ci_job>
+#   fork         pull requests from forks: same, generic (generic rules only), skip
+#   tool         tools the gate runs
+#   description  one line for `make help` and docs/quality/gates.md
+# [[target]]  any other make target, with name and description
+#
+# `make check` builds the gates with in_check = true in the order of this file.
+# Later plan tasks add their gates here and their rules to the Makefile.
+
+[[target]]
+name = "help"
+description = "List every make target with its description"
+
+[[target]]
+name = "bootstrap"
+description = "Install pinned binaries, Node.js and Python dependencies and git hooks"
+
+[[target]]
+name = "check"
+description = "Run every gate of make check in order; stop at the first failure"
+
+[[target]]
+name = "check-ts"
+description = "Run the gates of make check that belong to the CI job ts"
+
+[[target]]
+name = "check-tools"
+description = "Run the gates of make check that belong to the CI job tools"
+
+[[target]]
+name = "check-security"
+description = "Run the gates of make check that belong to the CI job security"
+
+[[gate]]
+name = "fmt"
+make = "fmt"
+ci_job = "none"
+in_check = false
+fork = "skip"
+tool = "biome format --write, ruff format"
+description = "Format TypeScript, JSON and the Python tools in place"
+
+[[gate]]
+name = "fmt-check"
+make = "fmt-check"
+ci_job = "ts"
+in_check = true
+fork = "same"
+tool = "biome format, ruff format --check"
+description = "Check formatting without writing"
+
+[[gate]]
+name = "lint"
+make = "lint"
+ci_job = "ts"
+in_check = true
+fork = "same"
+tool = "biome lint, eslint, ruff check"
+description = "Lint TypeScript (Biome, type-aware ESLint rules) and the Python tools"
+
+[[gate]]
+name = "typecheck"
+make = "typecheck"
+ci_job = "ts"
+in_check = true
+fork = "same"
+tool = "tsc -b, mypy"
+description = "Type check TypeScript project references and the Python tools"
+
+[[gate]]
+name = "test"
+make = "test"
+ci_job = "ts"
+in_check = true
+fork = "same"
+tool = "vitest (unit, integration, contract) with a JUnit report"
+description = "Run the unit, integration and contract tests of the TypeScript packages; no e2e"
+
+[[gate]]
+name = "coverage"
+make = "coverage"
+ci_job = "ts"
+in_check = true
+fork = "same"
+tool = "vitest --coverage"
+description = "Run the TypeScript tests with the thresholds of quality/coverage.json"
+
+[[gate]]
+name = "layers"
+make = "layers"
+ci_job = "ts"
+in_check = true
+fork = "same"
+tool = "tools/ci/check_layers.py"
+description = "Workspace dependency rules from quality/layers.toml"
+
+[[gate]]
+name = "gates"
+make = "gates"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/ci/gates.py"
+description = "Check the Makefile and docs/quality/gates.md against quality/gates.toml"
+
+[[gate]]
+name = "commitlint"
+make = "commitlint"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/hooks/commit_msg.py"
+description = "Check the commits of COMMIT_RANGE (default main..HEAD): Conventional Commits, DCO sign-off, Plan-Task"
+
+[[gate]]
+name = "gitleaks"
+make = "gitleaks"
+ci_job = "security"
+in_check = true
+fork = "same"
+tool = "gitleaks git with .gitleaks.toml"
+description = "Scan the commits of GITLEAKS_LOG_OPTS for secrets (default rules plus Anthropic credentials)"
+
+[[gate]]
+name = "osv"
+make = "osv"
+ci_job = "security"
+in_check = true
+fork = "same"
+tool = "osv-scanner, tools/ci/osv_diff.py"
+description = "Known vulnerabilities in the lockfiles; with OSV_BASE only new findings fail"
+
+[[gate]]
+name = "workflows"
+make = "workflows"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/ci/check_workflows.py, check-jsonschema (renovate.json), actionlint, zizmor --offline"
+description = "Workflow policy from quality/ci/policy.toml, the Renovate schema on renovate.json, then actionlint and zizmor"
+
+[[gate]]
+name = "licenses"
+make = "licenses"
+ci_job = "security"
+in_check = true
+fork = "same"
+tool = "tools/ci/license_check.py, tools/ci/third_party_notices.py --check"
+description = "License file, SPDX headers, dependency licenses, LICENSES texts, ADR-39 lockfile test, notices"
+
+[[gate]]
+name = "notices"
+make = "notices"
+ci_job = "none"
+in_check = false
+fork = "skip"
+tool = "tools/ci/third_party_notices.py --write"
+description = "Regenerate THIRD_PARTY_NOTICES from the lockfiles and adopted files"
+
+[[gate]]
+name = "denylist"
+make = "denylist"
+ci_job = "denylist"
+in_check = true
+fork = "generic"
+tool = "tools/denylist/scan.py tree commits, and pr when PR_TITLE is set"
+description = "Scan the tree, the commits of COMMIT_RANGE and PR_TITLE and PR_BODY for private terms and instance data; needs DENYLIST_FILE and ALLOW_AUTHORS_FILE or DENYLIST_FLAGS=--allow-missing"
+
+[[gate]]
+name = "denylist-history"
+make = "denylist-history"
+ci_job = "none"
+in_check = false
+fork = "skip"
+tool = "tools/denylist/scan.py history tree"
+description = "Scan every commit, object and ref name of the history and the tree for private terms and instance data"
+
+[[gate]]
+name = "opengrep"
+make = "opengrep"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "opengrep scan, tools/ci/opengrep_test.py"
+description = "Scan with the own Opengrep rules, then run their rule tests"
+
+[[gate]]
+name = "scancode"
+make = "scancode"
+ci_job = "none"
+in_check = false
+fork = "skip"
+tool = "ScanCode Toolkit over the files of HEAD, tools/ci/scancode_policy.py"
+description = "License scan of the committed tree (V6, before a release); SCANCODE_RUNNER=container or local"
+
+[[gate]]
+name = "text-rules"
+make = "text-rules"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/hooks/text_rules.py"
+description = "Text rules on every tracked file: no dashes, English docs, glossary, instance data"
+
+[[gate]]
+name = "links"
+make = "links"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/hooks/links.py"
+description = "Relative links and anchors of the tracked Markdown files; no links to private paths"
+
+[[gate]]
+name = "plan"
+make = "plan"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/plan/plan.py check"
+description = "Check the work plan and the component catalog; overview and build book must be up to date"
+
+[[gate]]
+name = "test-tools"
+make = "test-tools"
+ci_job = "tools"
+in_check = true
+fork = "same"
+tool = "tools/ci/junit_unittest.py (unittest discovery under tools/)"
+description = "Run the Python tests of the repository tools with a JUnit report"
+
+[[target]]
+name = "workflows-dry-run"
+description = "Step R4: ci_ok.py fixtures, check_workflows.py --strict and every workflow job in a fresh clone with its job env"

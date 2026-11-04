@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "ui-run-record"
+title = "Run Record per run with read model and provenance marker"
+kind = "ui"
+path = "apps/admin-ui/src/pages/RunRecord.tsx"
+package = "@guildwork/admin-ui"
+stage = "1"
+purpose = "Read model RunRecordView from the tables of the control plane with redaction, endpoints for list, single view and export as well as the pages Runs and Run Record with deep link for status comments; writes nothing and does not compute the provenance marker itself (that is delivered by 2-E01-T12 from area 10)."
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1", "06-installation-operations-ui.md#33-origin-of-the-run-record-fields", "06-installation-operations-ui.md#261-pages-of-the-admin-ui"]
+built_by = ["1-E08-T01", "1-E08-T02", "2-E01-T12", "9-E01-T03"]
+
+[[provides]]
+name = "runs-api"
+kind = "http"
+title = "GET /admin/api/v1/runs (filter, cursor), GET /admin/api/v1/runs/{runId}, GET /admin/api/v1/runs/{runId}/export (approver)"
+defined_in = "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"
+from_task = "1-E08-T01"
+
+[[provides]]
+name = "run-record-view"
+kind = "ts-api"
+title = "RunRecordView and RunSummary with assembly per field from 3.3 and redaction before output; serviceNotes from artifacts with type suffix RunNotes (reviewer: ReviewerRunNotes, FE-655)"
+defined_in = "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"
+from_task = "1-E08-T01"
+
+[[provides]]
+name = "trigger-signatur"
+kind = "http"
+title = "RunRecordView.trigger.signature { scheme, strength } from events.signature of the triggering event (14 section 2.1.1 rule 7), additive"
+defined_in = "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"
+from_task = "9-E01-T03"
+
+[[provides]]
+name = "seite-run-record"
+kind = "ui"
+title = "Pages /admin/runs and /admin/runs/{runId} (deep link, link target of the run ID in the status comment)"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "1-E08-T02"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "1-E08-T01"
+purpose = "Register endpoints /runs"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "1-E08-T01"
+purpose = "Roles viewer and approver"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "1-E08-T01"
+purpose = "Header, trigger, foreign_input_seen, traceparent"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.steps"
+from_task = "1-E08-T01"
+purpose = "Steps, versions and isolation"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.work-items"
+from_task = "1-E08-T01"
+purpose = "Envelope and claim report"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "1-E08-T01"
+purpose = "Effects with provider response ID"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "1-E08-T01"
+purpose = "Approvals"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "1-E08-T01"
+purpose = "Costs and tokens"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservations"
+from_task = "1-E08-T01"
+purpose = "open reservations"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "1-E08-T01"
+purpose = "configHash, qualificationKey, standardNotProven"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit"
+from_task = "1-E08-T01"
+purpose = "Policy decisions and rights G0"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "1-E08-T01"
+purpose = "Tool calls from the transcript excerpt"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "1-E08-T01"
+purpose = "Redaction before output"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "1-E08-T02"
+purpose = "Pages /admin/runs and /admin/runs/{runId}"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "1-E08-T02"
+purpose = "Calls of the run endpoints"
+
+[[uses]]
+interface = "herkunft-foreign-input/provenance-dienst"
+from_task = "2-E01-T12"
+purpose = "Source and author of each foreign input"
+
+[[uses]]
+interface = "herkunft-foreign-input/tabelle-run-untrusted-inputs"
+from_task = "2-E01-T12"
+purpose = "Rows for foreignInputSeen"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.events"
+from_task = "9-E01-T03"
+purpose = "events.signature of the triggering event for trigger.signature"

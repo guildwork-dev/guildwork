@@ -1,0 +1,398 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-planner"
+title = "Planner: research, consistency, synthesis, plan verifier, critique, PlanArtifact"
+kind = "service"
+path = "services/planner/"
+package = "@guildwork/service-planner"
+stage = "2"
+purpose = "Turns a ticket or a description into a checked, versioned plan (PlanArtifact) with an agent prompt per phase, read-only; publishes it as a plan comment and processes human edits. Not: the approval G1 and the shadow of G1 (pipeline-ticket-to-pr) and not the clarity gate itself (clarity)."
+design = ["10-planner-architect-coder.md#210-planner-servicesplanner", "10-planner-architect-coder.md#41-planner-run", "10-planner-architect-coder.md#82-planner-and-clarity-gate-2-e02"]
+built_by = ["2-E02-T02", "2-E02-T03", "2-E02-T04", "2-E02-T05", "2-E02-T06", "2-E02-T07", "2-E02-T08", "2-E02-T10"]
+
+[[provides]]
+name = "manifest-planner"
+kind = "contract"
+title = "Service manifest planner: write requests propose_plan, propose_comment (ticket only), request_human_input; entry points controller and jobs"
+defined_in = "10-planner-architect-coder.md#62-permission-profiles-and-effects-per-service-stage-2"
+from_task = "2-E02-T02"
+
+[[provides]]
+name = "controller"
+kind = "ts-api"
+title = "planner.controller: steps planner.resolve_repo to planner.publish, deterministic without model (FE-1001)"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T02"
+
+[[provides]]
+name = "plan-request"
+kind = "ts-api"
+title = "PlanRequest (ticket, brief with attachments as reference, trigger, autonomy ceiling)"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T02"
+
+[[provides]]
+name = "befehl-plan"
+kind = "ui"
+title = "Command @agent plan in the ticket (starts a planner run)"
+defined_in = "10-planner-architect-coder.md#41-planner-run"
+from_task = "2-E02-T02"
+
+[[provides]]
+name = "konfig-planner"
+kind = "config"
+title = "services.planner.{mode, runtime, models, persist, persist_path, principles_path, verify, milestone_min_files, ask_timeout_h, step_timeouts} with x-qualification (without approval)"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E02-T02"
+
+[[provides]]
+name = "plan-artifact"
+kind = "ts-api"
+title = "PlanArtifact, PlanPhase, PlanQuestion, StaticVerification, RuleVerification, PlanCritique"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "plan-artifact-schema"
+kind = "file"
+title = "JSON Schema packages/contracts/schemas/artifacts/v1alpha1/PlanArtifact.json"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "plan-markdown"
+kind = "ts-api"
+title = "renderPlanMarkdown, parsePlanMarkdown, planHash (round-trip format with marker, FE-1004)"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "tabelle-plan-versions"
+kind = "table"
+title = "plan_versions (migration 0201)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "plan-blobs"
+kind = "file"
+title = "Plan versions t/<tenant>/runs/<runId>/plan/<planId>/v<n>.json and .md"
+defined_in = "10-planner-architect-coder.md#34-blobstore-keys"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "admin-api-plans"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/plans and GET /admin/api/v1/runs/{runId}/plans/{planId}/versions/{n}"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "mcp-plan-get"
+kind = "mcp-tool"
+title = "plan.get: approved plan version for architect and coder"
+defined_in = "10-planner-architect-coder.md#218-platform-mcp-tools-per-service-stage-2"
+from_task = "2-E02-T03"
+
+[[provides]]
+name = "research-result"
+kind = "ts-api"
+title = "ResearchResult (outputSchema of planner.research)"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T04"
+
+[[provides]]
+name = "prompt-research"
+kind = "prompt"
+title = "services/planner/prompts/research.v1.md"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T04"
+
+[[provides]]
+name = "consistency-report"
+kind = "ts-api"
+title = "ConsistencyReport with blocking and non-blocking questions"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T05"
+
+[[provides]]
+name = "prompt-consistency"
+kind = "prompt"
+title = "services/planner/prompts/consistency.v1.md"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T05"
+
+[[provides]]
+name = "prompt-synthesis"
+kind = "prompt"
+title = "services/planner/prompts/synthesis.v1.md"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T05"
+
+[[provides]]
+name = "prompt-verifier"
+kind = "prompt"
+title = "services/planner/prompts/verifier.v1.md"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T06"
+
+[[provides]]
+name = "prompt-critique"
+kind = "prompt"
+title = "services/planner/prompts/critique.v1.md"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T07"
+
+[[provides]]
+name = "persist-plan-file"
+kind = "ts-api"
+title = "persistPlanFile: plan file under persist_path for the first commit of the coder (FE-1005)"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T08"
+
+[[provides]]
+name = "befehl-plan-replace"
+kind = "ui"
+title = "Command @agent plan --replace and editing of the plan comment: new version humanEdited"
+defined_in = "10-planner-architect-coder.md#42-g1-manual-and-automatic"
+from_task = "2-E02-T08"
+
+[[provides]]
+name = "event-plan-ready"
+kind = "event"
+title = "plan.ready { runId, planId, version, hash, autoDecision }"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E02-T08"
+
+[[provides]]
+name = "metriken-planner"
+kind = "metric"
+title = "guildwork.planner.repo_unresolved, .clarity_questions, .schema_invalid, .verify_red, .critique_blocked, .parse_error and guildwork.g1.adjusted"
+defined_in = "10-planner-architect-coder.md#51-metrics-of-this-area"
+from_task = "2-E02-T08"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "2-E02-T02"
+purpose = "defineService with entry points controller and jobs"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "2-E02-T02"
+purpose = "ServiceController of the planner"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "2-E02-T02"
+purpose = "Step handlers of the work items"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "2-E02-T02"
+purpose = "registerControllers with planner.controller"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "2-E02-T02"
+purpose = "Service manifest planner"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E02-T02"
+purpose = "services.planner.* with x-qualification"
+
+[[uses]]
+interface = "config-resolver/repo-datei"
+from_task = "2-E02-T02"
+purpose = "repo_mapping and repo configuration at the base SHA"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E02-T02"
+purpose = "Command @agent plan"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "2-E02-T02"
+purpose = "RouteDecision with ticket, actor and rights"
+
+[[uses]]
+interface = "plugin-github-issues/issues-lesend"
+from_task = "2-E02-T02"
+purpose = "Ticket, comments and links for PlanRequest and resolve_repo"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "2-E02-T02"
+purpose = "Create work items of the planner steps"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "2-E02-T02"
+purpose = "Envelopes of the planner steps"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "2-E02-T02"
+purpose = "Write requests propose_plan, propose_comment, request_human_input allowed"
+
+[[uses]]
+interface = "effekt-executoren/human-input"
+from_task = "2-E02-T02"
+purpose = "Clarifying question repo_unknown on the ticket"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E02-T02"
+purpose = "Audit of the clarifying question repo_unknown"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "2-E02-T02"
+purpose = "prompt_v per stage in the profile contribution of the planner"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "2-E02-T03"
+purpose = "PlanArtifact as artifact row"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E02-T03"
+purpose = "Migration 0201 plan_versions"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E02-T03"
+purpose = "Repository plan_versions"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "2-E02-T03"
+purpose = "Plan versions as JSON and Markdown"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "2-E02-T03"
+purpose = "JSON Schema PlanArtifact from TypeBox"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E02-T03"
+purpose = "GET /admin/api/v1/runs/{runId}/plans and versions/{n}"
+
+[[uses]]
+interface = "plattform-mcp/tool-registry"
+from_task = "2-E02-T03"
+purpose = "Tool plan.get"
+
+[[uses]]
+interface = "agent-step/agent-step-runner"
+from_task = "2-E02-T04"
+purpose = "Agent phase planner.research"
+
+[[uses]]
+interface = "agent-step/prompt-builder"
+from_task = "2-E02-T04"
+purpose = "Ticket and comments as Untrusted in the research prompt"
+
+[[uses]]
+interface = "worker-sandbox-phasen/egress-policy"
+from_task = "2-E02-T04"
+purpose = "Egress only LLM relay and platform MCP"
+
+[[uses]]
+interface = "herkunft-foreign-input/untrusted-inputs-endpunkt"
+from_task = "2-E02-T04"
+purpose = "Reporting of the Untrusted inputs before the research start"
+
+[[uses]]
+interface = "plattform-mcp/item"
+from_task = "2-E02-T04"
+purpose = "item.get and item.comments for research"
+
+[[uses]]
+interface = "plattform-mcp/repo"
+from_task = "2-E02-T04"
+purpose = "repo.read_file and repo.list_files for research"
+
+[[uses]]
+interface = "plattform-mcp/propose"
+from_task = "2-E02-T04"
+purpose = "request_human_input in the base form propose_<type> with effect human_input"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "2-E02-T04"
+purpose = "Harness with nativeTools read"
+
+[[uses]]
+interface = "plugin-model-anthropic/model-provider"
+from_task = "2-E02-T05"
+purpose = "Single calls consistency, synthesis, verify_model, critique and clarity"
+
+[[uses]]
+interface = "clarity/clarity-api"
+from_task = "2-E02-T05"
+purpose = "Clarity gate in the step planner.clarity (FE-1076)"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E02-T06"
+purpose = "getFile at the base SHA in the static verifier"
+
+[[uses]]
+interface = "config-resolver-regeln/plan-kritik"
+from_task = "2-E02-T07"
+purpose = "models.critique required with max_autonomy high or full"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "2-E02-T08"
+purpose = "Write requests propose_plan and propose_comment"
+
+[[uses]]
+interface = "effekt-executoren/plan"
+from_task = "2-E02-T08"
+purpose = "Plan comment with marker and update per version"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "2-E02-T08"
+purpose = "Answers on parse errors"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "2-E02-T08"
+purpose = "Event plan.ready"
+
+[[uses]]
+interface = "telemetry/instrumente"
+from_task = "2-E02-T08"
+purpose = "Counters planner_* and schema_invalid"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "2-E02-T10"
+purpose = "S4 and S6 cases of the planner"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "2-E02-T10"
+purpose = "Planner run against a fixture repo with duration"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E02-T03"
+purpose = "canonicalJson and sha256Hex for planHash and planId"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E02-T08"
+purpose = "new counters of stage 2 in the metrics catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E02-T03"
+purpose = "real Postgres per test file for the migrations and repositories"

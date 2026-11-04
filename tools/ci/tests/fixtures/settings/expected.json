@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "retrieved": "2026-11-01",
+  "repository": "guildwork-dev/guildwork",
+  "note": "Copy of the expected-state file of the settings sheet (R-E05-T01), sections sources and evidence left out.",
+  "organization": {
+    "two_factor_requirement_enabled": true,
+    "default_repository_permission": "read",
+    "members_can_create_public_repositories": false,
+    "members_can_create_private_repositories": false,
+    "actions": {
+      "permissions": {
+        "enabled_repositories": "all",
+        "allowed_actions": "selected",
+        "sha_pinning_required": true
+      },
+      "selected_actions": {
+        "github_owned_allowed": true,
+        "verified_allowed": false,
+        "patterns_allowed": ["ossf/scorecard-action@*"]
+      },
+      "workflow": {
+        "default_workflow_permissions": "read",
+        "can_approve_pull_request_reviews": false
+      },
+      "fork_pr_contributor_approval": {
+        "approval_policy": "all_external_contributors"
+      }
+    }
+  },
+  "teams": {
+    "maintainers": {
+      "privacy": "closed",
+      "repository_permission": "push"
+    }
+  },
+  "repo": {
+    "visibility": "public",
+    "default_branch": "main",
+    "has_discussions": true,
+    "allow_squash_merge": true,
+    "allow_merge_commit": false,
+    "allow_rebase_merge": false,
+    "squash_merge_commit_title": "PR_TITLE",
+    "squash_merge_commit_message": "COMMIT_MESSAGES",
+    "web_commit_signoff_required": true
+  },
+  "security": {
+    "secret_scanning": "enabled",
+    "secret_scanning_push_protection": "enabled",
+    "private_vulnerability_reporting": true
+  },
+  "actions": {
+    "permissions": {
+      "enabled": true,
+      "allowed_actions": "selected",
+      "sha_pinning_required": true
+    },
+    "selected_actions": {
+      "github_owned_allowed": true,
+      "verified_allowed": false,
+      "patterns_allowed": ["ossf/scorecard-action@*"]
+    },
+    "workflow": {
+      "default_workflow_permissions": "read",
+      "can_approve_pull_request_reviews": false
+    },
+    "fork_pr_contributor_approval": {
+      "approval_policy": "all_external_contributors"
+    }
+  },
+  "variables": {
+    "GUILDWORK_VISIBILITY": "public"
+  },
+  "environments": {
+    "denylist": {
+      "secrets": ["ALLOW_AUTHORS", "DENYLIST"],
+      "reviewers": [],
+      "prevent_self_review": false,
+      "wait_timer": 0,
+      "deployment_branch_policy": null,
+      "deployment_branch_policies": []
+    },
+    "release": {
+      "secrets": [],
+      "reviewers": [
+        {
+          "type": "Team",
+          "slug": "maintainers"
+        }
+      ],
+      "prevent_self_review": false,
+      "wait_timer": 0,
+      "deployment_branch_policy": {
+        "protected_branches": false,
+        "custom_branch_policies": true
+      },
+      "deployment_branch_policies": [
+        {
+          "name": "v*",
+          "type": "tag"
+        }
+      ]
+    }
+  },
+  "rulesets": {
+    "main": {
+      "target": "branch",
+      "enforcement": "active",
+      "conditions": {
+        "ref_name": {
+          "include": ["~DEFAULT_BRANCH"],
+          "exclude": []
+        }
+      },
+      "bypass_actors": [],
+      "rules": {
+        "deletion": {},
+        "non_fast_forward": {},
+        "required_linear_history": {},
+        "required_signatures": {},
+        "pull_request": {
+          "allowed_merge_methods": ["squash"],
+          "required_approving_review_count": 0,
+          "require_code_owner_review": false,
+          "dismiss_stale_reviews_on_push": true,
+          "require_last_push_approval": false,
+          "required_review_thread_resolution": false
+        },
+        "required_status_checks": {
+          "required_status_checks": [
+            {
+              "context": "ci-ok",
+              "integration_id": 15368
+            }
+          ],
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false
+        }
+      }
+    }
+  }
+}

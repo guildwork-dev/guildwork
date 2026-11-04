@@ -1,0 +1,195 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "agent-ci"
+title = "CI on agent branches: check per claim and in doctor, agent_fork with command and contract test"
+kind = "role"
+path = "apps/control-plane/src/agent-ci/"
+package = "@guildwork/control-plane"
+stage = "2"
+purpose = "Enforces security.agent_ci: check of the CI variant on every claim of the coder (hook for QA and PR fixer) and in doctor with a cache by cacheKey, otherwise no_safe_ci; variant agent_fork with creation by the operator, push and PR from the fork and a real contract test. Not: the pure analysis of the workflow files (workflow-guard)."
+design = ["10-planner-architect-coder.md#49-check-securityagent_ci-per-claim", "10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard", "10-planner-architect-coder.md#220-cli-commands-and-doctor-checks-of-stage-2", "10-planner-architect-coder.md#86-ci-on-agent-branches-2-e06"]
+built_by = ["2-E06-T02", "2-E06-T03", "2-E06-T05", "2-E06-T06"]
+
+[[provides]]
+name = "konfig-agent-ci"
+kind = "config"
+title = "Configuration key security.agent_ci { mode, fork_owner }"
+defined_in = "10-planner-architect-coder.md#7-configuration"
+from_task = "2-E06-T02"
+
+[[provides]]
+name = "cli-agent-fork"
+kind = "cli"
+title = "guildwork agent-fork create --repo <r> [--fork-owner <o>] with the operator's token"
+defined_in = "10-planner-architect-coder.md#220-cli-commands-and-doctor-checks-of-stage-2"
+from_task = "2-E06-T02"
+
+[[provides]]
+name = "contract-status"
+kind = "file"
+title = "deploy/release/contract-status.json with the result of the contract test agent_fork (FE-1060)"
+defined_in = "10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"
+from_task = "2-E06-T02"
+
+[[provides]]
+name = "claim-pruefung"
+kind = "ts-api"
+title = "Check of security.agent_ci at the base SHA on every claim; result in the Run Record, no_safe_ci as BlockedReason"
+defined_in = "10-planner-architect-coder.md#49-check-securityagent_ci-per-claim"
+from_task = "2-E06-T03"
+
+[[provides]]
+name = "tabelle-agent-ci-checks"
+kind = "table"
+title = "agent_ci_checks (migration 0210)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E06-T03"
+
+[[provides]]
+name = "admin-api-agent-ci"
+kind = "http"
+title = "GET /admin/api/v1/repos/{repoId}/agent-ci and POST /admin/api/v1/repos/{repoId}/agent-ci/recheck"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E06-T03"
+
+[[provides]]
+name = "doctor-r02-agent-ci"
+kind = "cli"
+title = "doctor check R02-agent-ci per repo (doctor --repo, file apps/cli/src/doctor/checks/R02-agent-ci.ts; without --repo, D18 summarizes them) and internal-cli agent-ci check --repo"
+defined_in = "10-planner-architect-coder.md#220-cli-commands-and-doctor-checks-of-stage-2"
+from_task = "2-E06-T03"
+
+[[provides]]
+name = "event-agent-ci-checked"
+kind = "event"
+title = "agent_ci.checked { repo, baseSha, result, checkId }"
+defined_in = "10-planner-architect-coder.md#33-artifacts-and-events"
+from_task = "2-E06-T03"
+
+[[provides]]
+name = "suite-s1-s2-agent-ci"
+kind = "file"
+title = "eval/suites/s1/ci-agent-branches.test.ts and eval/suites/s2/no-safe-ci.test.ts"
+defined_in = "10-planner-architect-coder.md#86-ci-on-agent-branches-2-e06"
+from_task = "2-E06-T06"
+
+[[uses]]
+interface = "workflow-guard/workflow-guard-api"
+from_task = "2-E06-T02"
+purpose = "decideAgentCi for the variant agent_fork"
+
+[[uses]]
+interface = "plugin-github-scm/fork-ziele"
+from_task = "2-E06-T02"
+purpose = "forkInfo and syncFork, PR with head <fork_owner>:<branch>"
+
+[[uses]]
+interface = "effect-gateway/fork-ziele"
+from_task = "2-E06-T02"
+purpose = "Push and PR into the agent fork via the Effect Gateway"
+
+[[uses]]
+interface = "config-resolver-regeln/agent-fork"
+from_task = "2-E06-T02"
+purpose = "Resolver rule agent_fork only with passed in contract-status.json"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E06-T02"
+purpose = "security.agent_ci in the schema"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "2-E06-T02"
+purpose = "Command guildwork agent-fork create with exit codes"
+
+[[uses]]
+interface = "release-werkzeuge/release-json"
+from_task = "2-E06-T02"
+purpose = "contract-status.json next to release.json in the release"
+
+[[uses]]
+interface = "workflow-guard/agent-ci-check-schema"
+from_task = "2-E06-T03"
+purpose = "AgentCiCheck in the Run Record and in agent_ci_checks"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E06-T03"
+purpose = "Workflow files and blob SHAs at the base SHA"
+
+[[uses]]
+interface = "plugin-github-scm/environment-protection"
+from_task = "2-E06-T03"
+purpose = "Environment protection for cacheKey and analysis"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "2-E06-T03"
+purpose = "Check per claim in the step coder.prepare"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "2-E06-T03"
+purpose = "Item stays put with blocking reason no_safe_ci"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E06-T03"
+purpose = "Migration 0210 agent_ci_checks"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E06-T03"
+purpose = "Repository agent_ci_checks"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "2-E06-T03"
+purpose = "R02-agent-ci in the check registry (FE-642), D18 summarizes without --repo"
+
+[[uses]]
+interface = "cli-doctor/doctor-repo"
+from_task = "2-E06-T03"
+purpose = "Option --repo"
+
+[[uses]]
+interface = "admin-api/internal-cli-rahmen"
+from_task = "2-E06-T03"
+purpose = "internal-cli agent-ci check --repo --json"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E06-T03"
+purpose = "GET agent-ci and POST agent-ci/recheck"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E06-T03"
+purpose = "Audit agent_ci.checked and agent_ci.recheck"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "2-E06-T03"
+purpose = "Event agent_ci.checked"
+
+[[uses]]
+interface = "control-plane-orchestrator/status-comment-render"
+from_task = "2-E06-T03"
+purpose = "Status neutral with workflows and reasons"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "2-E06-T06"
+purpose = "Cases s1.ci_agent_branches and s2.no_safe_ci"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E06-T03"
+purpose = "New counters of stage 2 in the metric catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E06-T03"
+purpose = "Real Postgres per test file for the migrations and repositories"

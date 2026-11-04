@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Superseded terms, checked by the rule glossary of tools/hooks/text_rules.py
+# in every tracked text file (whole words, any case). This file itself is not
+# checked against them.
+#
+# [[term]]
+#   term    the superseded term
+#   use     the term to write instead
+#   reason  why the term was replaced
+
+[[term]]
+term = "whitelist"
+use = "allowlist"
+reason = "The project writes allowlist (quality/licenses/allowed.txt, CONTRIBUTING.md)"
+
+[[term]]
+term = "blacklist"
+use = "deny list"
+reason = "The project writes deny list (tools/denylist/, FE-023)"
+
+[[term]]
+term = "master branch"
+use = "main branch"
+reason = "The default branch is main"

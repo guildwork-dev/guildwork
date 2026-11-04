@@ -1,0 +1,213 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "config-resolver-regeln"
+title = "Resolver rules: harness pins, reachability, personal operator mode, plan critique, agent_fork, merge mode, relay proof, codex, data path"
+kind = "package"
+path = "packages/config/src/rules/"
+package = "@guildwork/config"
+stage = "0"
+purpose = "Pure check rules that the config resolver calls when loading the effective configuration and the orchestrator calls at claim time; each rule rejects only the affected runtime, the service or the run, never the installation. The resolver itself, the hierarchy and the JSON Schema are built by config-resolver and config-installation; this component provides the rules and their schema additions."
+design = [
+  "05-plugins-and-contracts.md#218-resolver-rules-of-this-area",
+  "05-plugins-and-contracts.md#219-checks-at-claim-time-stage-1",
+  "05-plugins-and-contracts.md#2152-installation-at-the-operator-adr-39-ruling-fe-521-fe-522",
+  "05-plugins-and-contracts.md#7-configuration",
+  "10-planner-architect-coder.md#210-planner-servicesplanner",
+  "10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard",
+  "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up",
+  "13-stage-8-providers-and-bases.md#222-grants-and-broker",
+  "13-stage-8-providers-and-bases.md#227-data-path-policy-per-provider-resolution",
+  "13-stage-8-providers-and-bases.md#234-credential-kinds-openai-and-chatgpt",
+]
+built_by = [
+  "0-E15-T02",
+  "0-E15-T10",
+  "1-E07-T01",
+  "1-E07-T02",
+  "2-E02-T07",
+  "2-E06-T02",
+  "5-E03-T01",
+  "8-E02-T04",
+  "8-E02-T07",
+  "8-E03-T03",
+]
+
+[[provides]]
+name = "harness-pins"
+kind = "config"
+title = "Installation key harness_pins.<harness> (package, version, sha256, source, mirror_url) in the schema and rule harness-pins.ts (config.harness_pin_missing) with harnessPinsRule as ConsistencyRule (FE-559)"
+defined_in = "05-plugins-and-contracts.md#2152-installation-at-the-operator-adr-39-ruling-fe-521-fe-522"
+from_task = "0-E15-T02"
+
+[[provides]]
+name = "model-reachability"
+kind = "ts-api"
+title = "checkModelReachability(ReachabilityInput): ReachabilityError[] (MODEL_REF_UNKNOWN, MODEL_PLUGIN_NOT_LOADED, MODEL_REGION_FORBIDDEN, CLAUDE_CLI_RUNTIME_INVALID, NO_REACHABLE_MODEL) and modelReachabilityRule as ConsistencyRule; toConfigError for all rules of this area (FE-559)"
+defined_in = "05-plugins-and-contracts.md#218-resolver-rules-of-this-area"
+from_task = "0-E15-T10"
+
+[[provides]]
+name = "personal-modes"
+kind = "ts-api"
+title = "checkPersonalModes(cfg, RuleCaps.repoInfo): PersonalModeError[] for subscription, chatgpt and operator_test; personalModesRule (scope runtime) and personalModesServiceRule (scope service) as ConsistencyRule (FE-559)"
+defined_in = "05-plugins-and-contracts.md#218-resolver-rules-of-this-area"
+from_task = "1-E07-T01"
+
+[[provides]]
+name = "personal-modes-konfig"
+kind = "config"
+title = "Schema addition credentials.personal_modes.<kind>.acknowledge_terms (installation.yaml only), runtimes[].credential.operator, allowed_pools, allowed_triggers, allowed_services, profile, operator_repos, acknowledge_risk, security.llm_inspection_proxy"
+defined_in = "05-plugins-and-contracts.md#7-configuration"
+from_task = "1-E07-T01"
+
+[[provides]]
+name = "audit-personal-mode"
+kind = "event"
+title = "Audit action personal_mode.config_rejected with code and key"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "1-E07-T01"
+
+[[provides]]
+name = "operator-claim"
+kind = "ts-api"
+title = "operatorClaimGuard(input, scm): OperatorClaimDecision and OperatorCheck[] for runs.operator_checks; audit operator.claim_rejected"
+defined_in = "05-plugins-and-contracts.md#219-checks-at-claim-time-stage-1"
+from_task = "1-E07-T02"
+
+[[provides]]
+name = "plan-kritik"
+kind = "ts-api"
+title = "Rule: models.critique mandatory when max_autonomy allows high or full"
+defined_in = "10-planner-architect-coder.md#210-planner-servicesplanner"
+from_task = "2-E02-T07"
+
+[[provides]]
+name = "agent-fork"
+kind = "ts-api"
+title = "Rule agent-fork.ts: security.agent_ci.mode agent_fork only with passed in contract-status.json of the release (the configuration key itself belongs to agent-ci/konfig-agent-ci)"
+defined_in = "10-planner-architect-coder.md#216-ci-on-agent-branches-guildworkworkflow-guard"
+from_task = "2-E06-T02"
+
+[[provides]]
+name = "merge-modus"
+kind = "ts-api"
+title = "Rule merge-mode.ts: merge.mode shadow or auto only below merge.max_mode, auto only with autonomy full, never for external_code, docs always human"
+defined_in = "11-qa-prfix-automerge.md#25-merge-gate-and-post-merge-follow-up"
+from_task = "5-E03-T01"
+
+[[provides]]
+name = "datenweg"
+kind = "ts-api"
+title = "Data path policy per provider resolution (checkProviderResolution, REGION_FACTS; data_policy of the repo class against the region of the runtime or model, ADR-23); applies to every resolution, also to remote runs with origin cli (6-E04-T03)"
+defined_in = "13-stage-8-providers-and-bases.md#227-data-path-policy-per-provider-resolution"
+from_task = "8-E02-T07"
+
+[[provides]]
+name = "codex-credentials"
+kind = "ts-api"
+title = "checkCodexCredentials(cfg, relayProven) in codex-credentials.ts with codes CODEX_OPENAI_SHELL_BEFORE_RELAY (FE-1229), CODEX_NATIVE_TOOLS_NONE, CHATGPT_SHELL_SERVICE, CHATGPT_POOL_NOT_SINGLE_OPERATOR (openai before a green relay test only without shell, chatgpt only as a personal operator mode)"
+defined_in = "13-stage-8-providers-and-bases.md#234-credential-kinds-openai-and-chatgpt"
+from_task = "8-E03-T03"
+
+[[provides]]
+name = "relay-proven"
+kind = "ts-api"
+title = "relay-proven.ts: RelayKind, RelayProven from the attestations of the harness plugins (relayProvenFrom), checkRelayProven with code RELAY_NOT_PROVEN, as ConsistencyRule (13 FE-1322)"
+defined_in = "13-stage-8-providers-and-bases.md#222-grants-and-broker"
+from_task = "8-E02-T04"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "0-E15-T02"
+purpose = "harness_pins and further keys into the JSON Schema"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "0-E15-T02"
+purpose = "Rules in the form ConsistencyRule with EffectiveConfigView"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E15-T02"
+purpose = "PinnedVersion and CredentialKind"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "0-E15-T10"
+purpose = "Plug rules into the resolver, an error rejects only the service"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "0-E15-T10"
+purpose = "ModelInfo.regions for the data path check"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E15-T10"
+purpose = "Loaded plugins (ready, degraded) from registry.list"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "1-E07-T01"
+purpose = "credentials.personal_modes.<kind>.acknowledge_terms only in installation.yaml"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "1-E07-T01"
+purpose = "repoInfo for operator_repos private"
+
+[[uses]]
+interface = "work-api/http-claim"
+from_task = "1-E07-T02"
+purpose = "operatorClaimGuard before handing out a subscription item"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "1-E07-T02"
+purpose = "Run skipped(operator_only) or blocked before the agent start"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "1-E07-T02"
+purpose = "Write runs.operator_checks"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "1-E07-T02"
+purpose = "Audit operator.claim_rejected"
+
+[[uses]]
+interface = "service-planner/konfig-planner"
+from_task = "2-E02-T07"
+purpose = "models.critique with max_autonomy high or full"
+
+[[uses]]
+interface = "agent-ci/contract-status"
+from_task = "2-E06-T02"
+purpose = "agent_fork only with passed in contract-status.json"
+
+[[uses]]
+interface = "agent-ci/konfig-agent-ci"
+from_task = "2-E06-T02"
+purpose = "Check security.agent_ci.mode"
+
+[[uses]]
+interface = "merge-gate/tabelle-autonomy-qualification"
+from_task = "5-E03-T01"
+purpose = "Proof for autonomy full"
+
+[[uses]]
+interface = "pipeline-ticket-to-pr/konfig-pipeline"
+from_task = "5-E03-T01"
+purpose = "merge.mode of the pipeline"
+
+[[uses]]
+interface = "plugin-codex/konfig-chatgpt"
+from_task = "8-E03-T03"
+purpose = "chatgpt only as a personal operator mode"
+
+[[uses]]
+interface = "contracts/attestation-und-fixtures-hash"
+from_task = "8-E02-T04"
+purpose = "ContractAttestation of the harness plugins as evidence for the relay case (FE-1322)"

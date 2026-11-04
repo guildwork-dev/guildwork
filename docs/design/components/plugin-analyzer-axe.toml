@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-analyzer-axe"
+title = "Analyzer axe-core"
+kind = "plugin"
+path = "plugins/analyzer-axe/"
+package = "@guildwork/plugin-analyzer-axe"
+stage = "10"
+purpose = "Checks the accessibility of the app started in the QA E2E item with axe-core and returns SARIF with a pseudo path per route; plus the QA step e2e_a11y. Never blocks in stage 10: findings are hints, the QA verdict stays unchanged (FE-1526)."
+design = [
+  "15-stage-10-edge-layers.md#261-analyzer-axe",
+  "15-stage-10-edge-layers.md#263-shared-rules-of-the-three-new-analyzers",
+  "15-stage-10-edge-layers.md#264-an1",
+  "15-stage-10-edge-layers.md#84-analyzers-10-e04",
+]
+built_by = ["10-E04-T01", "10-E04-T03"]
+
+[[provides]]
+name = "analyzer"
+kind = "contract"
+title = "Analyzer contract v1alpha1: manifestExt, describe, run with AxeConfig, SARIF with ruleId, pseudo path @route:<path> and fingerprint"
+defined_in = "15-stage-10-edge-layers.md#261-analyzer-axe"
+from_task = "10-E04-T01"
+
+[[provides]]
+name = "beutel-a11y"
+kind = "ts-api"
+title = "properties bag guildwork/a11y@1 { route, selector, impact, helpUrl } in packages/sarif/src/bags/a11y.ts"
+defined_in = "15-stage-10-edge-layers.md#261-analyzer-axe"
+from_task = "10-E04-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "AxeConfig, services.qa.e2e.a11y { enabled, max_routes, baseline, tags } and analyzer instance analyzers[axe]"
+defined_in = "15-stage-10-edge-layers.md#7-configuration"
+from_task = "10-E04-T01"
+
+[[provides]]
+name = "qa-step-e2e-a11y"
+kind = "contract"
+title = "QA E2E step e2e_a11y after e2e_generate, findings source analyzer:axe as flag (K13)"
+defined_in = "15-stage-10-edge-layers.md#261-analyzer-axe"
+from_task = "10-E04-T01"
+
+[[provides]]
+name = "an1-fixtures"
+kind = "file"
+title = "20 fixture repos with a static app under packages/testkit/src/contract/fixtures/analyzer-an1/axe/"
+defined_in = "15-stage-10-edge-layers.md#264-an1"
+from_task = "10-E04-T03"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "10-E04-T01"
+purpose = "Analyzer contract v1alpha1 with AnalyzerSandboxSpec.network item_app (K9)"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "10-E04-T01"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "10-E04-T01"
+purpose = "PluginManifest with license note MPL-2.0"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "10-E04-T01"
+purpose = "Message texts of axe as Untrusted"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "10-E04-T01"
+purpose = "SARIF with pseudo path, fingerprint and compareBaseline"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E04-T01"
+purpose = "Fingerprint sha256(ruleId, route, selector)"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "10-E04-T01"
+purpose = "Load the plugin as a BuiltinPluginPackage"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "10-E04-T01"
+purpose = "Execution in the tool sandbox, neutral on crash and timeout"
+
+[[uses]]
+interface = "analyzer-runner/tabelle-analyzer-runs"
+from_task = "10-E04-T01"
+purpose = "Run with toolVersion and rulesHash"
+
+[[uses]]
+interface = "analyzer-runner/tabelle-analyzer-baselines"
+from_task = "10-E04-T01"
+purpose = "stored baseline (FE-1527)"
+
+[[uses]]
+interface = "analyzer-runner/netz-item-app"
+from_task = "10-E04-T01"
+purpose = "Tool sandbox in the network of the E2E item, only the started app reachable (K9)"
+
+[[uses]]
+interface = "service-qa/controller"
+from_task = "10-E04-T01"
+purpose = "Step e2e_a11y in the plan of the QA E2E stage (K13)"
+
+[[uses]]
+interface = "service-qa/konfig-services-qa"
+from_task = "10-E04-T01"
+purpose = "services.qa.e2e.a11y with x-qualification"
+
+[[uses]]
+interface = "service-qa/check-ai-qa"
+from_task = "10-E04-T01"
+purpose = "Annotations and the line accessibility not checked"
+
+[[uses]]
+interface = "qa-e2e/check-qa-e2e-app"
+from_task = "10-E04-T01"
+purpose = "started app with base_url"
+
+[[uses]]
+interface = "qa-e2e/agent-stufe-e2e-generate"
+from_task = "10-E04-T01"
+purpose = "Order: e2e_a11y after e2e_generate"
+
+[[uses]]
+interface = "contracts-artefakte/qa-report"
+from_task = "10-E04-T01"
+purpose = "QAReport.verdict stays unchanged (FE-1526)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "10-E04-T01"
+purpose = "Findings source analyzer:axe, kind flag"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "10-E04-T01"
+purpose = "Image deploy/images/analyzer-axe by digest"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "10-E04-T01"
+purpose = "Licenses of axe-core, Playwright and Chromium in the image"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "10-E04-T01"
+purpose = "License note axe-core with source location"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "10-E04-T01"
+purpose = "Contract suite analyzer-axe with error cases"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "10-E04-T03"
+purpose = "AN1 with 20 fixtures against the direct call"

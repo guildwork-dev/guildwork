@@ -1,0 +1,264 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "testkit"
+title = "Package testkit: Postgres container, fixtures, clock, logs, secret scan, fakes"
+kind = "package"
+path = "packages/testkit/"
+package = "@guildwork/testkit"
+stage = "0"
+purpose = "Shared test helpers of all areas: real Postgres per test file, controllable clock and randomness, log capture, secret check, HTTP replay with network block and the fakes and check helpers that tests of several areas need. Only in test files; contract harness and E2E stack in the same package are separate components. Building blocks whose signature another area defines (test IdP, fake Anthropic, telemetry sink, Azure recorder from 06 section 2.17, expectRecordedEffects from 04 section 2.1.6) are built by testkit as well, but they are offered there (00 FE-060)."
+design = ["00-codebase-and-conventions.md#27-package-testkit", "00-codebase-and-conventions.md#82-containers-fixtures-determinism", "00-codebase-and-conventions.md#84-test-cases-per-module", "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"]
+built_by = ["0-E01-T07", "0-E02-T01", "0-E08-T05", "0-E09-T03", "0-E12-T09", "0-E12-T10", "0-E16-T02", "0-E16-T07", "0-E17-T02", "0-E18-T16", "0b-E01-T02", "2-E01-T08"]
+
+[[provides]]
+name = "postgres"
+kind = "ts-api"
+title = "startPostgres, freshDatabase (gw_test_<uuid> from gw_template), GUILDWORK_TEST_PG_URL, refusal of foreign databases"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E01-T07"
+
+[[provides]]
+name = "integration-setup"
+kind = "ts-api"
+title = "Global setup of the Vitest project integration with migration callback"
+defined_in = "00-codebase-and-conventions.md#82-containers-fixtures-determinism"
+from_task = "0-E01-T07"
+
+[[provides]]
+name = "uhr-zufall"
+kind = "ts-api"
+title = "FakeClock (set, advance) and seededRandom"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E01-T07"
+
+[[provides]]
+name = "logs-secrets"
+kind = "ts-api"
+title = "captureLogs with expectEvent and expectNoSecrets"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E01-T07"
+
+[[provides]]
+name = "http-wiedergabe"
+kind = "ts-api"
+title = "replayFixtures (strict), guardNetwork, tmpDir"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E01-T07"
+
+[[provides]]
+name = "aufzeichnungsformat"
+kind = "file"
+title = "fixtures/recorded/<provider>/<scenario>/NNN.json with manifest.json and total hash"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E01-T07"
+
+[[provides]]
+name = "postgres-rollen"
+kind = "ts-api"
+title = "Postgres version 17 or 18 and callback roleUrls: ownerUrl and appUrl per database (the roles are created by migrateForTests from @guildwork/db/testing, 01 FE-130)"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E02-T01"
+
+[[provides]]
+name = "secret-scan"
+kind = "ts-api"
+title = "scanForSecrets over tables, envelopes, snapshots, BlobStore and logs (exact, Base64, URL-encoded)"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E08-T05"
+
+[[provides]]
+name = "fake-worker-runtime"
+kind = "ts-api"
+title = "fakeWorker (Work API client) and fakeRuntime (AgentRuntime fake)"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E12-T09"
+
+[[provides]]
+name = "docker-topologie"
+kind = "ts-api"
+title = "startDockerTopology: networks and socket proxy for S6 cases"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E12-T10"
+
+[[provides]]
+name = "fake-platform-mcp"
+kind = "ts-api"
+title = "startFakePlatformMcp: platform MCP fake with item token check and call list"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "0-E16-T02"
+
+[[provides]]
+name = "dns-sink"
+kind = "ts-api"
+title = "startDnsSink: counts UDP and TCP packets on port 53 at the sandbox network"
+defined_in = "00-codebase-and-conventions.md#27-package-testkit"
+from_task = "2-E01-T08"
+
+[[provides]]
+name = "effects-probe"
+kind = "ts-api"
+title = "effectsProbe(db, blobs).expectRecordedEffects(runId) in packages/testkit/src/effects.ts for effects in mode record"
+defined_in = "04-effects-audit-credentials.md#216-modes-record-and-shadow"
+from_task = "0-E09-T03"
+
+[[provides]]
+name = "fake-anthropic"
+kind = "ts-api"
+title = "startFakeAnthropic: fake LLM upstream behind the credential relay from recordings (POST /v1/messages, rejects mcp_servers and server tools)"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0-E16-T07"
+
+[[provides]]
+name = "test-idp"
+kind = "ts-api"
+title = "startTestIdp: small OIDC issuer with users and groups for login tests of all areas"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0-E17-T02"
+
+[[provides]]
+name = "telemetry-sink"
+kind = "ts-api"
+title = "startTelemetrySink: capture sink with DNS redirection of all names to a counting server"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0-E18-T16"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E01-T07"
+purpose = "FakeClock implements Clock, seededRandom implements Random"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E01-T07"
+purpose = "captureLogs delivers a logger and reads the fields of the log line"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "0-E01-T07"
+purpose = "expectNoSecrets and scanForSecrets take SecretValue"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E01-T07"
+purpose = "Errors of the helpers as Result"
+
+[[uses]]
+interface = "sicherheits-scans/secret-samples"
+from_task = "0-E01-T07"
+purpose = "expectNoSecrets finds every pattern from samples.txt"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E01-T07"
+purpose = "global setup in the Vitest project integration"
+
+[[uses]]
+interface = "schichtenpruefung/layers-toml"
+from_task = "0-E01-T07"
+purpose = "Entry test_only for @guildwork/testkit"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.work-items"
+from_task = "0-E08-T05"
+purpose = "Secret search in work_items.envelope"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "0-E08-T05"
+purpose = "Secret search in config_snapshots"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E08-T05"
+purpose = "scanForSecrets additionally checks REDACTION_RULES"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "0-E09-T03"
+purpose = "effectsProbe reads the storage effect-record/ and eval-log/"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "0-E09-T03"
+purpose = "effectsProbe reads effects with state shadowed and reason"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "0-E09-T03"
+purpose = "effectsProbe reads the artifact rows effect_record and eval_log"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E12-T09"
+purpose = "fakeRuntime implements AgentRuntime with RuntimeEvent and AgentRunResult"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E12-T09"
+purpose = "fakeWorker reports WorkerCaps"
+
+[[uses]]
+interface = "work-item-umschlag/worker-api-schemas"
+from_task = "0-E12-T09"
+purpose = "fakeWorker speaks claim, heartbeat, complete, fail with the schemas of the Work API"
+
+[[uses]]
+interface = "work-api/http-claim"
+from_task = "0-E12-T09"
+purpose = "fakeWorker calls POST /work/v1/claim"
+
+[[uses]]
+interface = "work-api/http-heartbeat"
+from_task = "0-E12-T09"
+purpose = "fakeWorker calls the heartbeat"
+
+[[uses]]
+interface = "work-api/http-results"
+from_task = "0-E12-T09"
+purpose = "fakeWorker reports complete and fail"
+
+[[uses]]
+interface = "socket-proxy/docker-api"
+from_task = "0-E12-T10"
+purpose = "Unix socket of the socket proxy in the test topology"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "0-E16-T02"
+purpose = "Fake speaks MCP Streamable HTTP with item token like POST /mcp/v1"
+
+[[uses]]
+interface = "plattform-mcp/run.context"
+from_task = "0-E16-T02"
+purpose = "Fake offers the same tool names and shapes"
+
+[[uses]]
+interface = "plattform-mcp/repo"
+from_task = "0-E16-T02"
+purpose = "Fake offers repo.read_file"
+
+[[uses]]
+interface = "plattform-mcp/item"
+from_task = "0-E16-T02"
+purpose = "Fake offers item.get"
+
+[[uses]]
+interface = "plattform-mcp/propose"
+from_task = "0-E16-T02"
+purpose = "Fake records propose_comment"
+
+[[uses]]
+interface = "credential-relay/inspect-messages-request"
+from_task = "0-E16-T07"
+purpose = "Fake upstream rejects mcp_servers and server tools like the relay filter"
+
+[[uses]]
+interface = "driver-identity-self-issuer/issuer-keyring"
+from_task = "0-E17-T02"
+purpose = "Test IdP signs ID tokens with the keyring of the self-issuer"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T08"
+purpose = "SandboxSpec with network of the item, at which the DNS catcher counts"

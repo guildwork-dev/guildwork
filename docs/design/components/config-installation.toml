@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "config-installation"
+title = "Configuration loader of the installation with published schema"
+kind = "package"
+path = "packages/config/src/installation/"
+package = "@guildwork/config"
+stage = "0"
+purpose = "Reads installation.yaml once at the start of every role, checks it strictly (YAML 1.2, unknown keys, driver keys, cross-checks), freezes it and publishes the schema and the reference of the default values. Never resolves secrets and is not the resolver of the org, repo group and repo layers (config-resolver)."
+design = ["00-codebase-and-conventions.md#28-configuration-loader-of-the-installation", "00-codebase-and-conventions.md#43-loading-the-configuration", "00-codebase-and-conventions.md#7-configuration", "00-codebase-and-conventions.md#5-failure-and-abort-paths"]
+built_by = ["0-E01-T08", "0-E01-T09", "0-E18-T19", "0b-E01-T06"]
+
+[[provides]]
+name = "lader"
+kind = "ts-api"
+title = "loadInstallation with LoadOptions, LoadedInstallation (configHash), ConfigIssue, InstallationConfig, SecretRef"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "startup"
+kind = "ts-api"
+title = "startupConfig for apps/*/main.ts: logs config.loaded or config.invalid, exit 1"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "plattform-env"
+kind = "ts-api"
+title = "readPlatformEnv: the only environment variables of the control plane roles GUILDWORK_CONFIG, GUILDWORK_LOG_LEVEL and GW_TEST_MODE (FE-016, FE-063)"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "installation-yaml"
+kind = "config"
+title = "installation.yaml: keys from 04 section 7 with schema, unknown keys are errors; sections of other areas according to the assignment table in 00 section 2.8"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "installation-sections"
+kind = "ts-api"
+title = "InstallationSection and INSTALLATION_SECTIONS: the only way other areas introduce sections with default values into installation.yaml (FE-051)"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "installation-yaml.observability"
+kind = "config"
+title = "Section observability (OTLP, sampling, interval, log level, harness, forwarding)"
+defined_in = "00-codebase-and-conventions.md#7-configuration"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "installation-yaml.alerts"
+kind = "config"
+title = "Section alerts (interval, sinks, delivery, rule thresholds)"
+defined_in = "00-codebase-and-conventions.md#7-configuration"
+from_task = "0-E01-T08"
+
+[[provides]]
+name = "installation-schema"
+kind = "file"
+title = "packages/config/schema/installation.schema.json (Draft 2020-12), generated with gen:schema"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T09"
+
+[[provides]]
+name = "installation-referenz"
+kind = "file"
+title = "docs/reference/installation.md: authoritative list of the default values"
+defined_in = "00-codebase-and-conventions.md#28-configuration-loader-of-the-installation"
+from_task = "0-E01-T09"
+
+[[provides]]
+name = "azure-treiber-schema"
+kind = "config"
+title = "Schema entries blob.driver azure-blob and secrets.driver azure-keyvault"
+defined_in = "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"
+from_task = "0b-E01-T06"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E01-T08"
+purpose = "loadInstallation returns Result with AppError code config"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E01-T08"
+purpose = "AppError with details.issues"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E01-T08"
+purpose = "Slug, sha256Hex and canonicalJson for configHash"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E01-T08"
+purpose = "parseDuration for duration keys"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E01-T08"
+purpose = "startupConfig logs config.loaded and config.invalid"
+
+[[uses]]
+interface = "core/json-assert"
+from_task = "0-E01-T08"
+purpose = "JsonValue and DeepReadonly freezing"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E01-T08"
+purpose = "TypeBox schema with compileSchema and fixed Ajv options"
+
+[[uses]]
+interface = "testkit/logs-secrets"
+from_task = "0-E01-T08"
+purpose = "Test config.invalid with captureLogs"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "0-E18-T19"
+purpose = "Measurement of the minimum values on the running bundle"
+
+[[uses]]
+interface = "dummy-service/dummy-job"
+from_task = "0-E18-T19"
+purpose = "Dummy runs as the load for the measurement"
+
+[[uses]]
+interface = "driver-blob-azure/azure-blob-config"
+from_task = "0b-E01-T06"
+purpose = "AzureBlobConfig as the driver schema in driverSchemas"
+
+[[uses]]
+interface = "driver-secret-azure-keyvault/azure-keyvault-config"
+from_task = "0b-E01-T06"
+purpose = "AzureKeyVaultConfig as the driver schema in driverSchemas"

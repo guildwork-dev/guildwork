@@ -1,0 +1,275 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "learnings-lebenszyklus"
+title = "Learnings lifecycle: tables, scope, approval, voting, expiry, redaction, citations, import and export"
+kind = "service"
+path = "services/indexer/src/learnings/"
+package = "@guildwork/service-indexer"
+stage = "7a"
+purpose = "Domain logic of the Learnings from sub-stage 7a: tables of the lifecycle, configuration knowledge.learnings, scope and PR binding, approval delay, voting and expiry, secret redaction and citation check, import and export including the CLI, and the admin API /admin/api/v1/learnings. Not here: storage and retrieval in the plugin (plugin-pg-kb), the creation of the tables learnings and learning_events in stage 6 (reviewer-chat-und-befehle) and the page of the admin UI (ui-learnings)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle",
+  "09-reviewer-companion-features-and-learnings.md#31-new-tables",
+  "09-reviewer-companion-features-and-learnings.md#34-endpoints",
+  "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss",
+  "09-reviewer-companion-features-and-learnings.md#48-learning-lifecycle",
+  "09-reviewer-companion-features-and-learnings.md#7-configuration",
+  "09-reviewer-companion-features-and-learnings.md#82-sub-stage-7a-per-module",
+]
+built_by = ["7a-E01-T01", "7a-E01-T02", "7a-E01-T04", "7a-E01-T05", "7a-E01-T06", "7a-E01-T07", "7a-E01-T08", "7a-E01-T09"]
+
+[[provides]]
+name = "tabellen-lebenszyklus"
+kind = "table"
+title = "Tables learning_votes, learning_uses, learning_imports and kb_layer_state with RLS (migration 0701 in block 0700)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#31-new-tables"
+from_task = "7a-E01-T01"
+
+[[provides]]
+name = "konfig-knowledge-learnings"
+kind = "config"
+title = "knowledge.learnings.* (scope, approval_delay_days, expiry_days, min_score, max_per_review, max_chars_per_review; user_prefs exists since 6-E03-T05) with resolver rules (FE-935)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "7a-E01-T02"
+
+[[provides]]
+name = "scope"
+kind = "ts-api"
+title = "scopeAllows(l, q) according to FE-936 with isVisibleFor and CROSS_REPO"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T04"
+
+[[provides]]
+name = "pr-bindung"
+kind = "ts-api"
+title = "onPrMerged(repoId, pr) and onPrClosed(repoId, pr)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T04"
+
+[[provides]]
+name = "lebenszyklus"
+kind = "ts-api"
+title = "create, approve, reject, activateDue with LearningCandidateInput, LearningsConfig, AdminActor (FE-937)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T05"
+
+[[provides]]
+name = "http-freigabe"
+kind = "http"
+title = "POST /admin/api/v1/learnings/:id/approve and POST /admin/api/v1/learnings/:id/reject (role approver)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "7a-E01-T05"
+
+[[provides]]
+name = "queue-activate-due"
+kind = "queue"
+title = "Queue learnings-activate-due (daily)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "7a-E01-T05"
+
+[[provides]]
+name = "abstimmung-und-ablauf"
+kind = "ts-api"
+title = "confirm, applyFeedbackVotes(runId), expireDue, state suppressed (FE-938, FE-939)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T06"
+
+[[provides]]
+name = "http-confirm"
+kind = "http"
+title = "POST /admin/api/v1/learnings/:id/confirm (approver) and POST /api/v1/learnings/:id/confirm (dev token with write on the repo, FE-964)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "7a-E01-T06"
+
+[[provides]]
+name = "queues-abstimmung-und-ablauf"
+kind = "queue"
+title = "Queues learnings-votes (per run) and learnings-expire-due (daily)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "7a-E01-T06"
+
+[[provides]]
+name = "redaktion-und-zitat"
+kind = "ts-api"
+title = "redactLearningText(t) and locate(l, fileAt, sha) with quoteHash from packages/core (FE-940)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T07"
+
+[[provides]]
+name = "http-import-export"
+kind = "http"
+title = "POST .../learnings/import and GET .../learnings/export each under /admin/api/v1 (session) and /api/v1 (dev token, FE-964)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "7a-E01-T08"
+
+[[provides]]
+name = "formate-import-export"
+kind = "file"
+title = "JSON and CSV of the Learnings (columns from section 2.11, FE-945) and column mappings for third-party formats under import/mappings/ (FE-944)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T08"
+
+[[provides]]
+name = "cli-learnings"
+kind = "cli"
+title = "guildwork learnings import and guildwork learnings export with a dev token"
+defined_in = "09-reviewer-companion-features-and-learnings.md#211-learnings-knowledgestore-pg-kb-and-lifecycle"
+from_task = "7a-E01-T08"
+
+[[provides]]
+name = "http-liste-und-invalidate"
+kind = "http"
+title = "GET /admin/api/v1/learnings (LearningList with metrics) and POST /admin/api/v1/learnings/:id/invalidate"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "7a-E01-T09"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/tabellen-learnings"
+from_task = "7a-E01-T01"
+purpose = "Add indexes on learnings"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "7a-E01-T01"
+purpose = "Migration 0701 in block 0700"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "7a-E01-T01"
+purpose = "RLS pattern"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "7a-E01-T01"
+purpose = "Migration and RLS test"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "7a-E01-T02"
+purpose = "Extend schema/knowledge.ts by the keys knowledge.learnings.*"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "7a-E01-T02"
+purpose = "Rule scope only narrows, ranges"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/konfig-user-prefs"
+from_task = "7a-E01-T02"
+purpose = "existing key user_prefs from stage 6"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/is-visible-for"
+from_task = "7a-E01-T04"
+purpose = "Scope according to FE-936"
+
+[[uses]]
+interface = "contracts/vertrag-knowledge-store-learnings"
+from_task = "7a-E01-T04"
+purpose = "LearningV1, LearningStatus, LearningQuery and LearningHit from packages/contracts (FE-963)"
+
+[[uses]]
+interface = "plugin-pg-kb/knowledgestore-learnings"
+from_task = "7a-E01-T04"
+purpose = "Store and invalidate via the KnowledgeStore"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "7a-E01-T04"
+purpose = "CROSS_REPO of the org and effective Learnings configuration"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "7a-E01-T04"
+purpose = "repoInfo for the visibility"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "7a-E01-T05"
+purpose = "Endpoints under /admin/api/v1/learnings"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "7a-E01-T05"
+purpose = "AdminSession for AdminActor, Problem"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "7a-E01-T05"
+purpose = "Register the queues learnings-*"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "7a-E01-T05"
+purpose = "Schedules of the queues"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "7a-E01-T05"
+purpose = "Audit learning.approved, rejected, confirmed, invalidated, imported, exported"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/finding-feedback-actor-role"
+from_task = "7a-E01-T06"
+purpose = "Votes from finding feedback with actor_role"
+
+[[uses]]
+interface = "entwickler-mcp/dev-token-pruefung"
+from_task = "7a-E01-T06"
+purpose = "confirm, import and export with a dev token"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "7a-E01-T06"
+purpose = "Dev token endpoints under /api/v1/learnings"
+
+[[uses]]
+interface = "service-reviewer/controller"
+from_task = "7a-E01-T06"
+purpose = "send learnings-votes after storing finding_feedback"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "7a-E01-T07"
+purpose = "Rules of the Effect Gateway for redactLearningText"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/quote-hash"
+from_task = "7a-E01-T07"
+purpose = "quoteHash from stage 6"
+
+[[uses]]
+interface = "credential-broker/aktive-platzhalter"
+from_task = "7a-E01-T07"
+purpose = "Placeholders per item as a separate rule"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "7a-E01-T07"
+purpose = "fileAt via getFile"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "7a-E01-T07"
+purpose = "sanitize for Learning text"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "7a-E01-T08"
+purpose = "Commands learnings import, export, confirm"
+
+[[uses]]
+interface = "entwickler-mcp/cli-login"
+from_task = "7a-E01-T08"
+purpose = "Server and token from guildwork login"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "7a-E01-T08"
+purpose = "Storage of the import file (blob_ref)"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "7a-E01-T08"
+purpose = "BlobStore of the installation"

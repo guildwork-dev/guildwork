@@ -1,0 +1,1198 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area breadth of stage 9. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/14-stage-9-breadth-and-hardening.md (per epic section 2.x, flows 4, tests 8). Stage 9 depends on 7 and 8, not on 3, 4, 5.
+stage = "9"
+
+[[epic]]
+id = "9-E01"
+title = "Further code hosts"
+goal = "GitLab, Azure DevOps, Bitbucket, Gitea/Forgejo, each with contract suite and E2E; SCM contract checked after the second implementation (M86, M104)"
+sources = ["01 sections 5, 11.2"]
+depends_on = ["8-E06"]
+
+[[task]]
+id = "9-E01-T01"
+title = "Cassettes GitLab, Azure DevOps, Bitbucket, Linear from the documentation; test accounts optional"
+description = """The project has no accounts at these hosts (owner decision O28, detailed design 14 FE-1456). The agent builds the cassettes per detailed design 05 FE-564 from the public documentation for GitLab, Azure DevOps, Bitbucket and Linear (webhooks, read and write methods, errors, rate limit), each with source URL and reading date. Gitea and Forgejo run as containers in the CI and need no account. Optional owner run, not a done criterion: test group on GitLab, Azure DevOps organization, Bitbucket workspace, Linear test workspace with a decision sheet (costs per account); recordings then replace the documentation cassettes, access credentials only in the SecretStore of the test installation."""
+design = ["14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts", "05-plugins-and-contracts.md#210-contract-harness"]
+result = "Cassettes under plugins/{gitlab,azure-devops,bitbucket,linear}/contract/ with sources; with the optional owner run, a note in the ops repo"
+done = [
+  "Cassettes per host checked in with `source` and reading date",
+  "gitleaks and deny scan over the cassettes with 0 hits",
+]
+sources = ["O22", "O28", "01 section 11.2"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+note = "Planned as an owner account step until 2026-11-01; after O28 built from the documentation, test accounts are an optional owner run."
+
+  [[task.part]]
+  id = "9-E01-T01-S01"
+  title = "Cassettes GitLab, Azure DevOps, Bitbucket from the documentation (agent)"
+  done = "Cassettes with sources in the repo"
+
+  [[task.part]]
+  id = "9-E01-T01-S02"
+  title = "Cassettes Linear from the documentation (agent)"
+  done = "Cassettes with sources in the repo"
+
+[[task]]
+id = "9-E01-T02"
+title = "Spike: open host facts"
+description = """Clarifies from the documentation (on test accounts only after the optional owner run from 9-E01-T01): Bitbucket and Azure DevOps details (tokens, votes, inline comments), Gitea thread resolving, GitLab signature from 19.0, GitLab counterpart to the dispatch app with a minimal pipeline trigger permission (backlog M44); recording of the fixtures per host."""
+design = ["14-stage-9-breadth-and-hardening.md#218-spike-and-test-accounts", "14-stage-9-breadth-and-hardening.md#211-common-host-framework"]
+result = "plugins/{gitlab,azure-devops,bitbucket,gitea}/contract/fixtures/, eval/reports/spike-hoster.md"
+done = [
+  "every question VERIFIED or unverified with consequence; 14-stage-9-breadth-and-hardening.md sections 2.1 and 10 updated",
+  "Fixtures per host with fixturesHash",
+]
+sources = ["09 section 4", "01 sections 11.2 and 11.5", "Backlog M44"]
+depends_on = ["9-E01-T01"]
+owner = "agent"
+estimate_h = 6
+note = "Backlog M44 (GitLab counterpart to the dispatch app, check only)"
+
+  [[task.part]]
+  id = "9-E01-T02-S01"
+  title = "Checks and note"
+  done = "Note"
+
+  [[task.part]]
+  id = "9-E01-T02-S02"
+  title = "Recordings"
+  done = "Fixtures in the repo"
+
+[[task]]
+id = "9-E01-T03"
+title = "GitLab: input and reading"
+description = """plugins/gitlab: TriggerSource (webhook with Standard Webhooks signature from 19.0 as strong, otherwise a plaintext token as weak with IP allowlist and fresh re-reading, reconcile), SCMProvider read (getFile, compare, getChange, threads, permissions), WorkItemProvider for issues read; mention via service account."""
+design = ["14-stage-9-breadth-and-hardening.md#212-gitlab", "14-stage-9-breadth-and-hardening.md#211-common-host-framework", "14-stage-9-breadth-and-hardening.md#41-host-inbound-with-signature-tier", "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"]
+result = "plugins/gitlab/src/{trigger,scm-read,workitems-read}.ts"
+done = [
+  "Contract suite gitlab (input and reading) green including weak signature",
+  "Signature level weak appears in the audit and in the admin UI",
+]
+sources = ["01 sections 3, 4, 5, 11.1, 11.2, 11.5", "05 section 9"]
+depends_on = ["9-E01-T02"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "9-E01-T03-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E01-T03-S02"
+  title = "TriggerSource"
+  done = "Input cases green"
+
+  [[task.part]]
+  id = "9-E01-T03-S03"
+  title = "SCM and issues read"
+  done = "all cases green"
+
+[[task]]
+id = "9-E01-T04"
+title = "GitLab: writing with fallback chains and E2E"
+description = """SCMProvider write with fallback chains per 01 section 5 (draft notes plus bulk_publish, commit status plus summary, suggestion block), project access token as a weak token level with rotation in the broker and the marking "SCOPED_SHORT_TOKEN missing"; E2E review on a test repo."""
+design = ["14-stage-9-breadth-and-hardening.md#212-gitlab", "14-stage-9-breadth-and-hardening.md#217-weak-token-tier-in-the-credential-broker", "14-stage-9-breadth-and-hardening.md#42-review-output-via-the-fallback-chain", "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"]
+result = "plugins/gitlab/src/scm-write.ts, eval/suites/e2e/gitlab/"
+done = [
+  "Contract suite gitlab fully green including fallback chains",
+  "E2E 'review on test repo gitlab' green",
+  "Fallback levels audited on the effect (test)",
+]
+sources = ["01 sections 5 and 11.5", "05 section 2"]
+depends_on = ["9-E01-T03"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "9-E01-T04-S01"
+  title = "Contract cases write"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E01-T04-S02"
+  title = "Review output with fallback chains"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "9-E01-T04-S03"
+  title = "Token level in the broker"
+  done = "Broker test green"
+
+  [[task.part]]
+  id = "9-E01-T04-S04"
+  title = "E2E"
+  done = "E2E green"
+
+[[task]]
+id = "9-E01-T05"
+title = "Contract revision after the second host"
+description = """Checks the SCM contract against GitHub and GitLab (backlog M86, M104): methods carried by only one implementation, fallback chains, capability enums; if necessary cuts v1beta1 with a deprecation plan per 01 section 1.1 rule 6; GitHub plugin onto the new version."""
+design = ["14-stage-9-breadth-and-hardening.md#213-contract-revision-after-the-second-host", "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"]
+result = "packages/contracts (SCMProvider), note in docs/adr or a follow-up ADR draft"
+done = [
+  "Report with every deviation between both implementations and a decision",
+  "both contract suites green on the valid contract version",
+]
+sources = ["01 section 1.1", "08 principle 3", "Backlog M86", "Backlog M104"]
+depends_on = ["9-E01-T04"]
+owner = "agent"
+estimate_h = 8
+note = "Backlog M86, M104 (consolidate the contract only after the second implementation)"
+
+  [[task.part]]
+  id = "9-E01-T05-S01"
+  title = "Deviation report"
+  done = "Report in the PR"
+
+  [[task.part]]
+  id = "9-E01-T05-S02"
+  title = "Adjust contract and suites green"
+  done = "Suites green"
+
+[[task]]
+id = "9-E01-T06"
+title = "Azure DevOps"
+description = """plugins/azure-devops: service hook input with basic auth or header (weak), SCMProvider with individual threads plus summary and PR status, WorkItemProvider for work items; contract suite and E2E."""
+design = ["14-stage-9-breadth-and-hardening.md#214-azure-devops", "14-stage-9-breadth-and-hardening.md#211-common-host-framework", "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"]
+result = "plugins/azure-devops/, eval/suites/e2e/azure-devops/"
+done = [
+  "Contract suite azure-devops green",
+  "E2E 'review on test repo azure devops' green",
+]
+sources = ["01 sections 11.1, 11.2 and 11.5"]
+depends_on = ["9-E01-T05"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E01-T06-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E01-T06-S02"
+  title = "Input and SCM"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "9-E01-T06-S03"
+  title = "Work items and E2E"
+  done = "E2E green"
+
+[[task]]
+id = "9-E01-T07"
+title = "Bitbucket Cloud"
+description = """plugins/bitbucket: webhook with HMAC-SHA256, SCMProvider with individual inline comments plus summary, Code Insights for status and annotations, labels as comment markers; contract suite and E2E."""
+design = ["14-stage-9-breadth-and-hardening.md#215-bitbucket-cloud", "14-stage-9-breadth-and-hardening.md#211-common-host-framework", "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"]
+result = "plugins/bitbucket/, eval/suites/e2e/bitbucket/"
+done = [
+  "Contract suite bitbucket green",
+  "E2E 'review on test repo bitbucket' green",
+]
+sources = ["01 sections 5, 11.1, 11.2 and 11.5"]
+depends_on = ["9-E01-T05"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E01-T07-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E01-T07-S02"
+  title = "Input and SCM with Code Insights"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "9-E01-T07-S03"
+  title = "E2E"
+  done = "E2E green"
+
+[[task]]
+id = "9-E01-T08"
+title = "Gitea and Forgejo"
+description = """plugins/gitea for Gitea and Forgejo: webhook with HMAC-SHA256, batch review, commit status plus summary, issues; contract suite against both as containers in the CI; E2E."""
+design = ["14-stage-9-breadth-and-hardening.md#216-gitea-and-forgejo", "14-stage-9-breadth-and-hardening.md#211-common-host-framework", "14-stage-9-breadth-and-hardening.md#81-code-hosts-9-e01"]
+result = "plugins/gitea/, eval/suites/e2e/gitea/"
+done = [
+  "Contract suite gitea green against Gitea and Forgejo containers",
+  "E2E 'review on test repo gitea' green",
+]
+sources = ["01 sections 11.1, 11.2 and 11.5"]
+depends_on = ["9-E01-T05"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "9-E01-T08-S01"
+  title = "Container setup in the CI and contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E01-T08-S02"
+  title = "Plugin"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "9-E01-T08-S03"
+  title = "E2E"
+  done = "E2E green"
+
+[[epic]]
+id = "9-E02"
+title = "Linear and notifier"
+goal = "Linear (agent session), notifier Slack with signed approval (Teams only when needed, FE-1248), E2E ask from Jira and Linear (FE-1227)"
+sources = ["01 sections 4, 10"]
+depends_on = ["8-E06"]
+
+[[task]]
+id = "9-E02-T01"
+title = "Linear"
+description = """plugins/linear: TriggerSource for agent session events (created, prompted) with a response within 5 s and activity within 10 s, check signature and stop signal (09 section 4), WorkItemProvider with session.* instead of a status comment, delegation and mention native; only operating mode public; contract suite and E2E against the Linear cassettes from the documentation from 9-E01-T01 (the project has no Linear account, O28; a test workspace is an optional owner run, detailed design 14 FE-1456)."""
+design = ["14-stage-9-breadth-and-hardening.md#221-linear", "14-stage-9-breadth-and-hardening.md#43-linear-agent-session", "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02"]
+result = "plugins/linear/, eval/suites/e2e/linear/"
+done = [
+  "Contract suite linear green including the 5 s response deadline",
+  "E2E 'plan from linear' green with session plan",
+  "Visibility of the Linear team as an output target per FE-1253 (test)",
+  "Signature and stop signal noted as VERIFIED or unverified with consequence",
+  "Executor status_comment writes a session activity instead of a comment for Linear (detailed design 04 section 2.1.5)",
+]
+sources = ["01 sections 3, 4, 11.1 and 11.5", "09 section 4"]
+depends_on = ["9-E01-T01"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E02-T01-S01"
+  title = "Check signature and stop signal, recordings"
+  done = "Note and fixtures"
+
+  [[task.part]]
+  id = "9-E02-T01-S02"
+  title = "TriggerSource with response deadline"
+  done = "Deadline test green"
+
+  [[task.part]]
+  id = "9-E02-T01-S03"
+  title = "WorkItemProvider with session"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "9-E02-T01-S04"
+  title = "E2E"
+  done = "E2E green"
+
+  [[task.part]]
+  id = "9-E02-T01-S05"
+  title = "Variant session of the executor status_comment (detailed design 04 section 2.1.5)"
+  done = "Test 'effects/executors/status_comment session activity live against recorded linear responses' green, failure path without session yields a comment"
+  depends_on = ["9-E02-T01-S03"]
+
+[[task]]
+id = "9-E02-T02"
+title = "Notifier Slack"
+description = """plugins/notifier-slack: send, update, requestApproval with a signed callback /callbacks/notifier/slack/{instanceId} (signature before parsing, approval only if the clicking user is linked via identity_links and has the permission of the approval point), messages via the Effect Gateway with the executor notify from 1-E05-T11 (path Notifier.send and update); FE-1248. Contract suite and E2E against cassettes from the public documentation of the Slack API (detailed design 05 FE-564, 14 FE-1456); a Slack test workspace is an optional owner run (O28)."""
+design = ["14-stage-9-breadth-and-hardening.md#222-notifier-slack", "14-stage-9-breadth-and-hardening.md#44-approval-via-slack", "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02"]
+result = "plugins/notifier-slack/"
+done = [
+  "Contract suite notifier-slack green",
+  "Test 'slack approval only with linked authorized user' green",
+  "Test 'slack callback with wrong signature is rejected' green",
+  "E2E 'approval g1 via slack' green",
+  "Test 'effects/executors/notify slack live against recorded responses' green",
+]
+sources = ["01 section 10", "05 section 7", "03 section 3"]
+depends_on = ["1-E05-T11", "6-E05-T06"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "9-E02-T02-S01"
+  title = "Contract cases and callback tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E02-T02-S02"
+  title = "send and update"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "9-E02-T02-S03"
+  title = "requestApproval with callback"
+  done = "all tests green"
+
+  [[task.part]]
+  id = "9-E02-T02-S04"
+  title = "Executor notify with instance notifier-slack live against recorded responses"
+  done = "Test 'effects/executors/notify slack live against recorded responses' green, failure path Slack 5xx with retry and audit"
+  depends_on = ["9-E02-T02-S02"]
+
+[[task]]
+id = "9-E02-T03"
+title = "E2E ask from Jira and Linear"
+description = """E2E per FE-1227: @agent ask from a Jira ticket and from Linear runs via the service indexer in mode ask (7-E02-T02) and answers with valid citations in ADF or in the session; visibility rule against the ticket target."""
+design = ["14-stage-9-breadth-and-hardening.md#223-ask-from-jira-and-linear", "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02", "13-stage-8-providers-and-bases.md#218-ask-and-control-commands-from-jira"]
+result = "eval/suites/s5/ask-tickets/"
+done = [
+  "E2E 'ask from jira' green",
+  "E2E 'ask from linear' green",
+  "Citations only from sources with visibility at least that of the ticket (test)",
+]
+sources = ["03 section 4", "02 section 7", "ADR-63"]
+depends_on = ["9-E02-T01", "8-E01", "7-E02"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "9-E02-T03-S01"
+  title = "E2E skeleton"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E02-T03-S02"
+  title = "Adjustments and green runs"
+  done = "both E2E green"
+
+[[task]]
+id = "9-E02-T04"
+title = "Health notifications for drivers"
+description = """Connect the notifier kind driver_unhealthy from 01 section 10 to the health check of the drivers (backlog M37) per 14 section 2.2.4 and 04 FE-451: DriverHealthMonitor.tick in the handler of the existing queue drivers-health reads driverHealth() (no second query, no separate job), interval from here on drivers.health_interval_s (start value 60), threshold drivers.unhealthy_after, mandatory alert driver_unhealthy and a message via the notifier, mirror in plugin_instances.health for the admin UI page status."""
+design = ["14-stage-9-breadth-and-hardening.md#224-health-reports-of-the-drivers", "14-stage-9-breadth-and-hardening.md#82-linear-and-notifiers-9-e02"]
+result = "apps/control-plane/src/drivers/health-monitor.ts"
+done = [
+  "Test 'broken driver creates driver_unhealthy' green",
+  "Test: health() of a driver is called exactly once per interval, also with DriverHealthMonitor (04 FE-451)",
+]
+sources = ["01 section 10", "06 sections 4 and 6", "Backlog M37"]
+depends_on = ["9-E02-T02"]
+owner = "agent"
+estimate_h = 4
+note = "Backlog M37 (health notification for drivers)"
+
+  [[task.part]]
+  id = "9-E02-T04-S01"
+  title = "Test"
+  done = "Test red"
+
+  [[task.part]]
+  id = "9-E02-T04-S02"
+  title = "Integration"
+  done = "Test green"
+
+[[epic]]
+id = "9-E03"
+title = "Further harnesses"
+goal = "OpenCode, Gemini CLI, OpenHands SDK, each with contract suite and start paths; licenses checked beforehand (M34)"
+sources = ["01 section 6"]
+depends_on = ["8-E06"]
+
+[[task]]
+id = "9-E03-T01"
+title = "Spike and licenses of the harnesses"
+description = """Checks licenses of OpenCode and ACP (backlog M34), structured output with Gemini CLI and OpenCode, Antigravity CLI for free tiers, schema output of the OpenHands SDK, installation path with checksum per harness; result in 14-stage-9-breadth-and-hardening.md sections 2.3.1 and 10."""
+design = ["14-stage-9-breadth-and-hardening.md#231-spike-and-common-harness-framework"]
+result = "eval/reports/spike-harnesses.md"
+done = [
+  "License per harness read from LICENSE (M34)",
+  "decided per harness: build, later or rejected, with a reason",
+]
+sources = ["01 sections 6 and 11.3", "09 section 4", "Backlog M34"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+note = "Backlog M34 (licenses OpenCode and ACP)"
+
+  [[task.part]]
+  id = "9-E03-T01-S01"
+  title = "Check licenses and start paths"
+  done = "Note"
+
+  [[task.part]]
+  id = "9-E03-T01-S02"
+  title = "Decision per harness"
+  done = "Decision in the report"
+
+[[task]]
+id = "9-E03-T02"
+title = "Harness openhands-sdk"
+description = """plugins/openhands-sdk: Python subprocess with a fixed entry script, protocol JSON lines over stdio, mapping to RuntimeEvent, costs from metrics or the price table, installation with checksum; contract suite and start with api_key via the relay against a stub of the model endpoint from the documentation (the project has no account at another model provider and no API key, O28, detailed design 14 FE-1456). The goal is a free harness that can be qualified for coder and PR fixer (01 section 6); qualification with a real model is an optional owner run."""
+design = ["14-stage-9-breadth-and-hardening.md#232-harness-openhands-sdk", "14-stage-9-breadth-and-hardening.md#231-spike-and-common-harness-framework", "14-stage-9-breadth-and-hardening.md#83-harnesses-9-e03"]
+result = "plugins/openhands-sdk/"
+done = [
+  "Contract suite openhands-sdk green",
+  "Contract test 'start with api_key' green, no real credential in the sandbox",
+  "License gate green (MIT according to 01, re-read from LICENSE)",
+  "E2E 'review run with openhands-sdk on test repo' green against the model stub",
+]
+sources = ["01 sections 6 and 11.3", "02 section 3"]
+depends_on = ["9-E03-T01"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E03-T02-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E03-T02-S02"
+  title = "Entry script and protocol"
+  done = "Protocol test green"
+
+  [[task.part]]
+  id = "9-E03-T02-S03"
+  title = "Adapter and start path"
+  done = "Suite and contract test green"
+
+[[task]]
+id = "9-E03-T03"
+title = "Harness opencode"
+description = """plugins/opencode: opencode serve in the sandbox, control via HTTP, schema output per the result of 9-E03-T01, credential via the relay; contract suite. Build only if the license permits use."""
+design = ["14-stage-9-breadth-and-hardening.md#233-harness-opencode", "14-stage-9-breadth-and-hardening.md#231-spike-and-common-harness-framework", "14-stage-9-breadth-and-hardening.md#83-harnesses-9-e03"]
+result = "plugins/opencode/"
+done = [
+  "Contract suite opencode green or task dropped with a reason (license)",
+  "E2E 'review run with opencode on test repo' green against the model stub (O28)",
+]
+sources = ["01 sections 6 and 11.3"]
+depends_on = ["9-E03-T01"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "9-E03-T03-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E03-T03-S02"
+  title = "Adapter"
+  done = "Suite green"
+
+[[task]]
+id = "9-E03-T04"
+title = "Harness gemini-cli"
+description = """plugins/gemini-cli: only API key or Vertex service account, never Google login in platform code (01 section 6), turn limit and abort, output per the result of 9-E03-T01; contract suite."""
+design = ["14-stage-9-breadth-and-hardening.md#234-harness-gemini-cli", "14-stage-9-breadth-and-hardening.md#231-spike-and-common-harness-framework", "14-stage-9-breadth-and-hardening.md#83-harnesses-9-e03"]
+result = "plugins/gemini-cli/"
+done = [
+  "Contract suite gemini-cli green",
+  "S2 case: runtime with Google login is rejected at load",
+  "E2E 'review run with gemini-cli on test repo' green against a stub of the Gemini API from the documentation (O28)",
+]
+sources = ["01 sections 6, 11.3 and 11.5"]
+depends_on = ["9-E03-T01", "0-E20-T21"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "9-E03-T04-S01"
+  title = "Contract cases and S2 case"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E03-T04-S02"
+  title = "Adapter"
+  done = "Tests green"
+
+[[epic]]
+id = "9-E04"
+title = "MicroVM backend and pen test"
+goal = "MicroVM mandatory before foreign code (first implementation Kata, FE-1244), S1 to S6 under MicroVM, pen test report before foreign code (external, FE-1245)"
+sources = ["ADR-48", "05 section 3"]
+depends_on = ["8-E06"]
+
+[[task]]
+id = "9-E04-T01"
+title = "Spike: Kata as Docker runtime and KVM in CI"
+description = """Checks whether Kata Containers runs as a Docker runtime on the target systems (Linux host with /dev/kvm, GitHub-hosted standard runners with KVM after a udev rule), and compares with Firecracker via E2B (FE-1244); licenses."""
+design = ["14-stage-9-breadth-and-hardening.md#241-spike-kata-and-kvm"]
+result = "eval/reports/spike-microvm.md"
+done = [
+  "Probe container with Kata starts locally and on a standard runner (log) or an alternative chosen with justification",
+]
+sources = ["ADR-48", "11 sections 3 and 9", "01 section 8"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "9-E04-T01-S01"
+  title = "Trial run locally"
+  done = "Log"
+
+  [[task.part]]
+  id = "9-E04-T01-S02"
+  title = "Trial run on runner and decision"
+  done = "Decision in the report"
+
+[[task]]
+id = "9-E04-T02"
+title = "Backend microvm"
+description = """plugins/backend-microvm as an ExecutionBackend with isolation microvm; WorkerCaps.verified reports microvm only after a probe (/dev/kvm readable and writable, probe container starts); sandbox lifecycle with destroy in the failure path; socket proxy allowlist extended by the Kata runtime."""
+design = ["14-stage-9-breadth-and-hardening.md#242-backend-microvm", "14-stage-9-breadth-and-hardening.md#45-microvm-probe-and-routing", "14-stage-9-breadth-and-hardening.md#84-microvm-and-pen-test-9-e04"]
+result = "plugins/backend-microvm/, worker probe"
+done = [
+  "Contract suite backend-microvm green",
+  "Test 'microvm is reported only after probe' green",
+  "Test 'destroy also in the failure path' green under microvm",
+  "E2E 'review with build verifier on external code under microvm' green",
+]
+sources = ["01 section 8", "ADR-48", "ADR-62"]
+depends_on = ["9-E04-T01"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E04-T02-S01"
+  title = "Tests probe and lifecycle"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E04-T02-S02"
+  title = "Backend and probe"
+  done = "Probe test green"
+
+  [[task.part]]
+  id = "9-E04-T02-S03"
+  title = "Lifecycle and socket proxy"
+  done = "Suite green"
+
+[[task]]
+id = "9-E04-T03"
+title = "Routing external_code and suites under MicroVM"
+description = """The policy routes repo code of class external_code only to pools with a verified microvm (ADR-48), no fallback; S1 to S6 under Firecracker or Kata in the CI (11 section 9); S8 matrix extended by microvm from stage 9 (backlog M132)."""
+design = ["14-stage-9-breadth-and-hardening.md#243-routing-external_code-and-suites-under-microvm", "14-stage-9-breadth-and-hardening.md#45-microvm-probe-and-routing", "14-stage-9-breadth-and-hardening.md#84-microvm-and-pen-test-9-e04"]
+result = "eval/suites/isolation-microvm/, CI workflow"
+done = [
+  "Test 'external code never falls back to gvisor' green",
+  "S1 on MicroVM green",
+  "S2 to S6 under MicroVM green (job log)",
+]
+sources = ["05 section 3", "07 section 5", "11 sections 9 and 10", "Backlog M132"]
+depends_on = ["9-E04-T02", "0-E20-T21"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "9-E04-T03-S01"
+  title = "Routing test"
+  done = "Test green"
+
+  [[task.part]]
+  id = "9-E04-T03-S02"
+  title = "CI run S1 to S6 under MicroVM"
+  done = "Suites green"
+
+[[task]]
+id = "9-E04-T04"
+title = "Prepare the pen test"
+description = """Internal Red Team over stage 9 with its own finding list (FE-1245), scope description for the external pen test (control plane with ingress, Work API, platform MCP, admin UI; worker; sandbox escape; credential relay; plugin host), test environment without production data, decision sheet with costs for the owner."""
+design = ["14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval"]
+result = "docs/berichte/stufe-9-red-team.md, scope description, decision sheet in the ops repo"
+done = [
+  "internal Red Team with verdict and finding list",
+  "Blockers and majors of the Red Team fixed or carried over into 9-E04-T06",
+  "Scope and test environment described",
+]
+sources = ["08 stage 9", "05 sections 1 to 9"]
+depends_on = ["9-E04-T03", "9-E05-T02"]   # 9-E05-T02 added: plugin host with third_party container in the test scope (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "9-E04-T04-S01"
+  title = "Red Team"
+  done = "Report"
+
+  [[task.part]]
+  id = "9-E04-T04-S02"
+  title = "Scope, test environment, decision sheet"
+  done = "Documents in the ops repo"
+
+[[task]]
+id = "9-E04-T05"
+title = "Owner: commission the pen test"
+description = """The owner commissions an external pen test (money, contract) per the scope from 9-E04-T04 and accepts the report. Until the report, no services that execute repo code run on external_code."""
+design = ["14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval"]
+result = "Pen test report in the ops repo"
+done = [
+  "Pen test report is available (date, scope, findings)",
+]
+sources = ["08 stage 9", "O22"]
+depends_on = ["9-E04-T04"]
+owner = "owner"
+estimate_h = 4
+
+  [[task.part]]
+  id = "9-E04-T05-S01"
+  title = "Commissioning"
+  done = "Contract or order"
+
+  [[task.part]]
+  id = "9-E04-T05-S02"
+  title = "Acceptance of the report"
+  done = "Report in the ops repo"
+
+[[task]]
+id = "9-E04-T06"
+title = "Fix the findings of the pen test"
+description = """Fix blockers and majors from the pen test report with a test; minors in backlog-minors.md; re-check of the fixed points; approval of services with repo code on external_code only afterwards."""
+design = ["14-stage-9-breadth-and-hardening.md#244-red-team-pen-test-and-approval", "14-stage-9-breadth-and-hardening.md#84-microvm-and-pen-test-9-e04"]
+result = "Fixes with tests, re-check note"
+done = [
+  "0 open blockers and majors from the pen test (re-check)",
+  "every fix with a test that reproduces the finding",
+]
+sources = ["08 stage 9"]
+depends_on = ["9-E04-T05"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "9-E04-T06-S01"
+  title = "Classify findings"
+  done = "List with severity"
+
+  [[task.part]]
+  id = "9-E04-T06-S02"
+  title = "Fixes with tests"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "9-E04-T06-S03"
+  title = "Re-check"
+  done = "Note"
+
+[[epic]]
+id = "9-E05"
+title = "Third-party plugins and services"
+goal = "Subprocess plugins via gRPC, trust level assigned by the installation (M115), published manifests and internal events (M111), distribution as an OCI artifact, example plugin and example service"
+sources = ["01 section 14", "11 section 5"]
+depends_on = ["8-E06", "7-E06"]
+
+[[task]]
+id = "9-E05-T01"
+title = "Trust level assigned by the installation and signature"
+description = """TrustAssignment per 14-stage-9-breadth-and-hardening.md section 2.5.1 (backlog M115): first_party only for the signing identity of the project, vetted only for identities on the operator's allowlist, otherwise third_party; no loading without a valid signature; table plugin_artifacts."""
+design = ["14-stage-9-breadth-and-hardening.md#251-trust-level-and-signature", "14-stage-9-breadth-and-hardening.md#31-tables-block-0900", "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05"]
+result = "packages/plugin-host/src/trust.ts, migration plugin_artifacts"
+done = [
+  "Test 'unsigned plugin is not loaded' green",
+  "Test 'manifest cannot set its own trust level' green",
+]
+sources = ["01 section 1.1 rule 4", "05 section 9", "Backlog M115"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+note = "Backlog M115 (the installation assigns the trust level)"
+
+  [[task.part]]
+  id = "9-E05-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E05-T01-S02"
+  title = "Signature check and assignment"
+  done = "Tests green"
+
+[[task]]
+id = "9-E05-T02"
+title = "Subprocess transport gRPC"
+description = """SubprocessPluginHost per FE-1234: gRPC over a Unix socket, handshake following the go-plugin pattern, protocol from the TypeBox schemas per apiVersion; third_party as its own container without secret mounts in its own network namespace behind the egress proxy; secrets only via the broker per call; a crash of the plugin does not take down the core."""
+design = ["14-stage-9-breadth-and-hardening.md#252-subprocess-transport-grpc", "14-stage-9-breadth-and-hardening.md#46-taking-in-loading-and-crashing-a-plugin", "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05"]
+result = "packages/plugin-host/src/{subprocess,grpc,container}.ts, proto/"
+done = [
+  "Test 'third party runs without secret mounts' green",
+  "Test 'crash of the plugin keeps the core running' green",
+  "Egress of a third_party plugin only to hosts from the manifest (test)",
+]
+sources = ["01 section 1.1 rule 4", "06 section 3 (plugin mechanics)"]
+depends_on = ["9-E05-T01"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E05-T02-S01"
+  title = "Tests isolation and crash"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E05-T02-S02"
+  title = "Protocol and handshake"
+  done = "Handshake test green"
+
+  [[task.part]]
+  id = "9-E05-T02-S03"
+  title = "Container start with network namespace"
+  done = "Isolation tests green"
+
+  [[task.part]]
+  id = "9-E05-T02-S04"
+  title = "Secrets via the broker"
+  done = "all tests green"
+
+[[task]]
+id = "9-E05-T03"
+title = "Published schemas and internal events"
+description = """Publication of the JSON Schemas of plugin manifest, service manifest, configuration and the internal events and artifacts with apiVersion (backlog M111); ServiceManifest extended by consumes and produces as well as subscriptions to internal events; type compatibility of the pipeline stages at load."""
+design = ["14-stage-9-breadth-and-hardening.md#253-published-schemas-and-internal-events", "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05"]
+result = "schemas/ in the release, packages/contracts (events, artifacts)"
+done = [
+  "Schemas in the release artifact; test 'schema publication equals internal types' green",
+  "A pipeline with an incompatible artifact type is rejected at load (test)",
+]
+sources = ["01 section 14", "02 section 0", "Backlog M111"]
+depends_on = ["1-E04-T07", "2-E02-T03", "2-E03-T01", "2-E04-T01", "7-E04-T01", "7-E02-T02"]   # artifacts that 14 section 2.5.3 publishes (catalog reconciliation 2026-11-01)
+owner = "agent"
+estimate_h = 12
+note = "Backlog M111 (contract for internal events and artifacts)"
+
+  [[task.part]]
+  id = "9-E05-T03-S01"
+  title = "Tests equality and type compatibility"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E05-T03-S02"
+  title = "Event and artifact schemas"
+  done = "Equality test green"
+
+  [[task.part]]
+  id = "9-E05-T03-S03"
+  title = "consumes and produces in the manifest"
+  done = "Load test green"
+
+[[task]]
+id = "9-E05-T04"
+title = "Distribution as an OCI artifact"
+description = """guildwork plugin add <ref>@<digest> and admin UI: fetch the artifact, signature and trust level (9-E05-T01), manifest, command collisions, requires, contract suite evidence; active only after an entry in the installation configuration (11 section 5)."""
+design = ["14-stage-9-breadth-and-hardening.md#254-distribution-as-an-oci-artifact", "14-stage-9-breadth-and-hardening.md#46-taking-in-loading-and-crashing-a-plugin", "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05"]
+result = "apps/cli/src/commands/plugin-add.ts, admin UI page plugins"
+done = [
+  "Test 'plugin add checks digest, signature and contract suite' green",
+  "An error rejects only this plugin, not the installation (test)",
+]
+sources = ["11 section 5", "01 section 14 rule 3"]
+depends_on = ["9-E05-T01", "9-E05-T03"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "9-E05-T04-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E05-T04-S02"
+  title = "CLI and admin UI"
+  done = "Tests green"
+
+[[task]]
+id = "9-E05-T05"
+title = "Example plugin and example service"
+description = """examples/third-party-plugin (for instance a notifier via a generic webhook) and examples/third-party-service (namespace example/<name>, one command, one write request propose_comment) build only against the published schemas (9-E05-T03), run as third_party via the subprocess host; contract suites and documentation as a template for third parties."""
+design = ["14-stage-9-breadth-and-hardening.md#255-example-plugin-and-example-service", "14-stage-9-breadth-and-hardening.md#85-third-party-plugins-and-services-9-e05"]
+result = "examples/third-party-plugin/, examples/third-party-service/"
+done = [
+  "Example plugin and example service run only via the published contracts (build without internal packages, test)",
+  "Contract suites of both examples green",
+  "Example service in mode shadow with the marker 'standard not proven' when live (test)",
+]
+sources = ["01 section 14", "11 section 5", "08 stage 9"]
+depends_on = ["9-E05-T02", "9-E05-T03", "9-E05-T04", "9-E02-T02"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "9-E05-T05-S01"
+  title = "Example plugin"
+  done = "Suite green"
+
+  [[task.part]]
+  id = "9-E05-T05-S02"
+  title = "Example service"
+  done = "Suite green"
+
+  [[task.part]]
+  id = "9-E05-T05-S03"
+  title = "Build check without internal packages"
+  done = "Test green"
+
+[[epic]]
+id = "9-E06"
+title = "Advanced control"
+goal = "Injection detector, `@agent handoff` and `resume`, child runs, best-of-N; triage as the first stage of `ticket-to-pr` (FE-1221)"
+sources = ["03 section 2.4", "05 section 4"]
+depends_on = ["7-E06", "8-E06"]
+
+[[task]]
+id = "9-E06-T01"
+title = "Injection detector"
+description = """Per 14 sections 2.6.1 and 4.10 (FE-1243, FE-1434, FE-1454): if security.injection_detector.threshold is set (off by default), the orchestrator creates a step injection_scan before the first agent step of a run and on every new untrusted input from run_untrusted_inputs (service platform, work item model_call, model from security.injection_detector.model; the control plane calls no model). Input only the untrusted blocks, output { score, spans } via outputSchema. decide() as a pure function in apps/control-plane/src/policy/injection-detector.ts; a hit or a scan error (scan_failed, fail closed) sets runs.injection_suspected permanently. Migration 0908 with table injection_signals and column runs.injection_suspected. Policy rule POL-080: G1 always human, never into the merge gate, but awaiting_human_review; in addition the guard as a new state machine version (02 section 4.4, FE-258). Config keys security.injection_detector.threshold and .model in the schema (without a model and with a threshold, the resolver rejects). Display of score, threshold, model, spans (positions only) and decision in the Run Record; audit policy.injection_raised. The detector never unlocks an effect."""
+design = ["14-stage-9-breadth-and-hardening.md#261-injection-detector", "14-stage-9-breadth-and-hardening.md#410-injection-detector", "14-stage-9-breadth-and-hardening.md#31-tables-block-0900", "14-stage-9-breadth-and-hardening.md#86-control-9-e06"]
+result = "apps/control-plane/src/policy/injection-detector.ts, apps/control-plane/src/policy/rules/pol-080.ts, packages/db/migrations/0908_injection_signals.sql, step injection_scan in the orchestrator"
+done = [
+  "Test 'injection detector only raises' green",
+  "Test 'injection scan error raises' green (scan_failed counts as a hit)",
+  "Test: injection_suspected excludes the merge gate and makes G1 human (POL-080, guard of the new state machine version)",
+  "Test: without a threshold no step injection_scan; with a threshold without a model the resolver rejects",
+  "Run Record shows score, threshold, model and decision, never text (test)",
+  "S1 cases: the detector never unlocks an effect that the separation of permissions blocks",
+]
+sources = ["05 section 4 item 5", "07 section 5 (S1)"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "9-E06-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E06-T01-S02"
+  title = "Detector and policy integration"
+  done = "Tests green"
+
+[[task]]
+id = "9-E06-T02"
+title = "handoff and resume"
+description = """@agent handoff and @agent resume per 03 section 2.4 and 14-stage-9-breadth-and-hardening.md section 4.7: snapshot, WIP branch agent/<key>-wip, exportSession as a bundle in the BlobStore, continuation instruction, state handed_off; resume with human commits as the base, never auto-merge afterwards; check takeover of a transcript into a local tool (09 section 4), otherwise branch plus summary."""
+design = ["14-stage-9-breadth-and-hardening.md#262-handoff-and-resume", "14-stage-9-breadth-and-hardening.md#47-handoff-and-resume", "14-stage-9-breadth-and-hardening.md#86-control-9-e06"]
+result = "services/coder/src/handoff.ts, run state machine entries handed_off"
+done = [
+  "Test 'handoff and resume without loss of work' green",
+  "Test 'no auto merge after resume' green",
+  "S6 cases for handed_off (stop, deadline) green",
+]
+sources = ["03 sections 2.1, 2.4 and 1a condition 11", "01 section 6 (EXPORT_SESSION)"]
+depends_on = []
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "9-E06-T02-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E06-T02-S02"
+  title = "handoff with export"
+  done = "handoff test green"
+
+  [[task.part]]
+  id = "9-E06-T02-S03"
+  title = "resume and merge lock"
+  done = "all tests green"
+
+[[task]]
+id = "9-E06-T03"
+title = "Child runs"
+description = """coder.max_children per 02 section 3 stage 6: phases with parallelizable true and disjoint paths as child steps with their own sandbox, branch and limit key, deterministic integrator, conflict to the PR fixer only if live, otherwise awaiting_human_review (FE-1235)."""
+design = ["14-stage-9-breadth-and-hardening.md#263-child-runs", "14-stage-9-breadth-and-hardening.md#48-child-runs-and-integrator", "14-stage-9-breadth-and-hardening.md#86-control-9-e06"]
+result = "services/coder/src/children/*.ts"
+done = [
+  "Test 'child run conflict without prfixer goes to humans' green",
+  "Test 'child runs only with disjoint paths' green",
+  "S3 case: limit per child applies",
+]
+sources = ["02 section 3", "03 section 2.1"]
+depends_on = []
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E06-T03-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E06-T03-S02"
+  title = "Decomposition and child steps"
+  done = "Decomposition test green"
+
+  [[task.part]]
+  id = "9-E06-T03-S03"
+  title = "Integrator and conflict path"
+  done = "all tests green"
+
+[[task]]
+id = "9-E06-T04"
+title = "Best-of-N"
+description = """coder.best_of_n per 02 section 3 stage 9: N attempts, deterministic selection (self-check green, then fewer P0/P1 in the self-review, then a smaller diff), all attempts in the Run Record; enable only if gate A shows a gain per cost (measurement in the PR)."""
+design = ["14-stage-9-breadth-and-hardening.md#264-best-of-n", "14-stage-9-breadth-and-hardening.md#49-best-of-n", "14-stage-9-breadth-and-hardening.md#86-control-9-e06"]
+result = "services/coder/src/best-of-n.ts"
+done = [
+  "Test 'best of n selects deterministically' green",
+  "Gate A measurement gain per cost reported in the PR",
+]
+sources = ["02 section 3", "06 section 7 item 6"]
+depends_on = ["2-E08-T05"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "9-E06-T04-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E06-T04-S02"
+  title = "Attempts and selection"
+  done = "Tests green, measurement in the PR"
+
+[[task]]
+id = "9-E06-T05"
+title = "Triage as a stage of ticket-to-pr"
+description = """Triage as the first stage of ticket-to-pr with on_disabled skip and auto trigger item.triaged (FE-1221): spam or slop ends with skipped(triage_rejected); G0 for the ticket author; without permission the run ends after triage with done and a note; a later @agent code uses the stored TriageArtifact of the same ticket version (03 section 1a); merge gate condition 2 counts triage as a starter."""
+design = ["14-stage-9-breadth-and-hardening.md#265-triage-as-a-stage-of-ticket-to-pr", "14-stage-9-breadth-and-hardening.md#86-control-9-e06", "12-expansion.md#26-triage-service-7-e04"]
+result = "Pipeline stage triage, route item.triaged"
+done = [
+  "Test 'triage stage ends spam pipeline' green",
+  "Test 'g0 of the ticket author on auto trigger' green",
+  "Test 'later code uses stored triage artifact' green",
+]
+sources = ["03 sections 1a and 2.1", "04 section 3"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "9-E06-T05-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E06-T05-S02"
+  title = "Pipeline stage and route"
+  done = "Tests green"
+
+[[epic]]
+id = "9-E07"
+title = "SARIF upload and Zoekt"
+goal = "SARIF upload to the host, Zoekt as an optional `KnowledgeStore`; in addition K1 for the coder (FE-1222), Confluence as a KB source (M30) and the analyzer `ast-grep` as the executor of compiled repo rules (detailed design 14 FE-1453, consequence of 12 FE-1265)"
+sources = ["01 sections 9, 12"]
+depends_on = ["7-E06"]
+
+[[task]]
+id = "9-E07-T01"
+title = "SARIF upload"
+description = """Per 14 sections 2.7.1 and 4.11 (FE-1440): SCMProvider.uploadSarif with capability CODE_SCANNING_UPLOAD in the GitHub plugin (private repos only with Code Security), entered additively in 05 and added to WRITE_METHODS together with the Opengrep rule. Platform effect code_scanning_upload after every completed analyzer run with analyzers.upload_to_host: true, with executor apps/control-plane/src/effects/executors/code-scanning-upload.ts, fallback chain check annotations, then summary (fallback_used), idempotency via sarif:<analyzerRunId>; entry in the effect catalog with stage 9 (04 FE-428) and trigger rule POL-082 (only SARIF from analyzer_runs of the allowlist at the checked SHA). Permission profile fixed per FE-1440: new profile code_scanning with only security_events: write, allows only uploadSarif; the GitHub App gets the permission only if the operator chooses it in the manifest flow (option like write_branch), otherwise the plugin reports CODE_SCANNING_UPLOAD: none."""
+design = ["14-stage-9-breadth-and-hardening.md#271-sarif-upload", "14-stage-9-breadth-and-hardening.md#411-sarif-upload", "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07"]
+result = "plugins/github/src/scm/sarif-upload.ts, apps/control-plane/src/effects/executors/code-scanning-upload.ts, profile code_scanning in the credential broker, policy rule POL-082, option in the manifest flow"
+done = [
+  "Test 'sarif upload with fallback chain' green",
+  "Permission test 'profile code_scanning can only upload sarif' green",
+  "Test 'pol-082 rejects upload without analyzer run at the sha' green",
+  "Guard test of the effect catalog (0-E09-T10) green with code_scanning_upload in stage 9",
+  "Equality test WRITE_METHODS against the Opengrep rule green with uploadSarif",
+  "E2E 'analyzer finding as code scanning alert in the test repo' green",
+]
+sources = ["01 sections 5 and 12", "05 section 2"]
+depends_on = ["9-E01-T04", "2-E05-T04"]   # 9-E01-T04 (runFallbackChain) and 2-E05-T04 (analyzer in mode run for the E2E case) added (catalog reconciliation)
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "9-E07-T01-S01"
+  title = "Tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E07-T01-S02"
+  title = "Upload and profile"
+  done = "Tests green"
+
+[[task]]
+id = "9-E07-T02"
+title = "Zoekt as a KnowledgeStore"
+description = """plugins/kb-zoekt with capability LEXICAL_MULTI_REPO for trigram and regex search across many repos; Zoekt as an additional service in the Compose profile and a Helm switch; pg-kb remains the default; visibility rule as with pg-kb."""
+design = ["14-stage-9-breadth-and-hardening.md#272-zoekt-as-a-knowledgestore", "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07"]
+result = "plugins/kb-zoekt/"
+done = [
+  "Contract suite kb-zoekt green",
+  "The visibility filter also applies to Zoekt hits (test)",
+  "License of Zoekt (Apache-2.0 according to 01) re-read from LICENSE",
+  "E2E 'kb search via zoekt in the review run' green",
+]
+sources = ["01 section 9", "10 section 9", "ADR-63"]
+depends_on = ["8-E04-T04"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "9-E07-T02-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E07-T02-S02"
+  title = "Plugin and service"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "9-E07-T02-S03"
+  title = "Visibility"
+  done = "Test green"
+
+[[task]]
+id = "9-E07-T03"
+title = "K1 for the coder"
+description = """K1 per 07 section 3.7 for the coder (FE-1222): recall@10 and costs with versus without KB on C1p, paired; KB for the coder only on if better or cheaper, as a separate qualification profile (knowledge.use)."""
+design = ["14-stage-9-breadth-and-hardening.md#273-k1-for-the-coder", "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07", "12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"]
+result = "eval/reports/stufe-9-k1-coder.md"
+done = [
+  "K1 run for the coder with intervals and costs",
+  "Decision KB on or off for the coder in the stage report",
+]
+sources = ["07 section 3.7", "10 section 9", "08 stage 7"]
+depends_on = ["2-E08-T05"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "9-E07-T03-S01"
+  title = "Adapter on C1p"
+  done = "Trial run green"
+
+  [[task.part]]
+  id = "9-E07-T03-S02"
+  title = "Run and decision"
+  done = "Report"
+
+[[task]]
+id = "9-E07-T04"
+title = "Confluence as a KB source"
+description = """plugins/kb-source-confluence as a read-only source for the knowledge base (FE-1242, backlog M30): pages of an allowed space via the Atlassian access from 8-E01, redaction before storage, visibility per space, off by default, only with data_policy approval."""
+design = ["14-stage-9-breadth-and-hardening.md#274-confluence-as-a-kb-source", "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07"]
+result = "plugins/kb-source-confluence/"
+done = [
+  "Contract suite kb-source-confluence green",
+  "Test 'confluence source off by default' green",
+  "Pages of a space with narrower visibility never appear in public targets (test)",
+  "E2E 'ask answers a question from a confluence page' green",
+]
+sources = ["10 section 9", "05 section 7", "Backlog M30"]
+depends_on = ["8-E01"]
+owner = "agent"
+estimate_h = 12
+note = "Backlog M30 (document sources as a KB source)"
+
+  [[task.part]]
+  id = "9-E07-T04-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "9-E07-T04-S02"
+  title = "Source with redaction and visibility"
+  done = "Tests green"
+
+[[task]]
+id = "9-E07-T05"
+title = "Analyzer ast-grep for repo rules"
+description = """Plugin `plugins/analyzer-ast-grep` per detailed design 14 section 2.7.5 (FE-1453): analyzer contract v1alpha1 from 10 section 2.14 without change, analyzer ID `ast-grep`, no own rule set, rules only from `.agents/rules/ast-grep/` at the base SHA (entry in `REPO_RULE_DIRS` of the analyzer runner, addendum in 10 section 2.14), JSON hits to SARIF 2.1.0 with fingerprints from `@guildwork/sarif`, without rules `passed` with 0 rules, a rule that cannot be loaded `neutral` with `rules_invalid`. Image `deploy/images/analyzer-ast-grep` with the same ast-grep version as the image `engines` from 7-E03-T05, offline, by digest, license gate. With this, `standards` per 12 FE-1265 also compiles for ast-grep."""
+design = ["14-stage-9-breadth-and-hardening.md#275-analyzer-ast-grep-for-repo-rules", "14-stage-9-breadth-and-hardening.md#87-sarif-zoekt-k1-confluence-9-e07", "10-planner-architect-coder.md#214-analyzer-in-run-mode-guildworksarif-plugins", "12-expansion.md#25-standards-service-7-e03"]
+result = "plugins/analyzer-ast-grep/, deploy/images/analyzer-ast-grep/, entry ast-grep in apps/worker/src/analyzer-runner/, fixture repos AN1"
+done = [
+  "Contract suite an1.ast-grep green (20 fixture repos, fingerprints equal to the direct call)",
+  "Test 'ast-grep version equals engines image' green",
+  "Tests 'ast-grep rules only from the base sha', 'ast-grep without rules passed with zero rules', 'ast-grep invalid rule yields neutral' green",
+  "Test 'standards compiles ast-grep only with a loaded analyzer' green",
+  "E2E 'compiled ast-grep rule creates a finding in the review' green",
+  "License of the engine re-read at the source, image green in the license gate",
+]
+sources = ["02 section 8", "07 sections 3.7 and 3.8", "10 section 10", "ADR-50"]
+depends_on = ["2-E05-T04", "2-E05-T08", "7-E03-T01", "7-E03-T05"]   # 2-E05-T08: analyzer in mode run in the reviewer (E2E)
+owner = "agent"
+estimate_h = 12
+note = "Reported from 12 section 10 (executor for ast-grep rules, FE-1265)"
+
+  [[task.part]]
+  id = "9-E07-T05-S01"
+  title = "AN1 fixtures and tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "9-E07-T05-S02"
+  title = "Plugin, image and rule export"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "9-E07-T05-S03"
+  title = "E2E with compiled rule"
+  done = "E2E green"
+
+[[epic]]
+id = "9-E08"
+title = "Acceptance stage 9"
+goal = "Capability matrix in the admin UI, all contract suites and E2E of the new plugins, S1 on MicroVM, pen test report, stage report and release (new epic, FE-1241: stage 9 had no acceptance epic)"
+sources = ["08 stage 9", "10 section 1.2 item 6"]
+depends_on = ["9-E01", "9-E02", "9-E03", "9-E04", "9-E05", "9-E06", "9-E07"]
+
+[[task]]
+id = "9-E08-T01"
+title = "Capability matrix in the admin UI"
+description = """View per plugin and instance with all capabilities and level (native, fallback, none) from capabilities(), fallback chains and signature strength; export as JSON (08 stage 9)."""
+design = ["14-stage-9-breadth-and-hardening.md#281-capability-matrix", "14-stage-9-breadth-and-hardening.md#88-acceptance-9-e08"]
+result = "apps/admin-ui/src/pages/capabilities/"
+done = [
+  "Test 'capability matrix equals capabilities of all loaded plugins' green",
+]
+sources = ["08 stage 9", "01 section 1.1 rule 2"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "9-E08-T01-S01"
+  title = "Test"
+  done = "Test red"
+
+  [[task.part]]
+  id = "9-E08-T01-S02"
+  title = "View and export"
+  done = "Test green"
+
+[[task]]
+id = "9-E08-T02"
+title = "Suites, stage report and release stage 9"
+description = """Collects the done criteria from 08 stage 9: contract suite per new plugin green, one E2E per plugin, S1 on MicroVM, pen test report before foreign code, example plugin and example service only via published contracts; S8 with microvm in the matrix; stage report with gate B status per new service profile; release."""
+design = ["14-stage-9-breadth-and-hardening.md#282-suites-stage-report-and-release", "14-stage-9-breadth-and-hardening.md#88-acceptance-9-e08"]
+result = "docs/berichte/stufe-9.md, release"
+done = [
+  "every done criterion from 08 stage 9 with evidence (command and output or report)",
+  "S8 green with upgrade from the previous release",
+  "signed release with SBOM",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 9", "07 section 5", "10 section 1.2 item 6"]
+depends_on = ["9-E08-T01"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "9-E08-T02-S01"
+  title = "Collect suites and E2E"
+  done = "all green"
+
+  [[task.part]]
+  id = "9-E08-T02-S02"
+  title = "S8 and release"
+  done = "Release"
+
+  [[task.part]]
+  id = "9-E08-T02-S03"
+  title = "Stage report"
+  done = "Report in the repo"

@@ -1,0 +1,1759 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area repo of stage R. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/00-codebase-and-conventions.md
+# Until V10 there is no remote for the product: tasks of epics R-E01 to R-E04 run in the local build repo
+# (one branch per task, local merge after review, FE-031). One PR per task applies only from R-E05 on.
+stage = "R"
+
+# =====================================================================================================
+[[epic]]
+id = "R-E01"
+title = "Toolchain and scaffold"
+goal = "Local build repo with required and community files, toolchain (Node 22, pnpm, TypeScript, Biome, Vitest, Python tools), layer check and `make bootstrap`/`make check` green locally; V0 verified"
+sources = ["12 sections 2.3, 5, 6, 8", "bothy-vorlage-projekt-setup 3.1"]
+depends_on = []
+
+[[task]]
+id = "R-E01-T01"
+title = "V0: chain of rights to the employer verified"
+description = """Owner step V0 (12 section 2.5, ADR-69, O27): evidence of private creation in the ops repo. Done on 2026-10-31; the task records the state in the plan so that done criterion 0 of stage R is represented. The rules from ADR-69 apply permanently (no resources of the employer, commits only with the private identity)."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: evidence V0 (12 section 4.4)"
+done = ["Evidence present in the ops repo and listed in 12 section 4.4 as 'Verified 2026-10-31'"]
+sources = ["12 sections 2.5, 4.4 V0", "ADR-69", "O27"]
+depends_on = []
+owner = "owner"
+estimate_h = 1
+status = "done"
+note = "Done 2026-10-31 (O27 decided)."
+
+  [[task.part]]
+  id = "R-E01-T01-S01"
+  title = "Write evidence of private creation and store it in the ops repo"
+  done = "Document in the ops repo"
+  status = "done"
+
+  [[task.part]]
+  id = "R-E01-T01-S02"
+  title = "Record O27 in 09 as decided and V0 in 12 as verified"
+  done = "DECISIONS.md section 3.2 O27 and 12 section 4.4 V0 with date"
+  status = "done"
+
+[[task]]
+id = "R-E01-T02"
+title = "Product repo and ops repo created as private"
+description = """Step R1 (12 section 6): product repo (empty, private until V10) and ops repo (private, contains the planning) created on the owner's account. Done on 2026-10-31; the organization for securing the API group is a separate task (R-E05-T02)."""
+design = ["00-codebase-and-conventions.md#48-stage-r-before-the-first-push"]
+result = "Product repo empty and private; ops repo private"
+done = ["Product repo exists without a commit and is private", "Ops repo exists and is private"]
+sources = ["12 section 6 R1", "O17"]
+depends_on = []
+owner = "owner"
+estimate_h = 1
+status = "done"
+note = "Done 2026-10-31 (O17, DECISIONS.md section 3.2). On 2026-11-01, on the owner's instruction, the product repo was transferred, private and empty, to the organization `guildwork-dev`."
+
+  [[task.part]]
+  id = "R-E01-T02-S01"
+  title = "Create product repo empty and private"
+  done = "Repo without a commit"
+  status = "done"
+
+  [[task.part]]
+  id = "R-E01-T02-S02"
+  title = "Create ops repo as private"
+  done = "Repo present"
+  status = "done"
+
+[[task]]
+id = "R-E01-T03"
+status = "done"
+title = "Build repo, required and community files"
+description = """Create the local build repo without a remote (FE-031) and write the files from 12 sections 2.3 and 8 (in English): `LICENSE` byte-identical to Apache-2.0 (SHA-256 in `quality/licenses/license.sha256`), `NOTICE` ("Copyright The Guildwork Authors"), `LICENSES/Apache-2.0.txt`, `README.md` (short), `CONTRIBUTING.md` (bootstrap, check, DCO, Conventional Commits, documentation is part of the change, no dashes, fork switches `DENYLIST_FLAGS=--allow-missing`, `REVIEW_SKIP=1`), `GOVERNANCE.md` (one maintainer, CODEOWNERS, ADR via PR in `docs/adr/`, lazy consensus with a named deadline), `SECURITY.md` (only private vulnerability reporting, target times as named values, no bounties), `SUPPORT.md` (support promise from 12 section 8), `CODE_OF_CONDUCT.md` (Contributor Covenant, version per FE-042), `CHANGELOG.md`, `.github/CODEOWNERS` (handle of the maintainer, no placeholder), `.github/PULL_REQUEST_TEMPLATE.md` (detailed design 00 section 4.1), `.github/ISSUE_TEMPLATE/` (forms with `status: triage`), `.github/labels.yml`, `.editorconfig`, `.gitattributes`, `.gitignore` (`.review/`, `.tools/`, `.reports/`, `node_modules/`, `dist/`, `.venv/`). Every file with an SPDX header where the format allows comments."""
+design = ["00-codebase-and-conventions.md#21-monorepo-layout", "00-codebase-and-conventions.md#41-contribution-branch-commit-pr", "00-codebase-and-conventions.md#6-security"]
+result = "Build repo: LICENSE, NOTICE, LICENSES/, README.md, CONTRIBUTING.md, GOVERNANCE.md, SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md, CHANGELOG.md, .github/{CODEOWNERS,PULL_REQUEST_TEMPLATE.md,ISSUE_TEMPLATE/,labels.yml}, .editorconfig, .gitattributes, .gitignore, quality/licenses/license.sha256"
+done = [
+  "`sha256sum LICENSE` equal to the value in `quality/licenses/license.sha256` and to the original Apache-2.0 text",
+  "`grep -rnE --exclude-dir=research '[<]projekt|[@]OWNER' .` without hits (form FE-065)",
+  "`grep -rnE $'\\u2012|\\u2013|\\u2014|\\u2015' .` without hits (ERE, because `\\|` does not work in BSD grep and ugrep)",
+  "Version of the Code of Conduct, lazy consensus deadline and target times in SECURITY.md present as named values (M52)",
+]
+sources = ["12 sections 2.3, 8", "ADR-37", "O16, O20"]
+depends_on = ["R-E01-T01"]
+owner = "agent"
+estimate_h = 8
+note = "M52 (Code of Conduct, lazy consensus) is done here."
+
+  [[task.part]]
+  id = "R-E01-T03-S01"
+  status = "done"
+  title = "Create build repo, .gitignore, .editorconfig, .gitattributes"
+  done = "git init without a remote; `git remote -v` empty"
+
+  [[task.part]]
+  id = "R-E01-T03-S02"
+  status = "done"
+  title = "LICENSE, LICENSES/Apache-2.0.txt, NOTICE, license.sha256"
+  done = "Checksum equal to the original text"
+
+  [[task.part]]
+  id = "R-E01-T03-S03"
+  status = "done"
+  title = "README, CONTRIBUTING, GOVERNANCE, SUPPORT, CHANGELOG"
+  done = "Contents per 12 section 8, named values set"
+
+  [[task.part]]
+  id = "R-E01-T03-S04"
+  status = "done"
+  title = "SECURITY.md and CODE_OF_CONDUCT.md (M52)"
+  done = "Reporting channel only PVR; version of the Code of Conduct named"
+
+  [[task.part]]
+  id = "R-E01-T03-S05"
+  status = "done"
+  title = ".github: CODEOWNERS, PR template, issue forms, labels.yml"
+  done = "no placeholders; template with the sections from detailed design 00 section 4.1"
+
+[[task]]
+id = "R-E01-T04"
+status = "done"
+title = "Python toolchain of the check tools and binary bootstrap"
+description = """`pyproject.toml` (ruff with `E,F,I,B,UP,S,SIM`, mypy strict, package `tools`), `.python-version` (3.12), `uv.lock` with pre-commit, ruff, mypy, zizmor, check-jsonschema. `tools/bootstrap/tools.toml` (version, URL template, SHA-256 per operating system and architecture for uv, gitleaks, opengrep, osv-scanner, actionlint) and `tools/bootstrap/fetch.py` (stdlib, downloads to `.tools/bin/`, checks SHA-256, deletes on mismatch, no sudo). Detailed design 00 section 2.3, FE-004, FE-005."""
+design = ["00-codebase-and-conventions.md#23-toolchain"]
+result = "Build repo: pyproject.toml, uv.lock, .python-version, tools/bootstrap/{tools.toml,fetch.py,tests/test_fetch.py}"
+done = [
+  "Test `test_fetch.py::TestFetch::test_checksum_mismatch_deletes_file_and_exits_1` green",
+  "Test `test_fetch.py::TestFetch::test_unknown_platform_exits_2` green",
+  "`python tools/bootstrap/fetch.py` downloads all tools on linux_x64 and the developer machine, checksums match",
+  "`uv run ruff check tools` and `uv run mypy tools` green",
+]
+sources = ["12 section 5.2", "11 section 1 principle 7", "bothy-vorlage-projekt-setup 2.11"]
+depends_on = ["R-E01-T03"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "R-E01-T04-S01"
+  status = "done"
+  title = "Test: wrong checksum deletes the file and exits with 1"
+  done = "Test red because fetch.py is missing"
+
+  [[task.part]]
+  id = "R-E01-T04-S02"
+  status = "done"
+  title = "fetch.py and tools.toml with all binaries"
+  done = "Tests green; checksums from the vendors' release pages with retrieval date"
+
+  [[task.part]]
+  id = "R-E01-T04-S03"
+  status = "done"
+  title = "pyproject.toml, uv.lock, ruff and mypy over tools/"
+  done = "ruff and mypy green"
+
+[[task]]
+id = "R-E01-T05"
+status = "done"
+title = "TypeScript toolchain and package core as a placeholder"
+description = """Root `package.json` (field `packageManager`, `engines.node`, scripts), `pnpm-workspace.yaml` (apps/*, packages/*, plugins/*, drivers/*, services/*, eval/*, eval/adapters/*, eval/suites/*), `.npmrc`, `.node-version`, `tsconfig.base.json` and `tsconfig.json` (project references), `biome.json`, `eslint.config.js` (five type-aware rules, FE-002), `vitest.config.ts` (projects by suffix, `retry: 0`, condition `@guildwork/source`, FE-001, FE-003), `quality/coverage.json`. `packages/core` as a placeholder with `src/index.ts` (version constant) and one unit test, so that the chain really runs. Verify: (a) `customConditions` takes effect with `NodeNext` (test imports `@guildwork/core` without a build), otherwise document the FE-001 fallback; (b) whether Biome finds floating promises (fixture with a floating promise; if Biome finds it, ESLint is dropped via a change to FE-002)."""
+design = ["00-codebase-and-conventions.md#23-toolchain", "00-codebase-and-conventions.md#21-monorepo-layout"]
+result = "Build repo: package.json, pnpm-workspace.yaml, pnpm-lock.yaml, .npmrc, .node-version, tsconfig.base.json, tsconfig.json, biome.json, eslint.config.js, vitest.config.ts, quality/coverage.json, packages/core/{package.json,tsconfig.json,src/index.ts,src/index.test.ts}"
+done = [
+  "`pnpm install --frozen-lockfile`, `pnpm exec tsc -b`, `pnpm exec biome check .`, `pnpm exec eslint .`, `pnpm exec vitest run` green",
+  "Test `core/index > imports workspace source without build` green (evidence for FE-001)",
+  "Fixture `tools/fixtures/floating-promise.ts` is reported by ESLint; result for Biome recorded in docs/quality/toolchain.md",
+  "Test `coverage thresholds come from quality/coverage.json` green",
+]
+sources = ["detailed design README section 2", "12 section 5.2", "ADR-03"]
+depends_on = ["R-E01-T03"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "R-E01-T05-S01"
+  status = "done"
+  title = "Workspace, pnpm, Node version, .npmrc"
+  done = "pnpm install green"
+
+  [[task.part]]
+  id = "R-E01-T05-S02"
+  status = "done"
+  title = "Test: core import without a build"
+  done = "Test red because tsconfig and exports are missing"
+
+  [[task.part]]
+  id = "R-E01-T05-S03"
+  status = "done"
+  title = "tsconfig.base.json, project references, exports with @guildwork/source"
+  done = "Test green or fallback per FE-001 documented"
+
+  [[task.part]]
+  id = "R-E01-T05-S04"
+  status = "done"
+  title = "Biome and ESLint with a fixture for floating promises"
+  done = "Result in toolchain.md"
+
+  [[task.part]]
+  id = "R-E01-T05-S05"
+  status = "done"
+  title = "Vitest projects and coverage thresholds from quality/coverage.json"
+  done = "Threshold test green"
+
+[[task]]
+id = "R-E01-T06"
+status = "done"
+title = "Makefile with bootstrap, check and gates.toml"
+description = """`quality/gates.toml` as the single list of gates (FE-006, format detailed design 00 section 3.5), `Makefile` with `bootstrap`, `check`, `help`, the groups `check-ts`, `check-tools`, `check-security` and the targets whose tools already exist (`fmt`, `fmt-check`, `lint`, `typecheck`, `test`, `coverage`); further targets are added by the tasks of R-E02. `tools/ci/gates.py` checks the Makefile against gates.toml (and from R-E03-T01 on also ci.yml) and generates `docs/quality/gates.md`."""
+design = ["00-codebase-and-conventions.md#24-make-targets", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"]
+result = "Build repo: Makefile, quality/gates.toml, tools/ci/gates.py, tools/ci/tests/test_gates.py, docs/quality/gates.md"
+done = [
+  "Test `test_gates.py::TestGates::test_gates_toml_matches_makefile_and_ci` green",
+  "Test `test_gates.py::TestGates::test_missing_gate_in_makefile_fails` green",
+  "`make bootstrap && make check` green on a fresh clone of the build repo",
+  "`make help` lists every target with one line from gates.toml",
+]
+sources = ["12 sections 5.1, 5.2", "bothy-vorlage-projekt-setup 3.1 c"]
+depends_on = ["R-E01-T04", "R-E01-T05"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "R-E01-T06-S01"
+  status = "done"
+  title = "Test: gate missing in the Makefile"
+  done = "Test red because gates.py is missing"
+
+  [[task.part]]
+  id = "R-E01-T06-S02"
+  status = "done"
+  title = "gates.toml, gates.py, generation of docs/quality/gates.md"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E01-T06-S03"
+  status = "done"
+  title = "Makefile with bootstrap, check, groups and help"
+  done = "`make bootstrap && make check` green"
+
+[[task]]
+id = "R-E01-T07"
+status = "done"
+title = "toolchain.md: check licenses and terms of the tools at the source"
+description = """For every tool from detailed design 00 section 2.3 and for Caddy, restic, OTel Collector (contrib), Testcontainers, TypeBox, Ajv, pino, Fastify, Kysely, pg-boss, ScanCode, read the license from the LICENSE file or the registry, record it with retrieval date and location in `docs/quality/toolchain.md` and compare it against `quality/licenses/allowed.txt` (allowlist from 12 section 5.2); development tools outside the allowlist go into `quality/licenses/dev-exceptions.txt` with a reason. In addition, resolve the unverified facts from detailed design 00 section 10 row 1 as far as possible without code (npm name of TypeBox; pnpm `onlyBuiltDependencies` is resolved in R-E01-T05: pnpm 12 uses `allowBuilds`). A tool that would be shipped and is not on the allowlist is replaced (detailed design README section 2)."""
+design = ["00-codebase-and-conventions.md#23-toolchain", "00-codebase-and-conventions.md#10-open-points"]
+result = "Build repo: docs/quality/toolchain.md, quality/licenses/allowed.txt, quality/licenses/dev-exceptions.txt"
+done = [
+  "Every row in toolchain.md with license, location and retrieval date; no row 'unverified' for a shipped tool",
+  "allowed.txt contains exactly the allowlist from 12 section 5.2",
+  "09 section 4 row 'Licenses of Caddy, restic, OTel Collector, Prettier or Biome' answered (result in the task report for the follow-up list)",
+]
+sources = ["12 section 5.2", "09 section 4", "ADR-50"]
+depends_on = ["R-E01-T05"]
+owner = "agent"
+estimate_h = 6
+note = "M51 is done here."
+
+  [[task.part]]
+  id = "R-E01-T07-S01"
+  status = "done"
+  title = "Read licenses of the TypeScript toolchain and runtime libraries"
+  done = "Entries with location"
+
+  [[task.part]]
+  id = "R-E01-T07-S02"
+  status = "done"
+  title = "Read licenses of the binaries, the collector, Caddy and restic"
+  done = "Entries with location"
+
+  [[task.part]]
+  id = "R-E01-T07-S03"
+  status = "done"
+  title = "Write allowed.txt and dev-exceptions.txt"
+  done = "every exception with a reason"
+
+[[task]]
+id = "R-E01-T08"
+status = "done"
+title = "Layer check and package generator"
+description = """`quality/layers.toml` with the table from detailed design 00 section 2.2, `tools/ci/check_layers.py` (stdlib, FE-007): dependencies in package.json, import specifiers (static, dynamic, `export from`, `import type`), relative imports across package boundaries, testkit only in test files, admin-ui only `import type` from contracts, freedom from cycles. `tools/ci/new_package.py` as `pnpm new:package <location>/<name>`: creates a package scaffold with SPDX headers and registers it in layers.toml. Make target `layers` in gates.toml."""
+design = ["00-codebase-and-conventions.md#22-packages-and-dependency-rules", "00-codebase-and-conventions.md#21-monorepo-layout"]
+result = "Build repo: quality/layers.toml, tools/ci/check_layers.py, tools/ci/new_package.py, tools/ci/tests/test_check_layers.py, tools/ci/tests/test_new_package.py"
+done = [
+  "Test `test_check_layers.py::TestLayers::test_worker_importing_db_fails` green",
+  "Test `test_check_layers.py::TestLayers::test_testkit_in_production_file_fails` green",
+  "Test `test_check_layers.py::TestLayers::test_relative_import_across_packages_fails` green",
+  "Test `test_check_layers.py::TestLayers::test_admin_ui_value_import_from_contracts_fails` green",
+  "Test `test_check_layers.py::TestLayers::test_package_missing_in_layers_toml_exits_2` green",
+  "Test `test_new_package.py::TestNewPackage::test_generated_package_passes_layers_and_license_headers` green",
+  "`make layers` green in the build repo",
+]
+sources = ["detailed design README section 2", "ADR-62", "06 section 1"]
+depends_on = ["R-E01-T06"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "R-E01-T08-S01"
+  status = "done"
+  title = "Tests of the layer rules with a fixture workspace"
+  done = "Tests red because check_layers.py is missing"
+
+  [[task.part]]
+  id = "R-E01-T08-S02"
+  status = "done"
+  title = "check_layers.py and layers.toml"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E01-T08-S03"
+  status = "done"
+  title = "new_package.py with test"
+  done = "generated package passes layers and SPDX check"
+
+  [[task.part]]
+  id = "R-E01-T08-S04"
+  status = "done"
+  title = "Gate layers in gates.toml and Makefile"
+  done = "`make check` green"
+
+# =====================================================================================================
+[[epic]]
+id = "R-E02"
+title = "Check tools with tests"
+goal = "gitleaks, Opengrep rules, workflow policy, license gate with ScanCode and THIRD_PARTY_NOTICES, deny list scanner, text rules with link and English check, commit check with DCO, osv and review gate, each with tests, registered in `make check` and the pre-commit hooks"
+sources = ["12 sections 4.3, 5.1, 5.2"]
+depends_on = ["R-E01"]
+
+[[task]]
+id = "R-E02-T01"
+status = "done"
+title = "Text rules and link check"
+description = """`tools/hooks/text_rules.py` with the rules `no-dash` (U+2012 to U+2015, FE-022), `english-only` (public documentation except `docs/research/`: umlauts and sharp s outside of code, share of German filler words above a named value; exceptions per exact line in `quality/text/english-exceptions.toml`), `glossary` (`quality/text/glossary.toml`), `instance-data` (generic patterns as in the deny scanner: imports `load_generic()` from `tools/denylist/scan.py`, no copy of the rules). Exceptions only via `quality/text/exempt-paths.txt` (for example recorded fixtures); the file must contain `LICENSES/**`, because the verbatim SPDX texts contain dashes (`LICENSES/CC-BY-SA-4.0.txt` since R-E02-T06, M161). `tools/hooks/links.py`: relative links and anchors in Markdown, no links to private paths (`quality/text/private-path-patterns.txt`). Make targets `text-rules`, `links`."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Build repo: tools/hooks/{text_rules.py,links.py}, tools/hooks/tests/{test_text_rules.py,test_links.py}, quality/text/{exempt-paths.txt,glossary.toml,english-only.toml,english-exceptions.toml,private-path-patterns.txt}"
+done = [
+  "Test `test_text_rules.py::TestTextRulesDash::test_flags_en_and_em_dash` green",
+  "Test `test_text_rules.py::TestTextRulesDash::test_ignores_exempt_paths` green",
+  "Test `test_text_rules.py::TestTextRulesEnglish::test_flags_german_paragraph_in_docs` green",
+  "Test `test_text_rules.py::TestTextRulesEnglish::test_research_dir_is_exempt` green",
+  "Test `test_links.py::TestLinks::test_flags_missing_anchor` green",
+  "Test `test_links.py::TestLinks::test_flags_link_to_private_path` green",
+  "`make text-rules links` green in the build repo",
+]
+sources = ["12 sections 1 (OS8), 4.2, 5.1", "ADR-53"]
+depends_on = ["R-E02-T08"]   # instance-data reads quality/denylist/generic.toml (detailed design 00 section 2.10)
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "R-E02-T01-S01"
+  status = "done"
+  title = "Tests for no-dash and exempt paths"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T01-S02"
+  status = "done"
+  title = "text_rules.py with no-dash, glossary, instance-data"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T01-S03"
+  status = "done"
+  title = "Rule english-only with tests and exceptions per line"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T01-S04"
+  status = "done"
+  title = "links.py with tests"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T01-S05"
+  status = "done"
+  title = "Register gates text-rules and links"
+  done = "`make check` green"
+
+[[task]]
+id = "R-E02-T02"
+status = "done"
+title = "Commit check with Conventional Commits and DCO"
+description = """`tools/hooks/commit_msg.py` (FE-020): hook mode (one message) and `--range`; types from detailed design 00 section 4.1, subject length from `quality/commits/limits.toml`, at least one `Signed-off-by:` equal to the author identity, bot exception only for exact addresses in `quality/commits/bots.txt`, `Co-Authored-By:` allowed, trailer `Plan-Task:` with a valid ID form (FE-021). Make target `commitlint` with `COMMIT_RANGE`."""
+design = ["00-codebase-and-conventions.md#41-contribution-branch-commit-pr", "00-codebase-and-conventions.md#210-check-tools"]
+result = "Build repo: tools/hooks/commit_msg.py, tools/hooks/tests/test_commit_msg.py, quality/commits/{bots.txt,limits.toml}"
+done = [
+  "Test `test_commit_msg.py::TestCommitMsg::test_rejects_missing_signoff` green",
+  "Test `test_commit_msg.py::TestCommitMsg::test_signoff_must_match_author` green",
+  "Test `test_commit_msg.py::TestCommitMsg::test_accepts_exact_bot_address_without_signoff` green",
+  "Test `test_commit_msg.py::TestCommitMsg::test_rejects_bot_lookalike_address` green",
+  "Test `test_commit_msg.py::TestCommitMsg::test_rejects_non_conventional_subject` green",
+  "Test `test_commit_msg.py::TestCommitMsg::test_rejects_malformed_plan_task_trailer` green",
+  "`make commitlint COMMIT_RANGE=<first>..HEAD` green over the history of the build repo",
+]
+sources = ["12 section 2.2", "bothy-vorlage-projekt-setup 2.5"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+note = "Criterion `make commitlint COMMIT_RANGE=<first>..HEAD` was met at merge time (Red Team 564011b, issue #15). Afterwards, R-E02-T03 and R-E02-T05 brought three commits with a subject over 72 characters (290d13b, 0b6eb78, 2dedc97); the build history is never published (V5: exactly one root commit), therefore no rewrite (Ruling 2026-11-01). Since R-E02-T05, every build job checks `commit_msg.py --range main..HEAD` before handing in (M169)."
+
+  [[task.part]]
+  id = "R-E02-T02-S01"
+  status = "done"
+  title = "Tests for sign-off, bot exception and subject"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T02-S02"
+  status = "done"
+  title = "commit_msg.py with hook and range mode"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T02-S03"
+  status = "done"
+  title = "Register gate commitlint"
+  done = "`make check` green"
+
+[[task]]
+id = "R-E02-T03"
+status = "done"
+title = "gitleaks with a rule for Anthropic credentials"
+description = """`.gitleaks.toml`: default rules plus `anthropic-credential-any` (prefix family `sk-ant-`) and `github-app-token-stateless` (stateless GitHub App token `ghs_<App-ID>_<JWT>`, which the default rules miss); allowlist only exact synthetic test values from `quality/secrets/samples.txt` with a reason. Check the formats of the GitHub token patterns from detailed design 00 section 2.5 against the vendor documentation and write `samples.txt` accordingly (three fields per line, detailed design 00 section 3.5; the redaction in 0-E01 uses the same file). Without `origin/main` (build repo without a remote), `make gitleaks` scans the whole history. Make target `gitleaks` with `GITLEAKS_LOG_OPTS`."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#25-package-core"]
+result = "Build repo: .gitleaks.toml, quality/secrets/samples.txt, tools/ci/tests/test_gitleaks.py"
+done = [
+  "Test `test_gitleaks.py::TestGitleaksRules::test_detects_every_sample` green (run on a copy outside the allowlist)",
+  "Test `test_gitleaks.py::TestGitleaksRules::test_allowlist_is_exact_values_only` green",
+  "`make gitleaks GITLEAKS_LOG_OPTS=--all` green in the build repo",
+]
+sources = ["12 section 5.2", "05 section 10 item 6"]
+depends_on = []
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "R-E02-T03-S01"
+  status = "done"
+  title = "samples.txt with verified formats and test"
+  done = "Test red because the rule is missing"
+
+  [[task.part]]
+  id = "R-E02-T03-S02"
+  status = "done"
+  title = ".gitleaks.toml and gate"
+  done = "Tests and `make gitleaks` green"
+
+[[task]]
+id = "R-E02-T04"
+status = "done"
+title = "Opengrep rules with rule tests"
+description = """Own rules under `.opengrep/rules/` (Apache-2.0, no registry or collection rules): `gw-scm-write-only-in-effect-gateway` (FE-030), `gw-no-model-credential-env`, `gw-process-env-only-in-loaders`, `gw-no-direct-clock`, `gw-no-untrusted-in-log` (table detailed design 00 section 2.10). Per rule `.opengrep/tests/<rule-id>/bad_*.ts` and `good_*.ts` with annotations. Verify the test command of the pinned engine (unverified) and use it in the make target `opengrep`; without a built-in test mode, an own script that matches the annotations against the findings."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#6-security"]
+result = "Build repo: .opengrep/rules/*.yaml, .opengrep/tests/<rule-id>/* (path-dependent cases under paths/), .semgrepignore, tools/ci/opengrep_test.py, tools/ci/tests/test_opengrep_test.py"
+done = [
+  "For each of the five rules, `make opengrep` reports the bad cases and none of the good cases",
+  "Rule test `.opengrep/tests/gw-scm-write-only-in-effect-gateway/` green",
+  "Rule test `.opengrep/tests/gw-no-model-credential-env/` covers dot, bracket and destructuring access",
+  "`make opengrep` over the build repo green",
+]
+sources = ["12 section 5.2", "ADR-06, ADR-50, ADR-57"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "R-E02-T04-S01"
+  status = "done"
+  title = "Verify the test command of the engine and test scaffold"
+  done = "Command in docs/quality/toolchain.md"
+
+  [[task.part]]
+  id = "R-E02-T04-S02"
+  status = "done"
+  title = "Rule tests Effect Gateway and model credentials"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T04-S03"
+  status = "done"
+  title = "Rules Effect Gateway and model credentials"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T04-S04"
+  status = "done"
+  title = "Rules process.env, clock, untrusted with tests"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T04-S05"
+  status = "done"
+  title = "Register gate opengrep"
+  done = "`make check` green"
+
+[[task]]
+id = "R-E02-T05"
+status = "done"
+title = "Workflow policy with actionlint and zizmor"
+description = """`tools/ci/check_workflows.py` with all rules from detailed design 00 section 2.10 (runner-label, action-pin, job-timeout, top-permissions, job-permissions, no-actions-write, no-dangerous-triggers, push-main-only, no-expr-in-run, checkout-no-persist, secrets-need-environment, public-only-guard, pr-concurrency, max-jobs), values from `quality/ci/policy.toml` (FE-024, FE-025). Make target `workflows` with actionlint (`-shellcheck= -pyflakes=`) and `zizmor --offline`; both only if workflow files exist. Workflows are read by an own YAML subset reader from the standard library (detailed design 00 section 2.10). Fixture workflows per rule."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"]
+result = "Build repo: tools/ci/check_workflows.py, tools/ci/tests/test_check_workflows.py, tools/ci/tests/fixtures/workflows/*, quality/ci/policy.toml"
+done = [
+  "Per rule one test `test_check_workflows.py::TestPolicy::test_<rule_id>_flags_violation` green (14 rules)",
+  "Test `test_check_workflows.py::TestPolicy::test_clean_fixture_passes` green",
+  "Test `test_check_workflows.py::TestPolicy::test_policy_file_missing_exits_2` green",
+  "`make workflows` green (without workflows in the repo: no findings, exit code 0)",
+]
+sources = ["12 section 5.1 workflow policy, concurrency", "05 section 10 item 3", "bothy-vorlage-projekt-setup 2.4"]
+depends_on = []
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "R-E02-T05-S01"
+  status = "done"
+  title = "Fixture workflows and tests per rule"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T05-S02"
+  status = "done"
+  title = "Parser and rules runner-label, action-pin, job-timeout, permissions"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "R-E02-T05-S03"
+  status = "done"
+  title = "Rules triggers, expressions, checkout, secrets, visibility, concurrency, job count"
+  done = "all tests green"
+
+  [[task.part]]
+  id = "R-E02-T05-S04"
+  status = "done"
+  title = "Gate workflows with actionlint and zizmor"
+  done = "`make check` green"
+
+[[task]]
+id = "R-E02-T06"
+status = "done"
+title = "License gate with SPDX headers, allowlist and ADR-39 counter-test"
+description = """`tools/ci/license_check.py` with the six checks from detailed design 00 section 2.10 (LICENSE checksum, SPDX headers per `tools/ci/spdx_header.py` with exceptions and adopted files from `quality/licenses/header.toml`, runtime and development dependencies against the allowlist or the exceptions (FE-028), `LICENSES/<id>.txt` per used ID (FE-029), lockfile counter-test ADR-39 via the name lists `FORBIDDEN_NPM` and `FORBIDDEN_PYPI`, THIRD_PARTY_NOTICES up to date). `tools/ci/license_inventory.py` reads the dependencies (`pnpm --recursive licenses list --json`, `uv.lock` with metadata from `.venv`) for gate and notices. `tools/ci/third_party_notices.py` generates `THIRD_PARTY_NOTICES` from lockfiles and license texts (target `notices`, `--check` in the gate). Output format of `pnpm licenses list --json` verified (detailed design 00 section 2.10)."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#212-code-conventions"]
+result = "Build repo: tools/ci/{license_check.py,license_inventory.py,third_party_notices.py}, tools/ci/tests/{test_license_check.py,test_license_inventory.py,test_third_party_notices.py}, quality/licenses/header.toml, THIRD_PARTY_NOTICES"
+done = [
+  "Test `test_license_check.py::TestLicense::test_modified_license_file_fails` green",
+  "Test `test_license_check.py::TestLicense::test_missing_spdx_header_fails` green",
+  "Test `test_license_check.py::TestLicense::test_gpl_runtime_dependency_fails` green",
+  "Test `test_license_check.py::TestLicense::test_dev_dependency_needs_exception_with_reason` green",
+  "Test `test_license_check.py::TestLicense::test_agent_sdk_in_lockfile_fails` green",
+  "Test `test_license_check.py::TestLicense::test_missing_licenses_text_fails` green",
+  "Test `test_third_party_notices.py::TestNotices::test_check_fails_when_outdated` green",
+  "`make licenses` green in the build repo",
+]
+sources = ["12 sections 2.3, 2.4, 5.2", "06 section 8", "ADR-39, ADR-50"]
+depends_on = []
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "R-E02-T06-S01"
+  status = "done"
+  title = "Tests for LICENSE checksum and SPDX headers"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T06-S02"
+  status = "done"
+  title = "Implement checksum and headers"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T06-S03"
+  status = "done"
+  title = "Dependencies against allowlist, exceptions, ADR-39 counter-test"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T06-S04"
+  status = "done"
+  title = "LICENSES check and THIRD_PARTY_NOTICES generation"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T06-S05"
+  status = "done"
+  title = "Gate licenses and target notices"
+  done = "`make check` green"
+
+[[task]]
+id = "R-E02-T07"
+status = "done"
+title = "ScanCode via git archive with a policy"
+description = """Make target `scancode`: `git archive HEAD` into a temp directory, ScanCode Toolkit in a container (image by digest in `tools/bootstrap/tools.toml`, verify image source and license), JSON output to `tools/ci/scancode_policy.py`: every license found is in the allowlist or an exception per file and expression with a reason in `quality/licenses/scancode-exceptions.txt`. Known exceptions: CC-BY-SA-4.0 in `CODE_OF_CONDUCT.md` and `LICENSES/CC-BY-SA-4.0.txt` (not in `allowed.txt`, admitted in the license gate via `[[adopted]]` in `header.toml`, R-E02-T06). Not in `make check` (V6, before release). Built (2026-11-01): files of HEAD raw via `git ls-tree` and `git cat-file --batch` instead of `git archive` (which omits `export-ignore` files), path `SCANCODE_RUNNER=local` with a pinned Python installation; the container path is proven in CI only in R-E03-T03."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Build repo: tools/ci/scancode_policy.py, tools/ci/tests/test_scancode_policy.py, quality/licenses/scancode-exceptions.txt, tools/bootstrap/scancode/{requirements.in,constraints.txt,requirements.txt}, [images.scancode] in tools/bootstrap/tools.toml, Makefile target scancode"
+done = [
+  "Test `test_scancode_policy.py::TestScancode::test_unexpected_license_fails` green",
+  "Test `test_scancode_policy.py::TestScancode::test_exception_needs_reason_and_exact_file` green",
+  "`make scancode` green in the build repo; run time in the report",
+]
+sources = ["12 sections 4.4 V6, 5.2", "bothy-vorlage-projekt-setup 2.7"]
+depends_on = ["R-E02-T06"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "R-E02-T07-S01"
+  status = "done"
+  title = "Test of the policy with shortened ScanCode output as a fixture"
+  done = "Test red"
+
+  [[task.part]]
+  id = "R-E02-T07-S02"
+  status = "done"
+  title = "scancode_policy.py and make target with container by digest"
+  done = "Tests and `make scancode` green"
+
+[[task]]
+id = "R-E02-T08"
+status = "done"
+title = "Deny list scanner"
+description = """`tools/denylist/scan.py` (stdlib): modes `tree`, `commits --range`, `history --all`, `pr` (title and body only from `PR_TITLE`, `PR_BODY`); checks contents, file names, commit messages, author and committer identities against `ALLOW_AUTHORS_FILE`, refs. List from `DENYLIST_FILE` (format detailed design 00 section 3.5: literal, `re:`, `word:`). Output never with the term or the matched text, only `term-<sha256[:12]>` and location (FE-023). Exceptions per term hash and exact line from `quality/denylist/exceptions.toml`. Generic rules from `quality/denylist/generic.toml` always apply; `--allow-missing` allows the private list to be missing. Exit codes 0, 1, 2. Make targets `denylist`, `denylist-history`. No run against the real list in the tests."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools", "00-codebase-and-conventions.md#6-security"]
+result = "Build repo: tools/denylist/scan.py, tools/denylist/tests/test_scan.py, quality/denylist/{generic.toml,exceptions.toml}"
+done = [
+  "Test `test_scan.py::TestDenylist::test_finding_never_prints_term_or_text` green (checks stdout, stderr and JSON report)",
+  "Test `test_scan.py::TestDenylist::test_checks_identities_against_allow_authors` green",
+  "Test `test_scan.py::TestDenylist::test_pr_title_and_body_from_env_only` green",
+  "Test `test_scan.py::TestDenylist::test_missing_list_exits_2_without_allow_missing` green",
+  "Test `test_scan.py::TestDenylist::test_exception_matches_exact_line_only` green",
+  "Test `test_scan.py::TestDenylist::test_generic_rules_flag_home_paths_and_private_ips` green",
+  "Test `test_scan.py::TestDenylist::test_scans_file_names_and_refs` green",
+  "`make denylist DENYLIST_FLAGS=--allow-missing` green in the build repo",
+]
+sources = ["12 sections 4.3, 5.2", "ADR-38", "bothy-vorlage-projekt-setup 2.5, 2.10"]
+depends_on = ["R-E02-T02"]   # generic rules allow the addresses from quality/commits/bots.txt
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "R-E02-T08-S01"
+  status = "done"
+  title = "Tests: no output of term or match, exit codes"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T08-S02"
+  status = "done"
+  title = "List format, matching and mode tree"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "R-E02-T08-S03"
+  status = "done"
+  title = "Modes commits, history, pr with identities and refs"
+  done = "related tests green"
+
+  [[task.part]]
+  id = "R-E02-T08-S04"
+  status = "done"
+  title = "Generic rules and exceptions per line"
+  done = "all tests green"
+
+  [[task.part]]
+  id = "R-E02-T08-S05"
+  status = "done"
+  title = "Gates denylist and denylist-history"
+  done = "`make check` with `--allow-missing` green"
+
+[[task]]
+id = "R-E02-T10"
+status = "done"
+title = "osv-scanner with PR diff mode"
+description = """Make target `osv` over `pnpm-lock.yaml` and `uv.lock` (command form of the pinned version verified: `osv-scanner scan source --format json --config quality/osv/osv-scanner.toml --output-file <file> -L pnpm-lock.yaml -L uv.lock`, exceptions only with `reason` and `ignoreUntil`, detailed design 00 sections 2.10 and 3.5); `tools/ci/osv_diff.py`: with `OSV_BASE`, findings of the base state are subtracted, only new tuples of package, version and vulnerability make the gate fail (12 section 5.2)."""
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#24-make-targets"]
+result = "Build repo: tools/ci/osv_diff.py, tools/ci/tests/test_osv_diff.py, quality/osv/osv-scanner.toml, Makefile target osv"
+done = [
+  "Test `test_osv_diff.py::TestOsvDiff::test_only_new_vulnerabilities_fail` green",
+  "Test `test_osv_diff.py::TestOsvDiff::test_scanner_error_exits_2` green",
+  "`make osv` green in the build repo",
+]
+sources = ["12 section 5.2", "bothy-vorlage-projekt-setup 2.4"]
+depends_on = []
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "R-E02-T10-S01"
+  status = "done"
+  title = "Tests with recorded osv outputs"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T10-S02"
+  status = "done"
+  title = "osv_diff.py and gate osv"
+  done = "Tests and `make osv` green"
+
+[[task]]
+id = "R-E02-T11"
+status = "done"
+title = "Review gate, pre-commit hooks and quality documentation"
+description = """`tools/hooks/review_gate.py` (report `.review/<HEAD-sha>.md`, last non-empty line exactly `Urteil: JA`, `REVIEW_SKIP=1`, FE-041). `.pre-commit-config.yaml`: pre-commit (text_rules, file hygiene, `gitleaks git --staged` (gitleaks 8.30.1 no longer lists `protect`, M177), biome for changed files), commit-msg (`tools/hooks/commit_msg.py <message-file>` in hook mode from R-E02-T02; not registered as a hook so far, `make bootstrap` installs the hooks only once `.pre-commit-config.yaml` exists), pre-push (review_gate.py, `make check`, FE-040; since R-E02-T08, `make check` ends with exit code 2 without `DENYLIST_FILE` and `ALLOW_AUTHORS_FILE`; whoever pushes without the private list sets `DENYLIST_FLAGS=--allow-missing`). Documentation under `docs/quality/`: `push-discipline.md`, `red-team-gate.md` (checklist with the rules from 05: Effect Gateway is the only place that writes, no credential in the sandbox, command covers effect), `licenses.md`, `public-switch.md` (procedure V0 to V10), `README.md`."""
+design = ["00-codebase-and-conventions.md#41-contribution-branch-commit-pr", "00-codebase-and-conventions.md#210-check-tools"]
+result = "Build repo: tools/hooks/review_gate.py, tools/hooks/tests/test_review_gate.py, .pre-commit-config.yaml, docs/quality/{README.md,push-discipline.md,red-team-gate.md,licenses.md,public-switch.md}; in addition tools/hooks/commit_msg.py (rule message-dash), pre-commit-hooks 6.0.0 in pyproject.toml and uv.lock, CONTRIBUTING.md (DENYLIST_FLAGS for every run without the private list)"
+done = [
+  "Test `test_review_gate.py::TestReviewGate::test_requires_exact_last_line` green",
+  "Test `test_review_gate.py::TestReviewGate::test_missing_report_fails` green",
+  "Test `test_review_gate.py::TestReviewGate::test_review_skip_allows_push` green",
+  "`pre-commit run --all-files` green; a commit with a dash is rejected by the hook (evidence in the report)",
+  "`make check` green with all gates from R-E02",
+]
+sources = ["12 sections 5.1 Red Team gate, text rules", "bothy-vorlage-projekt-setup 2.5, 2.6"]
+depends_on = ["R-E02-T01", "R-E02-T02", "R-E02-T03", "R-E02-T04", "R-E02-T05", "R-E02-T06", "R-E02-T08", "R-E02-T10"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "R-E02-T11-S01"
+  status = "done"
+  title = "Tests for the review gate"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E02-T11-S02"
+  status = "done"
+  title = "review_gate.py"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E02-T11-S03"
+  status = "done"
+  title = ".pre-commit-config.yaml with three hook types"
+  done = "`pre-commit run --all-files` green"
+
+  [[task.part]]
+  id = "R-E02-T11-S04"
+  status = "done"
+  title = "docs/quality with push discipline, Red Team gate, licenses, making public"
+  done = "`make text-rules links` green"
+
+# =====================================================================================================
+[[epic]]
+id = "R-E03"
+title = "CI workflows"
+goal = "Workflow set `ci.yml` (with `ci-ok` as the only required check), `denylist-main.yml`, `codeql.yml`, `scorecard.yml`, `advisories.yml` and `renovate.json`, checked locally against the policy before the first push (R4)"
+sources = ["12 sections 5.1, 5.2, 6 (R4)"]
+depends_on = ["R-E02"]
+
+[[task]]
+id = "R-E03-T01"
+status = "done"
+title = "ci.yml with the jobs ts, tools, security and ci-ok"
+description = """`.github/workflows/ci.yml` per detailed design 00 section 2.11 (triggers, concurrency, job split FE-026, caches for the pnpm store and uv, `make bootstrap` per job, `persist-credentials: false`, actions by SHA with a version comment). `tools/ci/ci_ok.py` with the decision table from section 4.2 (FE-027), input `NEEDS_JSON` via `env`. From now on, `tools/ci/gates.py` also checks that every gate is called in a job. The jobs `ts`, `tools`, `security` upload their test results as JUnit artifact `junit-<job>`, also on a red run; Python tests via `tools/ci/junit_unittest.py` (detailed design 00 section 2.11, FE-062). The job `tools` sets `COMMIT_RANGE` to the commits of the PR (`<base-SHA>..<head-SHA>`, via `env`), because the make default `main..HEAD` needs a local `main`, which does not exist in the CI clone (since R-E02-T02). The deny jobs are created in R-E03-T02."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows", "00-codebase-and-conventions.md#42-ci-run-and-ci-ok"]
+result = "Build repo: .github/workflows/ci.yml, tools/ci/ci_ok.py, tools/ci/junit_unittest.py, tools/ci/tests/test_ci_ok.py, tools/ci/tests/test_junit_unittest.py, tools/ci/tests/fixtures/needs/*.json; in addition tools/ci/gates.py (rules for ci.yml, run --junit) with tools/ci/tests/test_gates.py, gate test-tools in quality/gates.toml and Makefile, storeDir and cacheDir in pnpm-workspace.yaml"
+done = [
+  "Per row of the table in detailed design 00 section 4.2 one test `test_ci_ok.py::TestCiOk::test_<situation>` green",
+  "Test `test_gates.py::TestGates::test_gates_toml_matches_makefile_and_ci` green with ci.yml",
+  "`make workflows` green for ci.yml",
+  "Test `test_junit_unittest.py::TestJunit::test_writes_testcase_per_test_with_failure` green; ci.yml uploads `junit-ts`, `junit-tools` and `junit-security` with `if: always()` (evidence in the PR)",
+]
+sources = ["12 section 5.1", "bothy-vorlage-projekt-setup 2.4, 3.1 b"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "R-E03-T01-S01"
+  status = "done"
+  title = "Tests for ci_ok.py per situation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E03-T01-S02"
+  status = "done"
+  title = "ci_ok.py"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E03-T01-S03"
+  status = "done"
+  title = "ci.yml with ts, tools, security, ci-ok"
+  done = "`make workflows` green"
+
+  [[task.part]]
+  id = "R-E03-T01-S04"
+  status = "done"
+  title = "Extend gates.py with ci.yml"
+  done = "Gate test green"
+
+[[task]]
+id = "R-E03-T02"
+status = "done"
+title = "Deny jobs in ci.yml and denylist-main.yml"
+description = """Jobs `denylist` (environment `denylist`, only PRs from the repo without a bot author, `push`, `workflow_dispatch`; secrets `DENYLIST`, `ALLOW_AUTHORS` in files with mode 0600 under `$RUNNER_TEMP`; `PR_TITLE`, `PR_BODY` via `env`) and `denylist-fork` (forks and bots, `--allow-missing`, no secrets). Both jobs set `COMMIT_RANGE` and `fetch-depth: 0` like the job `tools`, because since R-E02-T08 `make denylist` always runs the mode `commits`; the make target uses the mode `pr` only if `PR_TITLE` is set. `.github/workflows/denylist-main.yml` for `push` to `main` (range `before..after`, on the first push the whole history). Verify against the GitHub documentation: environment secrets withheld for fork PRs; environment without a branch rule usable for PR runs (unverified, result in docs/quality/push-discipline.md)."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows", "00-codebase-and-conventions.md#6-security"]
+result = "Build repo: .github/workflows/ci.yml (deny jobs), .github/workflows/denylist-main.yml, docs/quality/push-discipline.md (section deny list), tools/ci/commit_range.py with tools/ci/tests/test_commit_range.py, tools/ci/tests/test_deny_workflows.py, tools/ci/gates.py (rule ci-missing-fork-gate)"
+done = [
+  "`make workflows` green, rule `secrets-need-environment` met for both workflows",
+  "Test `test_check_workflows.py::TestPolicy::test_repo_workflows_pass` green",
+  "References in the GitHub documentation on fork secrets and environments in push-discipline.md with retrieval date",
+]
+sources = ["12 section 4.3", "ADR-38"]
+depends_on = ["R-E03-T01"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "R-E03-T02-S01"
+  status = "done"
+  title = "Read and record the GitHub documentation on environments and fork secrets"
+  done = "Evidence with date"
+
+  [[task.part]]
+  id = "R-E03-T02-S02"
+  status = "done"
+  title = "Jobs denylist and denylist-fork"
+  done = "Policy green"
+
+  [[task.part]]
+  id = "R-E03-T02-S03"
+  status = "done"
+  title = "denylist-main.yml"
+  done = "Policy green"
+
+[[task]]
+id = "R-E03-T03"
+status = "done"
+title = "codeql.yml, scorecard.yml, advisories.yml"
+description = """CodeQL (`javascript-typescript`, `actions`, `python`, suite `security-extended`, public only), Scorecard (`branch_protection_rule`, weekly, manual, `publish_results: true`, constraints of the action), daily osv full scan of `main` (`advisories.yml`). Visibility guard per rule `public-only-guard` with `vars.GUILDWORK_VISIBILITY` for scheduled runs. Addition from R-E02-T07: a CI job for `make scancode` (path `container`, `SCANCODE_RUNNER=container`, image by digest from `tools/bootstrap/tools.toml`) is still missing; add it here (in `advisories.yml` or as a separate workflow, not in `make check`) and add the row in detailed design 00 section 2.11. The container path is built but has never run, because the build machine has no container runtime (`make scancode` ran there only with `SCANCODE_RUNNER=local`, report without findings on 2026-11-01); this job is its first proof, run time and result in the report."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows"]
+result = "Build repo: .github/workflows/{codeql.yml,scorecard.yml,advisories.yml} (advisories.yml with the jobs osv-full and scancode), tools/ci/tests/test_security_workflows.py; tools/ci/scancode_policy.py names the path local when no container CLI is present"
+done = [
+  "`make workflows` green for all three",
+  "Constraints of the Scorecard action checked against its README (no workflow env, only allowed actions, no run steps), evidence in the report",
+]
+sources = ["12 section 5.2 CodeQL, Scorecard, vulnerabilities", "bothy-vorlage-projekt-setup 2.8"]
+depends_on = ["R-E03-T01"]
+owner = "agent"
+estimate_h = 5
+
+  [[task.part]]
+  id = "R-E03-T03-S01"
+  status = "done"
+  title = "codeql.yml"
+  done = "Policy green"
+
+  [[task.part]]
+  id = "R-E03-T03-S02"
+  status = "done"
+  title = "scorecard.yml with the constraints of the action"
+  done = "Policy green"
+
+  [[task.part]]
+  id = "R-E03-T03-S03"
+  status = "done"
+  title = "advisories.yml"
+  done = "Policy green"
+
+[[task]]
+id = "R-E03-T04"
+status = "done"
+title = "renovate.json"
+description = """`renovate.json` per detailed design 00 section 2.11 (best-practices, early Monday, waiting time 7 days, majors via dashboard, grouped, at most 5 open PRs, digest pins, regex manager for `tools/bootstrap/tools.toml`). Check with `check-jsonschema` against the bundled Renovate schema (verify the option) as part of `make workflows`."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows"]
+result = "Build repo: renovate.json, Makefile (schema check in the target workflows), tools/ci/tests/test_renovate_schema.py, docs/quality/renovate.md (rulings and trial run)"
+done = [
+  "`make workflows` checks renovate.json and is green",
+  "A deliberately invalid copy of renovate.json makes the check fail (test `test_renovate_schema.py::TestRenovate::test_invalid_config_fails`)",
+]
+sources = ["12 section 5.2 dependencies up to date", "05 section 10 item 3"]
+depends_on = ["R-E03-T01"]
+owner = "agent"
+estimate_h = 3
+
+  [[task.part]]
+  id = "R-E03-T04-S01"
+  status = "done"
+  title = "Test with an invalid configuration"
+  done = "Test red"
+
+  [[task.part]]
+  id = "R-E03-T04-S02"
+  status = "done"
+  title = "renovate.json and schema check"
+  done = "Test and `make workflows` green"
+
+[[task]]
+id = "R-E03-T05"
+status = "done"
+title = "R4: workflow set locally against the policy and dry run"
+description = """Step R4 (12 section 6): check the whole workflow set once locally before it ever runs: `make workflows` (policy, actionlint, zizmor, Renovate schema) and `make workflows-dry-run` (`ci_ok.py` against all fixtures, `check_workflows.py --strict`, call of every `make` target used in a workflow with the environment variables that the job sets, in a fresh clone of the build repo). Lesson from the reference project: the first CI run broke. `make scancode SCANCODE_RUNNER=container` from `advisories.yml` needs a container runtime, which the build machine does not have: in the dry run with `SCANCODE_RUNNER=local`, the container path runs only after the push (R-E05-T04); `check_workflows.py --strict` requires every job variable in the list of make variables (detailed design 00 section 7, there with the follow-up list for R-E03-T03 also `SCANCODE_RUNNER` and `RENOVATE_CONFIG`)."""
+design = ["00-codebase-and-conventions.md#48-stage-r-before-the-first-push", "00-codebase-and-conventions.md#24-make-targets"]
+result = "Build repo: Makefile target workflows-dry-run; ops repo: publish/evidence/R4.txt"
+done = [
+  "`make workflows workflows-dry-run` green in a fresh clone, output in publish/evidence/R4.txt",
+  "Every `make` target that a workflow calls ran in the dry run with the job variables (list in the evidence)",
+]
+sources = ["12 section 6 R4", "08 section 4 stage R item 2"]
+depends_on = ["R-E03-T02", "R-E03-T03", "R-E03-T04"]
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "R-E03-T05-S01"
+  status = "done"
+  title = "Target workflows-dry-run"
+  done = "Target present"
+
+  [[task.part]]
+  id = "R-E03-T05-S02"
+  status = "done"
+  title = "Dry run in a fresh clone and evidence"
+  done = "publish/evidence/R4.txt with green output"
+
+# =====================================================================================================
+[[epic]]
+id = "R-E04"
+title = "Neutralization, translation and publication checklist"
+goal = "Documentation neutralized and in English (research neutral, untranslated), V1 to V9 with evidence in the ops repo, Red Team JA on the state, exactly one root commit"
+sources = ["12 sections 4.2, 4.4", "ADR-38, ADR-53, ADR-69"]
+depends_on = ["R-E03"]
+
+[[task]]
+id = "R-E04-T01"
+status = "done"
+title = "Publication manifest and export tool in the ops repo"
+description = """`publish/manifest.toml` in the ops repo with every path under `docs/` and its status (public, after neutralization, private) and target in the build repo per detailed design 00 section 4.6 (FE-032, FE-034); default private. `publish/export.py` copies only listed public files into the build repo and fails on every unlisted file under `docs/`. `publish/check_neutral.py` searches for the keys of private sources (list in the ops repo, detailed design 00 section 4.6), notes that mark a private source as a placeholder until publication (list in the same place), and private paths from the manifest. `publish/glossary.toml` (German, English, never translated) and `publish/linkmap.toml` (German to English file names). `publish/structure_diff.py` (headings, tables, code blocks equal). Tests under `publish/tests/`."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Ops repo: publish/{manifest.toml,export.py,check_neutral.py,structure_diff.py,glossary.toml,linkmap.toml,tests/}"
+done = [
+  "Test `test_export.py::TestExport::test_unlisted_docs_file_fails` green",
+  "Test `test_export.py::TestExport::test_private_path_never_copied` green",
+  "Test `test_check_neutral.py::TestNeutral::test_flags_private_source_tags_and_markers` green",
+  "Test `test_structure_diff.py::TestStructure::test_flags_missing_table` green",
+  "Manifest covers every file under docs/ of the ops repo (`export.py --list-unlisted` empty)",
+]
+sources = ["12 section 4.2", "ADR-38, ADR-53"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "R-E04-T01-S01"
+  status = "done"
+  title = "Tests for export and neutrality check"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E04-T01-S02"
+  status = "done"
+  title = "manifest.toml with all paths from 12 section 4.2 and the new folders"
+  done = "no unlisted file"
+
+  [[task.part]]
+  id = "R-E04-T01-S03"
+  status = "done"
+  title = "export.py and check_neutral.py"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E04-T01-S04"
+  status = "done"
+  title = "glossary.toml, linkmap.toml, structure_diff.py"
+  done = "Tests green"
+
+[[task]]
+id = "R-E04-T02"
+status = "done"
+title = "Neutralize architecture: README and 01 to 06"
+description = """On the German text in the ops repo (FE-033): remove company, person, host and account names, local paths, network ranges and references to private sources from `docs/architektur/README.md` and `01` to `06`, or replace them with public sources or placeholders from the documentation ranges; resolve every note that marks a private source as a placeholder until publication (for example verify ADR-06 publicly or delete the statement). Check the reason for README in 12 section 4.2 against today's text and align it (M68). Every change with a follow-up list (other places that state the same fact)."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Ops repo: docs/architektur/{README.md,01..06} neutral"
+done = [
+  "`python publish/check_neutral.py docs/architektur/README.md docs/architektur/0[1-6]*.md` without hits",
+  "Deny scan with the private list over these files: 0 hits",
+  "Follow-up list in the task report",
+]
+sources = ["12 sections 4.2, 4.3", "OS2"]
+depends_on = ["R-E04-T01", "R-E04-T15"]
+owner = "agent"
+estimate_h = 12
+note = "M68 is done here."
+
+  [[task.part]]
+  id = "R-E04-T02-S01"
+  status = "done"
+  title = "Collect findings with check_neutral.py and deny scan"
+  done = "List of places"
+
+  [[task.part]]
+  id = "R-E04-T02-S02"
+  status = "done"
+  title = "Neutralize README and 01 to 03"
+  done = "Checks for these files without hits"
+
+  [[task.part]]
+  id = "R-E04-T02-S03"
+  status = "done"
+  title = "Neutralize 04 to 06, replace private evidence"
+  done = "Checks without hits"
+
+  [[task.part]]
+  id = "R-E04-T02-S04"
+  status = "done"
+  title = "Align reason for README in 12 section 4.2 (M68)"
+  done = "Reason matches today's README"
+
+[[task]]
+id = "R-E04-T03"
+status = "done"
+title = "Neutralize architecture: 07 to 12, backlog, research files"
+description = """As R-E04-T02 for `07` to `12`, `backlog-minors.md` and the public research files (list in detailed design 00 section 4.6; replace local checkout paths with references to the public repo with commit, without the repo URL, prepare the header "dated, not binding"). In 12, the public version drops the rows on private paths and the rejected drafts from 5.3; in 10, it drops the rows marked as affected in section 16 and the sources `[cr-*]`, `[sonar-qg]` (FE-036, M126); in exchange, deny patterns for the vendor documentation domains in `publish/leak-terms.txt`. Align 08 stage R with 12 section 5.4 (M71)."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Ops repo: docs/architektur/{07..12,backlog-minors.md} and public docs/recherche/*.md neutral; publish/leak-terms.txt extended"
+done = [
+  "`python publish/check_neutral.py` over all files listed as public without hits",
+  "Deny scan with the private list and leak terms over the same files: 0 hits",
+  "In the public version of 10 and 12 no row with `[cr-` or `[sonar-qg]` and no drafts from 12 section 5.3",
+  "08 stage R refers to 12 section 5.4 for dogfooding",
+]
+sources = ["12 sections 4.2, 5.3", "10 section 16", "ADR-53"]
+depends_on = ["R-E04-T01", "R-E04-T15"]
+owner = "agent"
+estimate_h = 14
+note = "M71 and M126 are done here."
+
+  [[task.part]]
+  id = "R-E04-T03-S01"
+  status = "done"
+  title = "Neutralize 07 to 09"
+  done = "Checks without hits"
+
+  [[task.part]]
+  id = "R-E04-T03-S02"
+  status = "done"
+  title = "Neutralize 10 to 12, implement M126"
+  done = "no affected rows in the public version"
+
+  [[task.part]]
+  id = "R-E04-T03-S03"
+  status = "done"
+  title = "Make backlog-minors neutral"
+  done = "Checks without hits"
+
+  [[task.part]]
+  id = "R-E04-T03-S04"
+  status = "done"
+  title = "Neutralize research files, prepare header"
+  done = "Checks without hits"
+
+  [[task.part]]
+  id = "R-E04-T03-S05"
+  status = "done"
+  title = "Align 08 stage R with 12 section 5.4 (M71)"
+  done = "Reference present"
+
+[[task]]
+id = "R-E04-T04"
+status = "done"
+title = "Translate architecture, ADRs as MADR, DECISIONS.md"
+description = """Export of the neutral architecture into the build repo and translation to `docs/architecture/` with English file names (`publish/linkmap.toml`), glossary from `publish/glossary.toml`. 09 is split up: one file `docs/adr/NNNN-<title>.md` per ADR in MADR form (context, decision, alternatives, consequences, location), owner decisions without verbatim owner quotes in `docs/DECISIONS.md`, index `docs/architecture/09-decisions.md`. Research files untranslated to `docs/research/` with the header "dated, not binding"."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Build repo: docs/architecture/*.md, docs/adr/0001..0073-*.md, docs/DECISIONS.md, docs/research/*.md"
+done = [
+  "`make text-rules links` green in the build repo (english-only except docs/research)",
+  "`python publish/structure_diff.py` per file without deviation",
+  "73 ADR files present, gaps only with a note (superseded or moved, as in 09)",
+  "Deny scan with the private list over docs/: 0 hits",
+]
+sources = ["12 sections 4.2, 8", "ADR-53", "O21"]
+depends_on = ["R-E04-T02", "R-E04-T03"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "R-E04-T04-S01"
+  status = "done"
+  title = "Export and translation of README, 01 to 04"
+  done = "Checks for these files green"
+
+  [[task.part]]
+  id = "R-E04-T04-S02"
+  status = "done"
+  title = "Translation of 05 to 08, 10 to 12, backlog"
+  done = "Checks green"
+
+  [[task.part]]
+  id = "R-E04-T04-S03"
+  status = "done"
+  title = "09 as MADR files, DECISIONS.md and index"
+  done = "Completeness of ADR-01 to ADR-73 checked"
+
+  [[task.part]]
+  id = "R-E04-T04-S04"
+  status = "done"
+  title = "Research to docs/research with header"
+  done = "links green"
+
+[[task]]
+id = "R-E04-T05"
+status = "done"
+title = "Translate detailed design"
+description = """Export of the detailed design documents (`docs/feinentwurf/*`, after the neutrality check) into the build repo and translation to `docs/design/` with English file names; rulings FE-nnn keep their numbers; anchors in the plan are adjusted via linkmap."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Build repo: docs/design/*.md"
+done = [
+  "`python publish/check_neutral.py docs/feinentwurf` without hits in the ops repo",
+  "`make text-rules links` green in the build repo",
+  "`python publish/structure_diff.py` per file without deviation",
+]
+sources = ["12 section 4.2", "ADR-53"]
+depends_on = ["R-E04-T01"]
+owner = "agent"
+estimate_h = 16
+
+  [[task.part]]
+  id = "R-E04-T05-S01"
+  status = "done"
+  title = "Neutrality check of the detailed design documents"
+  done = "without hits"
+
+  [[task.part]]
+  id = "R-E04-T05-S02"
+  status = "done"
+  title = "Translation of README and 00 to 06"
+  done = "Checks green"
+
+  [[task.part]]
+  id = "R-E04-T05-S03"
+  status = "done"
+  title = "Translation of 07 to 12"
+  done = "Checks green"
+
+[[task]]
+id = "R-E04-T06"
+status = "done"
+title = "Translate plan, plan tool to tools/plan"
+description = """Plan into the build repo: `docs/plan/` with English TOML keys (mapping in the plan README), titles and texts; `plan.py` to `tools/plan/plan.py` (FE-037) with English field names, messages and paths, tests adjusted and extended; `overview.md` regenerated; gate `plan` in gates.toml. Status and IDs stay unchanged."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation", "00-codebase-and-conventions.md#24-make-targets"]
+result = "Build repo: docs/plan/{README.md,overview.md,tasks/*.toml}, tools/plan/{plan.py,test_plan.py}"
+done = [
+  "`python -m unittest discover -s tools/plan` green",
+  "`make plan` green; number of epics, tasks and subtasks equal to the German version (`plan.py check` of both versions in the evidence)",
+  "`make text-rules` over docs/plan green",
+]
+sources = ["plan README", "ADR-53"]
+depends_on = ["R-E04-T01"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "R-E04-T06-S01"
+  status = "done"
+  title = "Switch the tests of plan.py to English keys"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "R-E04-T06-S02"
+  status = "done"
+  title = "plan.py to tools/plan, keys and messages in English"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "R-E04-T06-S03"
+  status = "done"
+  title = "Translate TOML files and README"
+  done = "`make plan` green, count equal"
+
+[[task]]
+id = "R-E04-T07"
+status = "done"
+title = "V1: placeholders and decisions"
+description = """V1 (12 section 4.4): no placeholders in the build repo; O16, O17, O20 and O21 are listed in `docs/DECISIONS.md` as decided. Evidence to `publish/evidence/V1.txt`. The grep pattern appears verbatim in detailed design 00 section 4.7 (V1) and architecture 12 section 4.4 and, after the export, matches their versions under `docs/design/` and `docs/architecture/` (follow-up list R-E02-T11): define here an exclusion of these places or a different form of the pattern and update both files accordingly."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/evidence/V1.txt"
+done = [
+  "`grep -rnE --exclude-dir=research '[<]projekt|[<]Projekt|[@]OWNER|[<]projekt-domain[>]' .` without hits in the build repo (form FE-065), output in the evidence",
+  "docs/DECISIONS.md names O16, O17, O20, O21 as decided",
+]
+sources = ["12 section 4.4 V1"]
+depends_on = ["R-E04-T04", "R-E04-T05", "R-E04-T06"]
+owner = "agent"
+estimate_h = 2
+
+  [[task.part]]
+  id = "R-E04-T07-S01"
+  status = "done"
+  title = "Search for and replace placeholders"
+  done = "0 hits"
+
+  [[task.part]]
+  id = "R-E04-T07-S02"
+  status = "done"
+  title = "Write evidence V1"
+  done = "publish/evidence/V1.txt"
+
+[[task]]
+id = "R-E04-T08"
+status = "done"
+title = "V1: register search for the trademark Guildwork"
+description = """Owner step (M99): manual register search for "Guildwork" in classes 9 and 42 (TMview interface, DPMA, USPTO), result with date in the ops repo. If there is a hit, the replacement name from O17 applies before the first push (then a follow-up list over all files). The agent prepares a decision sheet (search terms, classes, consequences of a hit)."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/evidence/V1-marke.txt"
+done = [
+  "Result of the three searches with date in the ops repo",
+  "No prior right in a matching class, or replacement name from O17 chosen and recorded as an owner decision in 09",
+]
+sources = ["12 section 3", "DECISIONS.md section 3.2 O17"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+note = "M99 is done here."
+
+  [[task.part]]
+  id = "R-E04-T08-S01"
+  status = "done"
+  title = "Prepare decision sheet (agent)"
+  done = "Sheet in the ops repo"
+
+  [[task.part]]
+  id = "R-E04-T08-S02"
+  status = "done"
+  title = "Run the searches and store the result (owner)"
+  done = "Evidence with date"
+
+[[task]]
+id = "R-E04-T09"
+status = "done"
+title = "V8: list of secrets to rotate"
+description = """The agent creates the list of all secrets that ever appeared in planning files or logs: gitleaks over the whole history of the ops repo and over the log locations that the ops repo names; per finding kind, location, first seen, affected account, without the value. Result in `publish/evidence/V8-liste.txt`. Cross-check over the list with `gitleaks dir --config <build-repo>/.gitleaks.toml publish/evidence/V8-liste.txt` (subcommand of the pinned version verified in R-E02-T03)."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/evidence/V8-liste.txt"
+done = [
+  "`gitleaks git --log-opts=--all` run over the ops repo, command and number of findings in the evidence",
+  "List without the plain text of any secret: cross-check with gitleaks without git history over the list file with the `.gitleaks.toml` of the build repo, 0 findings (detailed design 00 section 4.7 V8; testkit does not exist yet in stage R)",
+]
+sources = ["12 section 4.4 V8"]
+depends_on = []
+owner = "agent"
+estimate_h = 3
+
+  [[task.part]]
+  id = "R-E04-T09-S01"
+  status = "done"
+  title = "Scans over the ops repo and log locations"
+  done = "List of findings"
+
+  [[task.part]]
+  id = "R-E04-T09-S02"
+  status = "done"
+  title = "Write the list without values and check it"
+  done = "0 findings in the list itself"
+
+[[task]]
+id = "R-E04-T10"
+status = "done"
+title = "V8: rotate secrets"
+description = """Owner step: rotate every secret from `V8-liste.txt` at the respective provider and enter the date per row. Only the owner has access to the accounts."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/evidence/V8-liste.txt with rotation date per row"
+done = ["Every row of the list with the date of rotation or the note 'deleted, never used again'"]
+sources = ["12 section 4.4 V8"]
+depends_on = ["R-E04-T09"]
+owner = "owner"
+estimate_h = 2
+
+  [[task.part]]
+  id = "R-E04-T10-S01"
+  status = "done"
+  title = "Rotate secrets"
+  done = "new values active, old ones revoked"
+
+  [[task.part]]
+  id = "R-E04-T10-S02"
+  status = "done"
+  title = "Enter dates in the list"
+  done = "every row with a date"
+
+[[task]]
+id = "R-E04-T11"
+status = "done"
+title = "Prepare the root commit (V5)"
+description = """Script `publish/make_root.sh` in the ops repo: creates a new repo in a fresh directory, copies the tree from `main` of the build repo (without `.git`), first checks `make check` in the fresh directory and prints the commit command for the owner (`git commit -S -s` with the identity from `allow-authors.txt`, subject `chore: initial public baseline`). Afterwards, archive of the build history as a `git bundle` to `publish/archive/` (FE-031)."""
+design = ["00-codebase-and-conventions.md#48-stage-r-before-the-first-push", "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/make_root.sh, publish/archive/bau-repo.bundle"
+done = [
+  "Dry run with a test identity in a throwaway directory: `git rev-list --count HEAD` equal to 1, `make check` green",
+  "`git bundle verify publish/archive/bau-repo.bundle` green",
+]
+sources = ["12 section 4.4 V5", "ADR-38"]
+depends_on = ["R-E04-T07", "R-E04-T08", "R-E04-T10", "R-E04-T15"]
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "R-E04-T11-S01"
+  status = "done"
+  title = "make_root.sh with a preliminary check"
+  done = "Dry run green"
+
+  [[task.part]]
+  id = "R-E04-T11-S02"
+  status = "done"
+  title = "Bundle of the build history"
+  done = "bundle verify green"
+
+[[task]]
+id = "R-E04-T12"
+title = "Create the root commit with the allowed identity"
+description = """Owner step: run `publish/wurzel_commit.sh` with the owner's own signing key (it calls `publish/make_root.sh`, commits signed with sign-off and the identity from `allow-authors.txt`, then checks by machine; guide `publish/wurzel-commit-owner.md`). No push."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Local directory with exactly one signed root commit"
+done = [
+  "`git rev-list --count HEAD` yields 1",
+  "`git log --format='%an <%ae> %cn <%ce> %G?'` shows only the allowed identity and a valid signature",
+]
+sources = ["12 section 4.4 V5", "O27"]
+depends_on = ["R-E04-T11"]
+owner = "owner"
+estimate_h = 1
+
+  [[task.part]]
+  id = "R-E04-T12-S01"
+  title = "Run make_root.sh"
+  done = "Directory prepared"
+
+  [[task.part]]
+  id = "R-E04-T12-S02"
+  title = "Create a signed commit with sign-off"
+  done = "one commit, valid signature"
+
+[[task]]
+id = "R-E04-T13"
+title = "Verify V2 to V7 in a fresh clone of the root commit"
+description = """In a fresh clone of the root commit: V2 (all check steps from detailed design 00 section 4.6), V3 (`make denylist` with the private list, `make denylist-history`), V4 (`make gitleaks GITLEAKS_LOG_OPTS=--all`), V5 (count and identities), V6 (`make licenses`, `make scancode`, `third_party_notices.py --check`, review of NOTICE), V7 (deny scan with `leak-terms.txt`, `publish/overlap.py` with word shingles against the private preliminary work per FE-035, no `data/`; in addition `publish/issues_scan.py` over all issues, comments on issues and PRs and the project items in the product repo with deny list and leak terms, read-only, per FE-064 and plan draft GE-10). Per item one evidence file `publish/evidence/V<n>.txt` with commit, command and output. `publish/overlap.py` and `publish/issues_scan.py` are created here with a test."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/overlap.py, publish/tests/test_overlap.py, publish/issues_scan.py, publish/tests/test_issues_scan.py, publish/belege_v2_v7.sh (all evidence in one call over the root directory), publish/evidence/{V2,V3,V4,V5,V6,V7}.txt, publish/archive/bau-repo-final-<timestamp>.bundle (from the owner run of R-E04-T12)"
+done = [
+  "Test `test_overlap.py::TestOverlap::test_detects_copied_twelve_word_sequence` green",
+  "V3: deny scan over tree and history 0 hits",
+  "V4: gitleaks over all refs of the fresh clone 0 findings",
+  "V5: `git rev-list --count HEAD` equal to 1, only the allowed identity",
+  "V6: license gate and ScanCode green, THIRD_PARTY_NOTICES up to date",
+  "V7: leak terms 0 hits, overlap.py 0 hits, `test ! -e data`",
+  "Test `test_issues_scan.py::TestIssuesScan::test_finds_term_in_comment_without_printing_text` green (hit in a comment fixture, output only number, comment ID and term)",
+  "V7 issues: `publish/issues_scan.py` over all issues, comments and project items of the product repo with 0 hits, evidence in publish/evidence/V7.txt",
+]
+sources = ["12 sections 2.5, 4.4", "ADR-69"]
+depends_on = ["R-E04-T12", "R-E04-T16"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "R-E04-T13-S01"
+  title = "Test and implementation of overlap.py"
+  done = "Test green"
+
+  [[task.part]]
+  id = "R-E04-T13-S02"
+  title = "V2 to V5 in the fresh clone"
+  done = "Evidence green"
+
+  [[task.part]]
+  id = "R-E04-T13-S03"
+  title = "V6 and V7 in the fresh clone, V7 also over issues, comments and project"
+  done = "Evidence green"
+
+[[task]]
+id = "R-E04-T14"
+title = "V9: Red Team over the whole state and go sheet for V10"
+description = """Independent, read-only reviewer over the whole state of the root commit (checklist from `docs/quality/red-team-gate.md` plus core goals of stage R); report `.review/<sha>.md` with the last line `Urteil: JA` or `Urteil: NEIN <reason>`. On NEIN: correction in the build repo, new root commit (R-E04-T12 again), V3 to V7 and V9 again. Afterwards, go sheet for the owner (cost 0, what V10 does, what can go wrong, order of the steps in R-E05)."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10", "00-codebase-and-conventions.md#6-security"]
+result = "Ops repo: publish/evidence/V9.txt (copy of the report with commit), publish/go-v10.md"
+done = [
+  "Report on the root commit with the last line exactly `Urteil: JA`",
+  "Go sheet names the root commit, all evidence V0 to V9 and the steps R6 to R9",
+]
+sources = ["12 section 4.4 V9", "12 section 6 done criterion 6"]
+depends_on = ["R-E04-T13"]
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "R-E04-T14-S01"
+  title = "Start the Red Team and store the report"
+  done = "Report with verdict"
+
+  [[task.part]]
+  id = "R-E04-T14-S02"
+  title = "Go sheet for V10"
+  done = "publish/go-v10.md"
+
+[[task]]
+id = "R-E04-T15"
+status = "done"
+title = "Private deny list and allow-authors.txt in the ops repo"
+description = """Step R3 (12 section 6): the agent drafts the private list in the ops repo (company and person names, host and account names, internal repo names, network ranges, local home paths) from the seed terms of the ops repo, plus `leak-terms.txt` (leak terms for V7, vendor documentation domains per M126) and `allow-authors.txt` with exactly the allowed identity. Terms as exact as possible (whole words, host names), so that harmless places do not match (M59). The owner checks and adds names that only the owner knows. Probe: scanner with the list over the build repo and over the architecture in the ops repo; false positives are removed by more exact terms, not by exceptions."""
+design = ["00-codebase-and-conventions.md#35-file-formats-of-the-check-tools", "00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Ops repo: publish/denylist.txt, publish/leak-terms.txt, publish/allow-authors.txt"
+done = [
+  "`python tools/denylist/scan.py tree` with the list over the build repo: 0 hits",
+  "Trial run over the neutral parts of the architecture in the ops repo without false positives from overly general terms (list of removed or sharpened terms in the report)",
+  "Owner has read and confirmed the list (note in the ops repo)",
+]
+sources = ["12 sections 4.3, 6 R3"]
+depends_on = []
+owner = "agent+owner"
+estimate_h = 4
+note = "M59 is done here (restrict seed terms to exact values)."
+
+  [[task.part]]
+  id = "R-E04-T15-S01"
+  status = "done"
+  title = "Draft of the lists from the seed terms of the ops repo"
+  done = "three files in the ops repo"
+
+  [[task.part]]
+  id = "R-E04-T15-S02"
+  status = "done"
+  title = "Trial run and sharpening of the terms (M59)"
+  done = "no false positives from general terms"
+
+  [[task.part]]
+  id = "R-E04-T15-S03"
+  status = "done"
+  title = "Owner checks and adds"
+  done = "Note in the ops repo"
+
+[[task]]
+id = "R-E04-T16"
+status = "done"
+title = "Switch issues, labels, milestones and project to English"
+description = """O21 (public in English from publication on) also applies to the issues of the product repo, which become public with V10; so far the issue sync generates them from the German plan. After R-E04-T06 (English plan in the build repo), the sync reads the English plan: titles and texts of all issues, labels, milestones and the project title become English, IDs and numbers stay, manual work outside the markers is preserved (GE-3). German comments on issues (so far only evidence from the controlling session) are replaced by an English version. The return path `pull` keeps writing the status into the plan, from now on into the English one. Found during the move to the organization (2026-11-01): no task translated the issues so far, V7 only checked them for deny terms."""
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation"]
+result = "Ops repo: the issue sync reads the English plan, tests; product repo: issues, labels, milestones, project in English"
+done = [
+  "Test of the issue sync with an English plan fixture green (markers, IDs and numbers unchanged, manual work preserved)",
+  "`push` of the issue sync afterwards without a write call (idempotent), `plan` shows 0 changes",
+  "Check `english-only` from R-E02-T01 over all issue titles, issue texts, comments, labels and milestones of the product repo without hits, evidence in the ops repo",
+]
+sources = ["O21", "ADR-53", "plan draft GE-3, GE-10"]
+depends_on = ["R-E04-T06", "R-E02-T01"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "R-E04-T16-S01"
+  status = "done"
+  title = "Test: sync with the English plan keeps IDs, numbers and manual work"
+  done = "Test red"
+
+  [[task.part]]
+  id = "R-E04-T16-S02"
+  status = "done"
+  title = "Switch the sync to the English plan, run push"
+  done = "Tests green, second push without a write call"
+
+  [[task.part]]
+  id = "R-E04-T16-S03"
+  status = "done"
+  title = "Replace comments and run english-only over all issue texts"
+  done = "Evidence without hits"
+
+# =====================================================================================================
+[[epic]]
+id = "R-E05"
+title = "Repo settings, push and trial run"
+goal = "Product repo public with root commit, ruleset, environments `denylist` and `release`, PVR, secret scanning with push protection, Renovate app; settings read back; trial PRs prove `ci-ok`; stage report with all done criteria"
+sources = ["12 section 6 (R1, R6 to R9)", "08 stage R"]
+depends_on = []  # T01 and T07 depend on R-E04 (not the epic), so that R-E05-T02 (owner step) may be done earlier at any time
+
+[[task]]
+id = "R-E05-T01"
+title = "Decision sheet for repo settings with open evidence"
+description = """The agent verifies against the GitHub documentation: push protection at repo level and secret scanning free of charge for public repos, GHCR free of charge for public images (M53), ruleset options from R7 (PR required, squash only, required check `ci-ok`, linear history, signed commits, no force push, no deletion), setting "Require actions to be pinned to a full-length commit SHA", environments with required reviewers; in addition the settings of the organization `guildwork-dev`, which holds the product repo since 2026-11-01 (2FA requirement, default permissions of members, Actions permissions and workflow token default, team `maintainers`). In addition, verify with which committer identity GitHub writes squash merges via the web interface (GitHub `web-flow`, unverified): since R-E02-T08, the deny scanner requires an exact line in `ALLOW_AUTHORS` for the author and committer of every commit, otherwise `denylist-main.yml` reports every squash merge to `main` as `identity-not-allowed`; the sheet names the required lines of `allow-authors.txt` (R-E04-T15) or a way without this identity, and for an additional line, 12 section 4.3 and the private operations documentation in the ops repo (section "Allowed commit identity") are adjusted. Result: sheet `publish/settings-sheet.md` with target values per setting (machine-readable in `publish/settings-expected.json` for R-E05-T06), costs and order. State 2026-11-01: the web-flow identity is measured (build repo `docs/quality/push-discipline.md`) and is the second line in `publish/allow-authors.txt`; the sheet adopts it."""
+design = ["00-codebase-and-conventions.md#7-configuration", "00-codebase-and-conventions.md#6-security"]
+result = "Ops repo: publish/settings-sheet.md, publish/settings-expected.json"
+done = [
+  "Every setting with location in the GitHub documentation and retrieval date",
+  "Cost per setting verified (expected 0); M53 answered",
+]
+sources = ["12 section 6 R6, R7", "05 section 10 items 2, 3, 6"]
+depends_on = ["R-E04"]
+owner = "agent"
+estimate_h = 4
+note = "M53 is done here."
+
+  [[task.part]]
+  id = "R-E05-T01-S01"
+  title = "Read GitHub documentation on rulesets, environments, secret scanning, PVR, GHCR"
+  done = "Locations with date"
+
+  [[task.part]]
+  id = "R-E05-T01-S02"
+  title = "Write the sheet and target values"
+  done = "settings-expected.json"
+
+[[task]]
+id = "R-E05-T02"
+status = "done"
+title = "Create the organization to secure the API group"
+description = """Owner step from R1 (12 section 6, O17): create the free organization whose Pages domain carries the API group `guildwork-dev.github.io`, so that no stranger takes the name. Since 2026-11-01 it also holds the product repo (O17)."""
+design = ["00-codebase-and-conventions.md#26-package-contracts-scaffold"]
+result = "Organization created (account, free of charge)"
+done = ["Organization exists and belongs to the owner"]
+sources = ["12 sections 3, 6 R1", "O17"]
+depends_on = []
+owner = "owner"
+estimate_h = 0.5
+note = "May be done earlier at any time; the earlier, the safer the name of the API group. Owner approval on 2026-11-01: the project may create the organization. There is no API path for this on github.com (POST /admin/organizations only on GitHub Enterprise Server for site administrators, documentation read on 2026-11-01); it is created in the web form under the organization settings of the owner account with the Free plan (free of charge), therefore the task stays with the owner. The name was available on 2026-11-01 (GET /orgs/guildwork-dev and GET /users/guildwork-dev returned 404). Done 2026-11-01: created by the owner, owner is admin (GET /user/memberships/orgs/guildwork-dev). So that this could happen before R-E04, only R-E05-T01 and R-E05-T07 depend on R-E04, not the epic R-E05."
+
+  [[task.part]]
+  id = "R-E05-T02-S01"
+  status = "done"
+  title = "Create organization"
+  done = "Organization present"
+
+  [[task.part]]
+  id = "R-E05-T02-S02"
+  status = "done"
+  title = "Note in the ops repo"
+  done = "Date entered"
+
+[[task]]
+id = "R-E05-T03"
+title = "V10: environment denylist, push of the root commit, make public"
+description = """Owner steps R6 in this order (settings sheet in the ops repo, section 5): (1) make the empty product repo public, because on the Free plan environments and environment secrets exist only in public repos (R-E05-T01, finding B1); (2) create the environment `denylist` with secrets `DENYLIST` and `ALLOW_AUTHORS` (content from the ops repo) and the repo variable `GUILDWORK_VISIBILITY=public`; (3) push the root commit as `main`; (4) turn on private vulnerability reporting, secret scanning with push protection and discussions. Only after a green go sheet (R-E04-T14)."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10", "00-codebase-and-conventions.md#7-configuration"]
+result = "Product repo public, main equal to the root commit"
+done = [
+  "`main` in the product repo equal to the SHA from publish/go-v10.md",
+  "Repo public; PVR, secret scanning and push protection on",
+]
+sources = ["12 sections 4.4 V10, 6 R6"]
+depends_on = ["R-E05-T01", "R-E05-T02"]
+owner = "owner"
+estimate_h = 1
+
+  [[task.part]]
+  id = "R-E05-T03-S01"
+  title = "Empty repo public, environment denylist with secrets and repo variable"
+  done = "Repo public, environment present"
+
+  [[task.part]]
+  id = "R-E05-T03-S02"
+  title = "Push of the root commit as main"
+  done = "main equal to the root commit"
+
+  [[task.part]]
+  id = "R-E05-T03-S03"
+  title = "PVR, secret scanning, push protection, discussions"
+  done = "Settings on"
+
+[[task]]
+id = "R-E05-T04"
+title = "Verify the first runs on main"
+description = """After the first push, verify with `gh api` (GET only): `denylist-main.yml` green over the whole history, `ci.yml` on `main` green with all jobs on `ubuntu-24.04`, CodeQL and Scorecard ran on `main` and uploaded SARIF (Scorecard via `workflow_dispatch` if necessary), `advisories.yml` ran green with both jobs (via `workflow_dispatch`; the job `scancode` is the first real run of the ScanCode container from R-E02-T07 and R-E03-T03, run time and result in the evidence). A red first run is fixed as a fix PR, not as a direct commit (lesson from the reference project)."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows"]
+result = "Ops repo: publish/evidence/R-first-push.txt"
+done = [
+  "Run IDs and results of denylist-main, ci, codeql, scorecard and advisories (jobs osv-full and scancode) in the evidence; all green",
+  "Job logs show only `ubuntu-24.04` or `ubuntu-24.04-arm`",
+  "Code scanning analyses of CodeQL and Scorecard for main present (`gh api repos/<repo>/code-scanning/analyses`)",
+]
+sources = ["12 section 6 done criteria 1, 3, 5", "08 stage R"]
+depends_on = ["R-E05-T03"]
+owner = "agent"
+estimate_h = 3
+
+  [[task.part]]
+  id = "R-E05-T04-S01"
+  title = "Query and verify the runs on main"
+  done = "Evidence with run IDs"
+
+  [[task.part]]
+  id = "R-E05-T04-S02"
+  title = "Verify SARIF uploads of CodeQL and Scorecard"
+  done = "Analyses present"
+
+[[task]]
+id = "R-E05-T05"
+title = "Ruleset for main, SHA pinning, environment release"
+description = """Owner step R7 per `publish/settings-sheet.md`: ruleset for `main` (PR required, squash only, required check `ci-ok`, linear history, signed commits, no force push, no deletion; no code owner requirement and no bypass while there is one maintainer, `publish/settings-sheet.md` B3), setting "Require actions to be pinned to a full-length commit SHA", environment `release` with required reviewers (tag rule `v*`). In addition, the team `maintainers` of the organization with write access to the product repo, because `.github/CODEOWNERS` names `@guildwork-dev/maintainers` (Ruling 2026-11-01: no personal handle in the tree)."""
+design = ["00-codebase-and-conventions.md#6-security", "00-codebase-and-conventions.md#7-configuration"]
+result = "Ruleset and environment release in the product repo"
+done = ["Ruleset and environment created as in the sheet"]
+sources = ["12 section 6 R7", "05 section 10 items 2, 3"]
+depends_on = ["R-E05-T04"]
+owner = "owner"
+estimate_h = 1
+
+  [[task.part]]
+  id = "R-E05-T05-S01"
+  title = "Ruleset for main"
+  done = "Ruleset active"
+
+  [[task.part]]
+  id = "R-E05-T05-S02"
+  title = "SHA pinning and environment release"
+  done = "Settings active"
+
+[[task]]
+id = "R-E05-T06"
+title = "Read back the settings and compare them with the target"
+description = """`tools/ci/check_settings.py` (in the product repo, GET only via `gh api`): reads ruleset, environments (names, required reviewers, without secret values), variables, security settings and the Actions setting for SHA pinning and compares them with `publish/settings-expected.json` (passed as an input file). Deviations are errors. Result as evidence."""
+design = ["00-codebase-and-conventions.md#7-configuration"]
+result = "Product repo: tools/ci/check_settings.py with test; ops repo: publish/evidence/R-settings.txt"
+done = [
+  "Test `test_check_settings.py::TestSettings::test_missing_required_check_fails` green",
+  "Run against the product repo: 0 deviations, output in the evidence",
+]
+sources = ["12 section 6 R6, R7"]
+depends_on = ["R-E05-T05"]
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "R-E05-T06-S01"
+  title = "Test with recorded API responses"
+  done = "Test red"
+
+  [[task.part]]
+  id = "R-E05-T06-S02"
+  title = "check_settings.py and run against the repo"
+  done = "0 deviations"
+
+[[task]]
+id = "R-E05-T07"
+title = "Decision sheet for the Renovate app"
+description = """The agent reads the terms of use of the hosted Renovate app (12 section 5.2: unverified) and the requested app permissions and writes a sheet: costs, permissions, data flow, terms with location, Dependabot as an alternative, recommendation."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows"]
+result = "Ops repo: publish/renovate-sheet.md"
+done = ["Sheet with locations and retrieval date, recommendation with reason"]
+sources = ["12 section 5.2 dependencies up to date"]
+depends_on = ["R-E04"]
+owner = "agent"
+estimate_h = 2
+
+  [[task.part]]
+  id = "R-E05-T07-S01"
+  title = "Read terms and permissions"
+  done = "Locations"
+
+  [[task.part]]
+  id = "R-E05-T07-S02"
+  title = "Write the sheet"
+  done = "Recommendation"
+
+[[task]]
+id = "R-E05-T08"
+title = "Install the Renovate app"
+description = """Owner step R8 per the sheet from R-E05-T07: install the app only on the product repo; record the commit address of the bot for `quality/commits/bots.txt` exactly as it appears as the author address in the bot's commits (`commit_msg.py` compares byte by byte, without patterns and without case folding; the file has had no entry since R-E02-T02)."""
+design = ["00-codebase-and-conventions.md#211-ci-workflows"]
+result = "Renovate app on the product repo"
+done = ["App installed, onboarding PR or dashboard issue present"]
+sources = ["12 section 6 R8"]
+depends_on = ["R-E05-T07", "R-E05-T05"]
+owner = "owner"
+estimate_h = 0.5
+
+  [[task.part]]
+  id = "R-E05-T08-S01"
+  title = "Install the app"
+  done = "App active"
+
+  [[task.part]]
+  id = "R-E05-T08-S02"
+  title = "Record the bot address"
+  done = "Address in the ops repo"
+
+[[task]]
+id = "R-E05-T09"
+title = "R9: trial PRs from the repo, from a fork and without sign-off"
+description = """Trial run R9 with three PRs (each with an owner go, because a PR has an external effect): (a) PR from a branch of the repo with a small real change (for example `bots.txt` with the Renovate address from R-E05-T08), full run with `denylist`; (b) PR from a fork on the owner's personal account (the product repo lives in the organization from R-E05-T02, O17), run with `denylist-fork` and without secrets; (c) PR with a commit without sign-off, must fail at `ci-ok`. Verify: job logs (runner labels), `ci-ok` result, that no secret was available in the fork run. PR (c) is closed afterwards."""
+design = ["00-codebase-and-conventions.md#42-ci-run-and-ci-ok", "00-codebase-and-conventions.md#211-ci-workflows"]
+result = "Ops repo: publish/evidence/R9.txt; product repo: quality/commits/bots.txt with bot address"
+done = [
+  "PR (a): `ci-ok` green, all jobs on standard runners, job `denylist` ran",
+  "PR (b): `ci-ok` green with reduced checks, job `denylist-fork` ran, `denylist` skipped",
+  "PR (c): `ci-ok` red because of the missing sign-off",
+]
+sources = ["12 section 6 R9, done criteria 1, 2", "08 stage R"]
+depends_on = ["R-E05-T06", "R-E05-T08"]
+owner = "agent+owner"
+estimate_h = 5
+
+  [[task.part]]
+  id = "R-E05-T09-S01"
+  title = "PR from the repo"
+  done = "ci-ok green, evidence"
+
+  [[task.part]]
+  id = "R-E05-T09-S02"
+  title = "Fork on the owner's account and fork PR"
+  done = "ci-ok green with denylist-fork, evidence"
+
+  [[task.part]]
+  id = "R-E05-T09-S03"
+  title = "PR without sign-off"
+  done = "ci-ok red, evidence, PR closed"
+
+[[task]]
+id = "R-E05-T10"
+title = "Measure waiting time and concurrency of the CI"
+description = """`tools/ci/measure_queue.py` (GET only via the Actions API): waiting time per run and job, number of concurrent PR runs and jobs over a period; output CSV and summary. First measurement over the trial PRs; comparison with the starting values from 12 section 5.1 (2 runs, 6 jobs) and recording in `docs/quality/push-discipline.md` (FE-025)."""
+design = ["00-codebase-and-conventions.md#210-check-tools"]
+result = "Product repo: tools/ci/measure_queue.py with test, docs/quality/push-discipline.md (measured values)"
+done = [
+  "Test `test_measure_queue.py::TestMeasure::test_computes_wait_from_recorded_runs` green",
+  "First measured values with period in push-discipline.md",
+]
+sources = ["12 section 5.1 concurrency"]
+depends_on = ["R-E05-T09"]
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "R-E05-T10-S01"
+  title = "Test with recorded run data"
+  done = "Test red"
+
+  [[task.part]]
+  id = "R-E05-T10-S02"
+  title = "measure_queue.py and first measurement"
+  done = "Values in push-discipline.md"
+
+[[task]]
+id = "R-E05-T11"
+title = "Stage report R with all done criteria"
+description = """Report of stage R with evidence per done criterion from 12 section 6 and 08 stage R: 0 V0, 1 `ci-ok` on the trial PR and standard runners, 2 fork PR green and PR without sign-off red, 3 `denylist-main.yml` green and deny scan of the history 0 hits, 4 gitleaks over all refs, license gate and ScanCode green, 5 CodeQL and Scorecard on `main` with SARIF, 6 Red Team JA, 7 money 0 (owner provides the billing overview of the account). Measured effort of the stage against the estimates (plan README section 6). Status of all R tasks in the plan set to `done`."""
+design = ["00-codebase-and-conventions.md#47-publication-checklist-v0-to-v10"]
+result = "Product repo: docs/quality/stage-r-report.md; plan status updated"
+done = [
+  "Each of the eight done criteria with a reference to evidence",
+  "Billing overview shows 0 cost for Actions and services (owner)",
+  "`make plan` green after the status change",
+]
+sources = ["12 section 6 done criterion", "08 stage R", "plan README section 4 item 6"]
+depends_on = ["R-E05-T04", "R-E05-T09", "R-E05-T10"]
+owner = "agent+owner"
+estimate_h = 3
+
+  [[task.part]]
+  id = "R-E05-T11-S01"
+  title = "Consolidate the evidence"
+  done = "Report with eight criteria"
+
+  [[task.part]]
+  id = "R-E05-T11-S02"
+  title = "Verify money 0 (owner)"
+  done = "Billing overview"
+
+  [[task.part]]
+  id = "R-E05-T11-S03"
+  title = "Measure effort, set plan status"
+  done = "`make plan` green"

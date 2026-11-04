@@ -1,0 +1,228 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-github-scm"
+title = "GitHub SCMProvider: read, write, push, merge, rerun, approve, check actions, SARIF"
+kind = "plugin"
+path = "plugins/github/src/scm/"
+package = "@guildwork/plugin-github"
+stage = "0"
+purpose = "Maps the SCMProvider contract to the GitHub API: read methods for control plane, platform MCP and services, write methods only for the Effect Gateway with a token per effect, push via Git bundle without force, and the optional methods of the later stages. Decides nothing itself: policy, push check and retry lie with the caller; plugin-github mints the token."
+design = [
+  "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github",
+  "05-plugins-and-contracts.md#2147-push-via-git-bundle-without-force-ruling-fe-516",
+  "05-plugins-and-contracts.md#44-fallback-chain-of-submitreview-on-github",
+  "05-plugins-and-contracts.md#2113-scmprovider",
+]
+built_by = [
+  "0-E14-T07",
+  "0-E14-T08",
+  "0-E14-T09",
+  "1-E06-T02",
+  "1-E06-T03",
+  "2-E06-T01",
+  "2-E06-T02",
+  "2-E06-T04",
+  "2-E06-T05",
+  "4-E02-T04",
+  "4-E04-T01",
+  "5-E01-T02",
+  "5-E02-T01",
+  "5-E02-T06",
+  "5-E03-T03",
+  "6-E04-T04",
+  "6-E06-T01",
+  "6-E06-T02",
+  "6-E06-T03",
+  "7-E03-T03",
+  "9-E07-T01",
+]
+
+[[provides]]
+name = "scm-lesend"
+kind = "contract"
+title = "SCMProvider github reading: getFile, compare (with hunks), getPermission, codeowners, getChange (repo and number suffice), listChangedFiles, getThreads, mergeStatus (with unknown), checkEvidence, repoInfo (with topics and custom properties), installedRepos, ciFailureLogs (untrusted), rateLimitState (FE-555)"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "0-E14-T07"
+
+[[provides]]
+name = "scm-schreibend"
+kind = "contract"
+title = "SCMProvider github writing: upsertSummary, submitReview with fallback chain and idempotency, reply, resolveThread, renderSuggestion, startCheck, updateCheck, openChange (draft, marker), updateChange, requestReview, setLabels"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "0-E14-T08"
+
+[[provides]]
+name = "push"
+kind = "contract"
+title = "SCMProvider.push via Git bundle without force with expectedOldSha, only agent/* or the anchor branch with profile audit_anchor, idempotent when the target is already reached (FE-516)"
+defined_in = "05-plugins-and-contracts.md#2147-push-via-git-bundle-without-force-ruling-fe-516"
+from_task = "0-E14-T09"
+
+[[provides]]
+name = "ci-artifact"
+kind = "contract"
+title = "SCMProvider.ciArtifact: artifact of a completed workflow run at the SHA as bytes (profile read)"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "1-E06-T02"
+
+[[provides]]
+name = "code-scanning-sarif"
+kind = "contract"
+title = "SCMProvider.codeScanningSarif with capability CODE_SCANNING_READ (or visibly off if the app permission is missing)"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "1-E06-T03"
+
+[[provides]]
+name = "environment-protection"
+kind = "contract"
+title = "SCMProvider.environmentProtection: required reviewers of the environments or unreadable (FE-544)"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "2-E06-T01"
+
+[[provides]]
+name = "fork-ziele"
+kind = "contract"
+title = "SCMProvider.forkInfo and syncFork for agent_fork; push and openChange with head <fork_owner>:<branch> (FE-544)"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "2-E06-T02"
+
+[[provides]]
+name = "rerun"
+kind = "contract"
+title = "SCMProvider.rerunFailedJobs with profile rerun and capability CI_RERUN"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "4-E02-T04"
+
+[[provides]]
+name = "check-actions"
+kind = "contract"
+title = "Check actions (at most three) via updateCheck.actions with capability CHECK_ACTIONS, length limits verified"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "4-E04-T01"
+
+[[provides]]
+name = "list-reviews"
+kind = "contract"
+title = "SCMProvider.listReviews for the facts of the merge gate"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "5-E01-T02"
+
+[[provides]]
+name = "merge"
+kind = "contract"
+title = "SCMProvider.merge with expectedHeadSha, capability MERGE_SHA_GUARDED native, MERGE_QUEUE none"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "5-E02-T01"
+
+[[provides]]
+name = "approve"
+kind = "contract"
+title = "SCMProvider.approve (SHA-bound, never for agent PRs), withdrawApprove (own review only), approvalProtection (rulesets or unreadable) with capability APPROVE_HUMAN"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "6-E06-T01"
+
+[[provides]]
+name = "sarif-upload"
+kind = "contract"
+title = "SCMProvider.uploadSarif(t, repo, { commitSha, ref, sarifGzipRef, toolName, idempotencyKey }) with profile code_scanning and capability CODE_SCANNING_UPLOAD, status query; fallback chain check annotations, then summary in the executor (FE-544, FE-555, 14 FE-1440)"
+defined_in = "05-plugins-and-contracts.md#2113-scmprovider"
+from_task = "9-E07-T01"
+
+[[provides]]
+name = "list-dir"
+kind = "contract"
+title = "SCMProvider.listDir: directory at the ref with blob SHAs (for example .github/workflows for the cacheKey of the CI check), null if it is missing (FE-555)"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "2-E06-T01"
+
+[[provides]]
+name = "branch-rules"
+kind = "contract"
+title = "SCMProvider.branchRules: effective rulesets and branch protection (required reviews, required checks with bound app, update restriction, bypass list, unknown) or unreadable, for C13 and doctor (FE-555, 11 FE-1152)"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "5-E03-T03"
+
+[[provides]]
+name = "device-flow"
+kind = "contract"
+title = "SCMProvider.userDeviceAuth (start, poll) via the app's device flow with client_id_ref, capability USER_DEVICE_AUTH; the user token never leaves the plugin (FE-555, 09 FE-960)"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "list-merged-changes"
+kind = "contract"
+title = "SCMProvider.listMergedChanges: merged changes of a repo or path, newest first, with cursor; only built if 12 section 10 chooses the provider method (FE-555)"
+defined_in = "05-plugins-and-contracts.md#2146-scm-methods-mapped-to-github"
+from_task = "7-E03-T03"
+
+[[uses]]
+interface = "plugin-github/client"
+from_task = "0-E14-T07"
+purpose = "REST, GraphQL, pagination and error mapping"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "0-E14-T07"
+purpose = "api_url, web_url and audit_anchor_branch"
+
+[[uses]]
+interface = "plugin-github/mint-token"
+from_task = "0-E14-T07"
+purpose = "Installation token for the read methods"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E14-T07"
+purpose = "SCMProvider contract, FileChange, Thread, CheckEvidence"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E14-T07"
+purpose = "Titles, bodies, comments and CI logs as untrusted"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "0-E14-T07"
+purpose = "SCMProvider suite for read cases"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "0-E14-T07"
+purpose = "Cassettes of the read and write cases"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E14-T09"
+purpose = "Read the bundle via ctx.blob (FE-551)"
+
+[[uses]]
+interface = "agent-ci/contract-status"
+from_task = "2-E06-T05"
+purpose = "Record the result of the contract test agent_fork"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "5-E02-T01"
+purpose = "doctor hint for a required merge queue in the ruleset"
+
+[[uses]]
+interface = "credential-broker/profil-merge"
+from_task = "5-E02-T06"
+purpose = "Merge token only with profile merge for exactly one repo"
+
+[[uses]]
+interface = "credential-broker/profil-code-scanning"
+from_task = "9-E07-T01"
+purpose = "Permission profile for the SARIF upload"
+
+[[uses]]
+interface = "scm-common/ersatzkette"
+from_task = "9-E07-T01"
+purpose = "Fallback chain check annotations, then summary"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "6-E04-T04"
+purpose = "client_id_ref for the device flow"

@@ -1,0 +1,2317 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area reviewer of stage 1. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/08-reviewer.md
+stage = "1"
+
+[[epic]]
+id = "1-E01"
+title = "Reviewer service skeleton"
+goal = "Service package `services/reviewer` with manifest, schemas, controller and step plan as a single-service run, state per PR, inputs from PR events, `@agent review [full]` and `@agent ignore`, prompt storage with `prompt_v` and profile contribution to the qualification profile"
+sources = ["02 sections 0, 4", "03 section 1"]
+depends_on = ["0-E16"]
+
+[[epic]]
+id = "1-E02"
+title = "Gate and context"
+goal = "Deterministic gate (skipping, size, file filters, auto-pause), reservation with budget split, prepare job with context tool in the sandbox (diff, neighborhood, callers, guidelines from the base SHA), gate model, router and context package with token budget"
+sources = ["02 section 4", "10 section 3"]
+depends_on = ["1-E01"]
+
+[[epic]]
+id = "1-E03"
+title = "Finder and verifier"
+goal = "Finder passes `bugs_diff`, `bugs_introduced`, `security`, `standards`, `ticket` with schema output, evidence check, verifier `read` and build verifier with effective mode (profile `operator_test` or `verifier.build`)"
+sources = ["02 section 4", "07 section 3.8"]
+depends_on = ["1-E02"]
+
+[[epic]]
+id = "1-E04"
+title = "Findings, fingerprints and increment"
+goal = "Findings in the DB with fingerprint v1, code filter, dedupe, noise filter, feedback harvesting, incremental review with Addressed and Outdated, artifact and library `reviewChange`"
+sources = ["02 section 4", "08 stage 1"]
+depends_on = ["1-E03"]
+
+[[epic]]
+id = "1-E05"
+title = "Output on GitHub"
+goal = "Inline review comments for P0 and P1, summary, check run `ai-review` without silent green, thread resolution, status line and shadow mode, all via the Effect Gateway; plus the executors review, thread_resolve, reply and notify so that the reviewer can post live"
+sources = ["02 section 4", "03 section 2.3"]
+depends_on = ["1-E04"]
+
+[[epic]]
+id = "1-E06"
+title = "Analyzers in ingest mode"
+goal = "SARIF 2.1.0 from CI artifacts (optionally code scanning) as a candidate signal for finder and verifier, with allowlist, size limits and `llmUse`"
+sources = ["01 section 12", "ADR-40"]
+depends_on = ["1-E04"]
+
+[[epic]]
+id = "1-E09"
+title = "Eval and qualification of the reviewer"
+goal = "Adapter, R1 with human labels, R2, R4, R5, bare harness; Gate A green, Gate B measured and reported, ReviewBench reference value read beforehand, qualification row as reference qualification"
+sources = ["07 section 3.1", "10 section 3"]
+depends_on = ["0-E20", "1-E05"]
+
+[[epic]]
+id = "1-E10"
+title = "Suites, permissions test and acceptance stage 1"
+goal = "S1, S2, S4, S6, S8 green including the cases of the personal operator mode; permissions test against real app permissions; `shadow` on own repos, `live` after qualification; release and stage report with all done criteria from 08 stage 1"
+sources = ["08 stage 1"]
+depends_on = ["1-E05", "1-E06", "1-E07", "1-E08", "1-E09", "0-E18", "0-E21"]
+
+# ---------------------------------------------------------------- 1-E01
+
+[[task]]
+id = "1-E01-T01"
+title = "Package scaffold, manifest and schemas"
+description = """Create package `services/reviewer` (@guildwork/service-reviewer) with exports `.`, `./library`, `./guidelines`, `./schema`. `src/manifest.ts` with the ServiceManifest from detailed design 08 section 2.3 (effects exactly `propose_review`, `propose_check`, `propose_thread_resolve`; no platform MCP tools, FE-801). TypeBox schemas in `src/schema/`: ReviewRequest, Finding, ReviewArtifact, FinderOutput, VerifierVerdict, RecheckVerdict, GateModelOutput, envelopes of the three job kinds (sections 2.4, 2.5, 3.3), each with `additionalProperties: false`. Configuration schema `services.reviewer` with all keys from section 7 including `x-qualification` per key; the stage 6 keys from 09 are only created by the stage 6 tasks (08 section 7). Reconcile the expected shapes from detailed designs 02 to 05 (step API, ServiceManifest type) against their text (open item 10.1)."""
+design = ["08-reviewer.md#24-input-and-output-types", "08-reviewer.md#7-configuration"]
+result = "services/reviewer/package.json, services/reviewer/src/manifest.ts, services/reviewer/src/schema/*.ts, services/reviewer/test/unit/schema.test.ts"
+done = [
+  "Tests `manifest.validates_against_service_manifest_schema` and `manifest.effects_exactly_three` green",
+  "Tests `schema.request_accepts_valid`, `schema.rejects_unknown_fields`, `schema.finder_output_caps_25`, `schema.verifier_requires_evidence_unless_unsupported` green",
+  "Test `schema.config_every_key_marked_xq` green (every key under services.reviewer carries x-qualification true or false)",
+  "`make check` green",
+]
+sources = ["02 sections 0, 4", "01 section 14", "04 section 7", "ADR-66"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Also complete minor M39 (missing reviewer keys in the schema: tier, summary, guideline_sources) here; guideline_sources stays fixed in the loader until stage 7."
+
+  [[task.part]]
+  id = "1-E01-T01-S01"
+  title = "Test: manifest and effect list"
+  done = "Tests red because the manifest is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T01-S02"
+  title = "Create package and manifest"
+  done = "Manifest tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T01-S03"
+  title = "Test: input and output schemas with edge cases"
+  done = "Schema tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T01-S04"
+  title = "TypeBox schemas and types"
+  done = "Schema tests green, types exported"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T01-S05"
+  title = "Configuration schema services.reviewer with x-qualification and schema test"
+  done = "`schema.config_every_key_marked_xq` green"
+  status = "open"
+
+[[task]]
+id = "1-E01-T02"
+title = "Controller and step plan as a single-service run"
+description = """`src/controller/controller.ts`: ReviewerController registers with the orchestrator (step API from @guildwork/sdk-service), runs the run as a single-service run with active state `verifying` (FE-802) and creates the step plan per detailed design 08 section 4.3 (steps 1 to 15, `recheck` in the increment). Mandatory events `stop`, `budget_exhausted`, `deadline`, `error_after_retries` per section 4.3. Register work item kinds `reviewer.prepare`, `reviewer.find`, `reviewer.verify` (FE-800), handlers initially as a fake. Write the Run Record fields of the reviewer (section 6, last item)."""
+design = ["08-reviewer.md#43-run-and-step-states", "08-reviewer.md#25-steps-and-work-item-envelopes"]
+result = "services/reviewer/src/controller/controller.ts, services/reviewer/src/index.ts, services/reviewer/test/unit/controller.test.ts, apps/control-plane/src/services/reviewer/host.ts (reviewerHostExtension, entry hostExtensions in the service loader, addendum in 00 FE-050 and 02 FE-242; 08 section 2.8)"
+done = [
+  "Test `controller.step_plan_full_and_incremental` green",
+  "Test `s6.reviewer.single_run_ends_done` green (run ends in done, active state verifying)",
+  "Test `s6.reviewer.stop_in_verifying` green: leases revoked, no effects except check neutral, audit entry",
+  "Test `s6.reviewer.error_after_retries_failed_neutral` green",
+  "Test `controller.run_record_fields` green (qualification_key, prompt_v, models per role, repo class at claim)",
+]
+sources = ["03 sections 2.1, 2.2", "02 section 0", "ADR-67"]
+depends_on = ["1-E01-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "1-E01-T02-S01"
+  title = "Test: step plan full and incremental"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T02-S02"
+  title = "Controller registration, step plan, job kinds"
+  done = "Step plan test green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T02-S03"
+  title = "Test and implementation of the mandatory events in verifying"
+  done = "Tests stop, error_after_retries and single_run_ends_done green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T02-S04"
+  title = "Run Record fields of the reviewer"
+  done = "`controller.run_record_fields` green"
+  status = "open"
+
+[[task]]
+id = "1-E01-T03"
+title = "State per PR: review_pr_state"
+description = """Migration for the new table `review_pr_state` (columns from detailed design 08 section 3.1, FE-828) in the migrator from 0-E02, with row-level security via `tenant_id`; repository `src/controller/state-repo.ts` with compare-and-swap via `version`. Migration 0101 per detailed design 01 section 3.1a (columns in 08, including `paused_since` and `paused_by` for the pause from stage 6, 09 FE-915)."""
+design = ["08-reviewer.md#31-tables"]
+result = "packages/db/migrations/0101_review_pr_state.sql, services/reviewer/src/controller/state-repo.ts (only via the port ReviewerStore, FE-843), apps/control-plane/src/services/reviewer/store.ts (part prState), services/reviewer/test/unit/state-repo.test.ts"
+done = [
+  "Test `state.cas_conflict_detected` green (two concurrent updates, one fails with a conflict)",
+  "Test `state.rls_other_tenant_invisible` green against real Postgres (Testcontainers)",
+  "Migration runs forward on an empty and a filled DB (test in the migrator harness)",
+]
+sources = ["ADR-11", "05 section 7", "08 section 4 stage 0 item 1"]
+depends_on = ["1-E01-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E01-T03-S01"
+  title = "Test: CAS and tenant isolation"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T03-S02"
+  title = "Migration and repository"
+  done = "Tests green, migration green in the harness"
+  status = "open"
+
+[[task]]
+id = "1-E01-T04"
+title = "Inputs and commands"
+description = """`src/controller/intake.ts`: events `created`, `synchronized`, `ready_for_review` (route from 04 section 3) to ReviewRequest with mode per detailed design 08 section 4.1; `merged` only as feedback harvesting; commands `review`, `review full`, `ignore` with reply texts; `review` lifts `ignored` and auto-pause (FE-817); `editedAfterTrigger` is not used as a command. Object lock with exactly one follow-up job (ADR-68) and cancellation of superseded runs before the first finder (FE-818). Replies when the service is off and the head has already been reviewed."""
+design = ["08-reviewer.md#41-inputs"]
+result = "services/reviewer/src/controller/intake.ts, services/reviewer/test/unit/intake.test.ts, services/reviewer/test/unit/lock.test.ts"
+done = [
+  "Tests `intake.opened_creates_incremental_request`, `intake.no_last_sha_means_full`, `intake.review_full_command`, `intake.ignore_sets_state_no_run`, `intake.review_lifts_ignore_and_pause`, `intake.edited_after_trigger_not_command`, `intake.merged_triggers_harvest_only` green",
+  "Tests `lock.second_event_becomes_single_followup`, `lock.followup_replaced_not_stacked`, `lock.superseded_before_find_cancels`, `lock.after_find_runs_to_end` green",
+  "Test `s6.reviewer.concurrent_events_one_active_run` green (concurrent events, exactly one active run)",
+]
+sources = ["03 sections 2.5, 4, 5", "04 section 3", "ADR-68"]
+depends_on = ["1-E01-T02", "1-E01-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Record minor M38 (mapping of routing.on to TriggerEvent.what) for the reviewer routes here and verify it in the test."
+
+  [[task.part]]
+  id = "1-E01-T04-S01"
+  title = "Test: events to ReviewRequest"
+  done = "Intake tests for events red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T04-S02"
+  title = "Intake for events"
+  done = "Intake tests for events green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T04-S03"
+  title = "Test and implementation of the commands review, review full, ignore"
+  done = "Command tests green including reply texts"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T04-S04"
+  title = "Object lock, follow-up job and superseded"
+  done = "lock tests and concurrent_events_one_active_run green"
+  status = "open"
+
+[[task]]
+id = "1-E01-T05"
+title = "Prompt storage, loader and lock"
+description = """Folder `services/reviewer/prompts/` with a header per file (SPDX, copyright, `prompt`, `version`) per detailed design 08 section 4.15 and 12 section 2.4; `prompts.lock.json` with version and sha256; `CHANGELOG.md`; loader `src/prompts/loader.ts` puts `shared.*` in front of the stage file and returns `prompt_v = <name>@<version>` (FE-823). First versions of the files as placeholders with header; contents are created in 1-E02 and 1-E03. No leaked or proprietary texts, no evaluation of CodeRabbit or SonarSource documentation (O18, O19)."""
+design = ["08-reviewer.md#415-prompt-files"]
+result = "services/reviewer/prompts/*.md, services/reviewer/prompts/prompts.lock.json, services/reviewer/prompts/CHANGELOG.md, services/reviewer/src/prompts/*.ts, services/reviewer/test/unit/prompts.test.ts"
+done = [
+  "Tests `prompts.every_file_has_spdx_header`, `prompts.lock_matches_content`, `prompts.version_bump_needs_changelog` green",
+  "Counter-test: changed content without a version bump turns `prompts.lock_matches_content` red (shown in the test with a copy)",
+  "Deny list scanner and license gate from R-E02 green over `services/reviewer/prompts/`",
+]
+sources = ["12 section 2.4", "07 section 2", "ADR-66"]
+depends_on = ["1-E01-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E01-T05-S01"
+  title = "Test: header, lock and changelog requirement"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T05-S02"
+  title = "Storage, lock tool and loader"
+  done = "Tests green, counter-test shown"
+  status = "open"
+
+[[task]]
+id = "1-E01-T06"
+title = "Profile contribution to the qualification profile"
+description = """The reviewer supplies the config resolver with its part of the qualification profile (ADR-66): models per role (`models.gate`, `models.finder`, `models.verifier`), `prompt_v` per stage from the loader, plugin versions, all keys with `x-qualification: true` with written-out default values, and the effective verifier mode (FE-835, value comes in 1-E03-T07). Canonical form per 07 section 2; the resolver from 0-E06 computes the hash."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "services/reviewer/src/controller/profile.ts, services/reviewer/test/unit/profile.test.ts"
+done = [
+  "Test `prompts.prompt_v_in_profile` green",
+  "Test `profile.changed_verifier_model_changes_key` green (a different models.verifier yields a different qualification_key)",
+  "Test `profile.defaults_written_out` green (profile with and without explicit default values is the same)",
+]
+sources = ["07 section 2", "ADR-66", "04 section 1 rule 5"]
+depends_on = ["1-E01-T02", "1-E01-T05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E01-T06-S01"
+  title = "Test: profile fields and key change"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E01-T06-S02"
+  title = "Profile contribution to the resolver"
+  done = "Tests green"
+  status = "open"
+
+# ---------------------------------------------------------------- 1-E02
+
+[[task]]
+id = "1-E02-T01"
+title = "Deterministic gate rules G1 to G9"
+description = """`src/controller/gate-rules.ts` per detailed design 08 section 4.4: rules G1 (service off) to G9 (reservation rejected) in a fixed order, the first match decides; data from `listChangedFiles`, `getChange`, `review_pr_state` and configuration; built-in globs for generated files and lockfiles plus `generated_paths` and `path_filters` (FE-836); size gate with `max_diff_lines` and `max_files` (FE-832). Every `skipped` with a reason in the audit and as the counter `reviewer_skipped_total{reason}`."""
+design = ["08-reviewer.md#44-gate"]
+result = "services/reviewer/src/controller/gate-rules.ts, services/reviewer/test/unit/gate-rules.test.ts"
+done = [
+  "one test per rule `gate.g1_off_command_answers` to `gate.g9_reservation_rejected_paused` green",
+  "Test `gate.order_first_match_wins` green",
+  "Test `gate.g8_too_large_neutral` green (check neutral with reason, no work item)",
+  "Audit and metric entries per skipped reason checked in the test",
+]
+sources = ["02 section 4 stage 1", "03 section 5"]
+depends_on = ["1-E01-T04"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T01-S01"
+  title = "Tests per rule and order"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T01-S02"
+  title = "Rules G1 to G7"
+  done = "Tests G1 to G7 green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T01-S03"
+  title = "Size gate G8 and budget case G9"
+  done = "Tests G8, G9 and order green"
+  status = "open"
+
+[[task]]
+id = "1-E02-T02"
+title = "Reservation and budget split per step"
+description = """`src/controller/budget.ts`: the orchestrator reserves the run budget (`limits.service.reviewer` usd_run, turns, wall_min; with `subscription` tokens_run) at intake via the ledger from 0-E07 (detailed design 02 section 4.5); here the split across prepare, finder, verifier and reserve per detailed design 08 section 4.16 (FE-827). The shares go into the envelopes as item budgets. On abort, no unconfirmed candidates are posted (FE-826)."""
+design = ["08-reviewer.md#416-cost-and-time-budgets"]
+result = "services/reviewer/src/controller/budget.ts, services/reviewer/test/unit/budget.test.ts"
+done = [
+  "Test `budget.split_sums_to_run_budget` green",
+  "Test `budget.subscription_uses_tokens_not_usd` green",
+  "Test `s6.reviewer.budget_in_verifying_paused` green: run paused_budget, check neutral, no findings posted, reservation released",
+  "Test `s6.reviewer.deadline` green (wall_min acts like budget_exhausted)",
+]
+sources = ["04 section 6", "03 sections 2.1, 5", "ADR-16"]
+depends_on = ["1-E02-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Minor M128 (token unit unweighted) concerns tokens_run; use only raw counters here and name the finding in the stage report."
+
+  [[task.part]]
+  id = "1-E02-T02-S01"
+  title = "Test: split and subscription unit"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T02-S02"
+  title = "Reservation and split"
+  done = "Split tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T02-S03"
+  title = "Abort paths budget and wall time"
+  done = "S6 cases budget and deadline green"
+  status = "open"
+
+[[task]]
+id = "1-E02-T03"
+title = "Context tool: diff, hunks, generated files"
+description = """`services/reviewer/context-tool/` (gw-review-context) as a bundled Node script in the image `sandbox-base` (FE-805). Part 1: diff `merge-base(base, head)..head` with line numbers and rename detection (FE-804), hunks per file, binary files, generation markers in the first five lines (FE-836), line mapping `since..head` for the increment, check that `since` is an ancestor. Output JSON only, per schema; the worker checks schema and size (`reviewer.job_output_max_bytes`)."""
+design = ["08-reviewer.md#46-context-building-and-token-budget", "08-reviewer.md#411-finding-lifecycle-and-increment"]
+result = "services/reviewer/context-tool/src/diff.ts, hunks.ts, generated.ts, main.ts, services/reviewer/context-tool/test/*.test.ts, entry in the image sandbox-base"
+done = [
+  "Tests `diff.uses_merge_base`, `diff.rename_detected`, `diff.binary_skipped`, `diff.generated_marker_skipped`, `diff.hunk_never_split` green against fixture repos",
+  "Test `inc.force_push_runs_full` (ancestor check) and `inc.rename_remaps_path` (line mapping) green",
+  "Test `context_tool.output_over_limit_rejected` green (worker discards output that is too large)",
+  "Image sandbox-base contains the tool; license gate green",
+]
+sources = ["02 section 4 stage 3", "05 section 3", "11 section 2.1"]
+depends_on = ["1-E01-T02", "0-E18-T01"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T03-S01"
+  title = "Fixture repos and tests for diff and hunks"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T03-S02"
+  title = "Diff, hunks, renames, binary files"
+  done = "Diff tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T03-S03"
+  title = "Generation markers and line mapping"
+  done = "generated and increment tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T03-S04"
+  title = "Bundling into the image and output limit in the worker"
+  done = "Image build and limit test green"
+  status = "open"
+
+[[task]]
+id = "1-E02-T04"
+title = "Neighborhood and callers via tree-sitter"
+description = """Context tool part 2 (FE-806): `web-tree-sitter` with grammars from `grammars.lock.json` (TypeScript, JavaScript, Python, Go, Java, C#, Rust, Ruby, PHP, Kotlin, C, C++), enclosing symbol per changed line, complete enclosing functions, callers via text search with parser confirmation (at most 20 per symbol), fallback without a grammar to a window and text search with the note `parser: none`. Check the license of every grammar and keep it in the lock (open item 10.10)."""
+design = ["08-reviewer.md#46-context-building-and-token-budget"]
+result = "services/reviewer/context-tool/src/symbols.ts, callers.ts, excerpts.ts, services/reviewer/context-tool/grammars.lock.json"
+done = [
+  "Tests `symbols.enclosing_function_ts`, `symbols.callers_confirmed_by_parser`, `symbols.no_grammar_falls_back_window` green",
+  "one fixture test per language from the lock for the enclosing symbol green",
+  "License gate green with all grammars; license per grammar in the lock with source (otherwise grammar removed and language kept as `parser: none`)",
+]
+sources = ["02 section 4 stage 3", "12 section 5.2"]
+depends_on = ["1-E02-T03"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T04-S01"
+  title = "Tests symbols and callers"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T04-S02"
+  title = "Grammars with license check and lock"
+  done = "Lock complete, license gate green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T04-S03"
+  title = "Symbols, callers, excerpts, fallback"
+  done = "Symbol and fallback tests green"
+  status = "open"
+
+[[task]]
+id = "1-E02-T05"
+title = "Guidelines loader stage 1"
+description = """`src/guidelines/` (FE-807): reads at the base SHA `AGENTS.md`, `AGENT.md`, `CLAUDE.md`, `REVIEW.md` on the path of every changed file, `.agents/rules/**/*.md` with frontmatter `paths:` and `path_instructions` from the configuration; order nearest file first; budget `context.guidelines_max_tokens` with a truncation report; stable `ruleSourceId` per section for `rule_id`. Never from the head (ADR-17). Runs in the prepare job via `git show <base>:<path>` in the sandbox."""
+design = ["08-reviewer.md#46-context-building-and-token-budget"]
+result = "services/reviewer/src/guidelines/*.ts, services/reviewer/test/unit/guidelines.test.ts"
+done = [
+  "Tests `guidelines.reads_base_not_head`, `guidelines.nearest_first`, `guidelines.paths_frontmatter`, `guidelines.truncation_reported`, `guidelines.rule_source_ids_stable` green",
+]
+sources = ["02 section 8", "04 section 2", "ADR-17", "10 section 3"]
+depends_on = ["1-E02-T03"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T05-S01"
+  title = "Tests with fixture repo (base and head differ)"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T05-S02"
+  title = "Loader, scope, budget, rule IDs"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E02-T06"
+title = "Ticket and CI context"
+description = """On the controller side: read linked issues of the same repo from `links.closes` and the PR text freshly via the WorkItemProvider `github-issues` (title, text, acceptance criteria as untrusted); do not load issues of other repos, only note them (FE-820, ADR-63). CI results at the head via `checkEvidence` (failures only). Both as a blob for the context package."""
+design = ["08-reviewer.md#46-context-building-and-token-budget"]
+result = "services/reviewer/src/controller/context-sources.ts, services/reviewer/test/unit/context-sources.test.ts"
+done = [
+  "Test `context.ticket_same_repo_only` green; test `s1.reviewer.cross_repo_issue_not_loaded` green",
+  "Test `context.ci_failures_only` green",
+  "Test `context.ticket_untrusted_marked` green",
+]
+sources = ["02 section 4 stage 3", "ADR-63", "05 section 7"]
+depends_on = ["1-E01-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T06-S01"
+  title = "Tests ticket and CI sources"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T06-S02"
+  title = "Read sources and store them as a blob"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E02-T07"
+title = "Prepare job with gate model"
+description = """Handler `jobs/prepare.handler.ts` for the work item `reviewer.prepare`: sandbox with a clone of base and head (the worker clones with profile read, token discarded afterwards), starts gw-review-context (diff, symbols, neighborhood, guidelines, SARIF normalization from 1-E06 on), calls `models.gate` with prompt `gate.md` and `GateModelOutputSchema` (FE-803: never skipping), returns `PrepareOutput`. If the gate model fails, default values and the note `gate_model_failed`. `destroy` in finally."""
+design = ["08-reviewer.md#44-gate", "08-reviewer.md#25-steps-and-work-item-envelopes"]
+result = "services/reviewer/src/jobs/prepare.handler.ts, services/reviewer/prompts/gate.md, services/reviewer/test/contract/prepare.test.ts"
+done = [
+  "Test `prepare.output_matches_schema` green against a fixture repo with a recorded model response",
+  "Test `prepare.gate_model_failure_defaults` green",
+  "Test `prepare.sandbox_destroyed_on_error` green",
+  "Test `prepare.no_scm_token_in_sandbox` green (environment and file system without token)",
+]
+sources = ["02 section 4 stages 1 to 3", "01 sections 7, 8", "05 section 3"]
+depends_on = ["1-E02-T03", "1-E02-T04", "1-E02-T05", "1-E02-T06"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T07-S01"
+  title = "Tests prepare output and failure paths"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T07-S02"
+  title = "Handler with sandbox and context tool"
+  done = "Output and destroy tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T07-S03"
+  title = "Gate prompt and gate model call"
+  done = "Gate tests green, prompt in the lock"
+  status = "open"
+
+[[task]]
+id = "1-E02-T08"
+title = "Router and context package with token budget"
+description = """`src/controller/router.ts` and context tailoring per detailed design 08 sections 4.5 and 4.6: depth `base` or `deep` from gate model, diff size and `protected_paths`; finder selection; `riskScore` and `riskLevel`; shards by directory and risk up to `context.max_tokens` (estimate `ceil(utf8Bytes / 3)`, FE-808), at most `router.max_shards`; priorities 1 to 10 with partial budgets; untrusted blocks after the sanitizer; truncation and skip report."""
+design = ["08-reviewer.md#45-router-and-depth", "08-reviewer.md#46-context-building-and-token-budget"]
+result = "services/reviewer/src/controller/router.ts, services/reviewer/src/controller/context-pack.ts, services/reviewer/test/unit/router.test.ts"
+done = [
+  "Tests `router.auto_deep_on_protected_path`, `router.base_cap`, `router.standards_only_with_guidelines`, `router.shards_respect_budget`, `router.shard_cap_skips_and_marks` green",
+  "Tests `context.priority_order`, `context.untrusted_marked_and_sanitized`, `context.budget_estimate_bytes_div_3` green",
+]
+sources = ["02 section 4 stages 2, 3", "05 section 4"]
+depends_on = ["1-E02-T07"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E02-T08-S01"
+  title = "Tests router"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T08-S02"
+  title = "Router, risk, shards"
+  done = "Router tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E02-T08-S03"
+  title = "Context package with priorities and sanitizer"
+  done = "Context tests green"
+  status = "open"
+
+# ---------------------------------------------------------------- 1-E03
+
+[[task]]
+id = "1-E03-T01"
+title = "Finder framework"
+description = """Handler `jobs/find.handler.ts` for `reviewer.find`: AgentRuntime from `services.reviewer.runtime` with model `models.finder`, `nativeTools: read`, no subagents, no platform MCP tools (FE-801), output via `--json-schema` with `FinderOutputSchema`, budget from the envelope; second attempt on `schema_invalid` or an empty response; status `failed` after that. The controller collects outputs per finder and shard, missing finders per `coverage.findersFailed` (check neutral, section 5)."""
+design = ["08-reviewer.md#47-finder-passes"]
+result = "services/reviewer/src/jobs/find.handler.ts, services/reviewer/src/controller/candidates.ts (collecting), services/reviewer/test/contract/find.test.ts"
+done = [
+  "Test `job.find_schema_output_parsed` green with a real harness against a fixture repo (recorded model response in CI, real run in the eval)",
+  "Test `job.find_read_only_cannot_write` green (write attempt of the agent fails)",
+  "Test `s1.reviewer.finder_cannot_call_write_tools` green",
+  "Test `s6.reviewer.finder_schema_invalid_neutral` green: second attempt, then finder missing, check neutral, summary names the finder",
+]
+sources = ["02 section 4 stage 4", "01 section 6", "05 sections 2, 4"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E03-T01-S01"
+  title = "Tests finder job with fixture"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T01-S02"
+  title = "Handler with AgentRuntime and schema"
+  done = "Schema and read-only tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T01-S03"
+  title = "Retry and failure path of a missing finder"
+  done = "S6 case green"
+  status = "open"
+
+[[task]]
+id = "1-E03-T02"
+title = "Shared prompt parts and finders bugs_diff, bugs_introduced"
+description = """Prompt files `shared.rules.md`, `shared.severity.md`, `shared.untrusted.md`, `finder.bugs_diff.md`, `finder.bugs_introduced.md` in our own wording per detailed design 08 sections 3.6 and 4.7 (severities, categories, evidence requirement, silence is valid, exclusion list). Prompt assembly in the loader in the order 1 to 7. Calibration on a small own fixture set (10 PRs with seeded bugs, `own_public`), result in the PR."""
+design = ["08-reviewer.md#47-finder-passes", "08-reviewer.md#36-severities-and-categories"]
+result = "services/reviewer/prompts/shared.*.md, finder.bugs_diff.md, finder.bugs_introduced.md, services/reviewer/test/fixtures/seeded-bugs/"
+done = [
+  "Test `finder.prompt_order` green (order of the sections)",
+  "Fixture run: every seeded bug of the 10 fixture PRs reported by at least one of the two finders or documented as a gap in the PR",
+  "`bugs_introduced` provides at least one piece of evidence outside the diff in every finding (test `finder.introduced_evidence_outside_diff`)",
+  "Lock and changelog updated, `prompts.lock_matches_content` green",
+]
+sources = ["02 section 4 stage 4", "12 section 2.4"]
+depends_on = ["1-E03-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E03-T02-S01"
+  title = "Fixture PRs with seeded bugs"
+  done = "Fixtures created with an expectation file"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T02-S02"
+  title = "Shared prompt parts and order"
+  done = "`finder.prompt_order` green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T02-S03"
+  title = "Prompts bugs_diff and bugs_introduced with fixture run"
+  done = "Fixture run documented, evidence test green"
+  status = "open"
+
+[[task]]
+id = "1-E03-T03"
+title = "Finders standards and ticket"
+description = """Prompts `finder.standards.md` (only violations of loaded rules, mandatory `rule_id` and verbatim `rule_quote`) and `finder.ticket.md` (deviation from acceptance criteria, category `ticket_gap`, criterion as an evidence note). The router starts them only under the conditions from section 4.5."""
+design = ["08-reviewer.md#47-finder-passes"]
+result = "services/reviewer/prompts/finder.standards.md, finder.ticket.md, services/reviewer/test/contract/finders-standards-ticket.test.ts"
+done = [
+  "Test `finder.standards_cites_rule_quote` green against a fixture with a REVIEW.md rule",
+  "Test `finder.ticket_gap_from_acceptance_criteria` green against a fixture issue",
+  "Lock and changelog updated",
+]
+sources = ["02 section 4 stage 4", "02 section 8"]
+depends_on = ["1-E03-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E03-T03-S01"
+  title = "Fixtures and tests standards, ticket"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T03-S02"
+  title = "Prompts and router conditions"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E03-T04"
+title = "Security finder"
+description = """Prompt `finder.security.md` per detailed design 08 section 4.8: focus categories, exclusion list in our own wording (FE-842; if text from `claude-code-security-review` is adopted, MIT header and origin line), mandatory fields `cwe`, `reachability`, `exploitability`; input `threatModelRef` provided for, empty in stage 1. Calibration on own seeds (SEC4 patterns: IDOR, missing authorization, SSRF, injection) in fixture repos. The SEC1 run as a report part belongs to 1-E09."""
+design = ["08-reviewer.md#48-security-finder"]
+result = "services/reviewer/prompts/finder.security.md, services/reviewer/test/fixtures/sec-seeds/, services/reviewer/test/contract/finder-security.test.ts"
+done = [
+  "Test `finder.security_required_fields` green (a finding without CWE, reachability or exploitability is discarded in the controller)",
+  "Fixture run on the seeds: result per seed documented in the PR",
+  "Origin of adopted text parts with origin line, otherwise our own wording (review item in the PR)",
+]
+sources = ["02 section 4 stage 4", "10 section 13", "07 section 3.8", "12 section 2.4"]
+depends_on = ["1-E03-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E03-T04-S01"
+  title = "Security seeds and test of the mandatory fields"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T04-S02"
+  title = "Prompt and mandatory field check"
+  done = "Mandatory field test green, fixture run documented"
+  status = "open"
+
+[[task]]
+id = "1-E03-T05"
+title = "Evidence check and prefilter before the verifier"
+description = """`src/controller/candidates.ts` per detailed design 08 section 4.9 items 1 to 6: candidate IDs, evidence check (path, lines, evidence locations, `existing_code` in the range), increment filter (FE-833), pre-dedupe via IoU, cap `verifier.max_candidates`. Losses per reason in the candidate blob. The exclusion of known open findings (item 5, `known_open`) needs fingerprint v1 and is created in 1-E04-T05 (FE-850); here the position in the filter sequence stays as a pass-through."""
+design = ["08-reviewer.md#49-verifier"]
+result = "services/reviewer/src/controller/candidates.ts, services/reviewer/test/unit/candidates.test.ts"
+done = [
+  "Tests `cand.evidence_invalid_dropped`, `cand.existing_code_must_match`, `cand.outside_increment_dropped`, `cand.pre_dedupe_iou_merges_producers`, `cand.verify_cap` green",
+]
+sources = ["02 section 4 stages 6, 7"]
+depends_on = ["1-E03-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E03-T05-S01"
+  title = "Tests evidence check and prefilter"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T05-S02"
+  title = "Implementation with loss counting"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E03-T06"
+title = "Verifier in mode read and recheck"
+description = """Handler `jobs/verify.handler.ts` modes `read` and `recheck` (FE-809): excerpts per candidate from the context tool (section 4.9), one call to `models.verifier` per batch of `verifier.batch_size`, prompts `verifier.read.md`, `verifier.recheck.md`, output per `VerifierVerdictSchema` or `RecheckVerdictSchema`. Controller: a missing verdict counts as unsupported, severity may only be lowered (FE-810), `agent_prompt` mandatory for analyzer candidates. Failure path: failed batch, candidates discarded, check neutral."""
+design = ["08-reviewer.md#49-verifier"]
+result = "services/reviewer/src/jobs/verify.handler.ts, services/reviewer/prompts/verifier.read.md, verifier.recheck.md, services/reviewer/test/contract/verify.test.ts"
+done = [
+  "Test `filter.verifier_cannot_raise_severity` green",
+  "Test `verify.missing_verdict_is_unsupported` green",
+  "Test `s6.reviewer.verifier_batch_failed_neutral` green",
+  "Fixture run: on the seeds from 1-E03-T02 and 1-E03-T04 no seeded real bug is discarded, false alarms of the fixtures documented",
+]
+sources = ["02 section 4 stage 6", "10 section 13 B3", "01 section 7"]
+depends_on = ["1-E03-T05"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "1-E03-T06-S01"
+  title = "Tests verdicts and failure paths"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T06-S02"
+  title = "Excerpts and batching"
+  done = "Excerpt test green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T06-S03"
+  title = "Prompts read and recheck, model call"
+  done = "Verdict tests green, fixture run documented"
+  status = "open"
+
+[[task]]
+id = "1-E03-T07"
+title = "Build verifier and effective verifier mode"
+description = """Mode `build` (FE-835): AgentRuntime with `nativeTools: edit+shell` in a throwaway copy of the clone, commands from `verifier.commands` at the base SHA or `.agents/environment.yaml`, egress additionally registry cache, prompt `verifier.build.md`, output with `reproduction`; nothing leaves the sandbox except the verdict and redacted log excerpts. The controller fixes the effective mode before the claim (commands present, pool with minimum isolation for repo code of the repo class, otherwise `read` with a note) and reports it into the profile (1-E01-T06). The resolver rule `verifier.build: true` with `subscription` without `operator_test` is checked in S2 (1-E10-T02)."""
+design = ["08-reviewer.md#49-verifier"]
+result = "services/reviewer/src/jobs/verify.handler.ts (mode build), services/reviewer/prompts/verifier.build.md, services/reviewer/src/controller/verifier-mode.ts, services/reviewer/test/contract/verify-build.test.ts"
+done = [
+  "Test `job.verify_build_no_bundle_exported` green",
+  "Test `verifier_mode.external_code_without_microvm_is_read` green (note in summary and Run Record)",
+  "Test `verifier_mode.no_commands_is_read` green",
+  "Test `verify_build.reproduction_recorded` green against a fixture with a failing test",
+]
+sources = ["02 section 4 stage 6", "05 sections 3, 6 condition 9", "ADR-48", "08 stage 1"]
+depends_on = ["1-E03-T06"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+note = "Open item 10.4 of the detailed design: have FE-835 checked against ADR-48 in the review."
+
+  [[task.part]]
+  id = "1-E03-T07-S01"
+  title = "Tests effective mode"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T07-S02"
+  title = "Decision on the effective mode and profile report"
+  done = "Mode tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T07-S03"
+  title = "Test build verifier with fixture"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E03-T07-S04"
+  title = "Build verifier with throwaway copy and prompt"
+  done = "Build tests green, no export"
+  status = "open"
+
+# ---------------------------------------------------------------- 1-E04
+
+[[task]]
+id = "1-E04-T01"
+title = "Migration and repository for findings and finding_feedback"
+description = """Reconcile the column requirements from detailed design 08 section 3.1 against the DDL from detailed design 01; missing columns and indexes as an expand migration (FE-828). Repositories `findings-repo.ts` (upsert via `(tenant_id, repo_key, change_number, fingerprint)`) and `feedback-repo.ts` (append-only, unique via `provider_ref` and `kind`). Row-level security."""
+design = ["08-reviewer.md#31-tables"]
+result = "packages/db/migrations/01nn_reviewer_findings.sql (block 0100, only if a column is missing), services/reviewer/src/controller/findings-repo.ts, feedback-repo.ts (only via the port ReviewerStore, FE-843), apps/control-plane/src/services/reviewer/store.ts (parts findings and feedback), tests"
+done = [
+  "Test `findings.upsert_by_fingerprint` green against real Postgres",
+  "Test `feedback.no_duplicate_signal` green",
+  "Test `findings.rls_other_tenant_invisible` green",
+  "Migration forward on a filled DB green (S8 preparation)",
+]
+sources = ["ADR-11", "08 section 4 stage 0 item 1", "06 section 5"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T01-S01"
+  title = "Tests upsert, duplicates, tenants"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T01-S02"
+  title = "Migration and repositories"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T02"
+title = "Fingerprint v1"
+description = """`src/findings/fingerprint.ts` per detailed design 08 section 3.4 (FE-811): inputs, normalization, anchor line (first changed line in the range), occurrence, sha256 and base32. Golden test vectors as protection against a silent change; every change of the algorithm needs `fingerprint_v` 2."""
+design = ["08-reviewer.md#34-fingerprint"]
+result = "services/reviewer/src/findings/fingerprint.ts, normalize.ts, services/reviewer/test/unit/fingerprint.test.ts"
+done = [
+  "Tests `fp.stable_under_line_shift`, `fp.stable_under_other_edits`, `fp.independent_of_title`, `fp.changes_with_category`, `fp.changes_with_symbol`, `fp.occurrence_disambiguates`, `fp.golden_vectors_v1` green",
+]
+sources = ["02 section 4 stages 7, 9", "08 stage 6 (gate local review)"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T02-S01"
+  title = "Property and vector tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T02-S02"
+  title = "Algorithm and anchor choice"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T03"
+title = "Code filter, caps, convention quote, dedupe, output limit"
+description = """`src/controller/filter/*` per detailed design 08 sections 3.6 and 4.10 items 1 to 7 and 9: verdict, caps, convention quote verbatim at the base SHA, score (FE-812), profile `chill`/`assertive` (FE-831), fingerprint, dedupe with IoU and CWE (FE-813), presentation inline, summary, hidden with `max_comments`. Pure and deterministic."""
+design = ["08-reviewer.md#410-code-filter-dedupe-noise-filter-output-limit"]
+result = "services/reviewer/src/controller/filter/score.ts, caps.ts, convention-quote.ts, dedupe.ts, limit.ts, tests"
+done = [
+  "Tests `filter.unsupported_dropped`, `filter.caps_unreachable_p3`, `filter.caps_flag_p2`, `filter.convention_needs_verbatim_quote`, `filter.score_formula`, `filter.chill_drops_p3`, `filter.dedupe_iou_and_cwe`, `filter.max_comments_overflow_to_summary` green",
+]
+sources = ["02 section 4 stage 7", "ADR-33"]
+depends_on = ["1-E04-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T03-S01"
+  title = "Tests filter stages"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T03-S02"
+  title = "Caps, convention quote, score, profile"
+  done = "Tests of these stages green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T03-S03"
+  title = "Dedupe and presentation"
+  done = "Dedupe and limit tests green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T04"
+title = "Noise filter"
+description = """`src/controller/filter/noise.ts` per detailed design 08 section 4.10 item 8 (FE-812): rejected findings of the repo in the window `noise_filter.window_days` from `finding_feedback` (only humans with write permission), similarity via fingerprint or word Jaccard plus the same file or the same symbol, P2 and P3 are dropped, P0 and P1 stay."""
+design = ["08-reviewer.md#410-code-filter-dedupe-noise-filter-output-limit"]
+result = "services/reviewer/src/controller/filter/noise.ts, services/reviewer/test/unit/noise.test.ts"
+done = [
+  "Tests `filter.noise_drops_p2_keeps_p1`, `filter.noise_ignores_non_writers`, `filter.noise_window_respected` green",
+]
+sources = ["02 section 4 stage 7"]
+depends_on = ["1-E04-T01", "1-E04-T03"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T04-S01"
+  title = "Tests noise filter"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T04-S02"
+  title = "Query and similarity"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T05"
+title = "Increment and finding lifecycle"
+description = """`src/controller/increment/*` per detailed design 08 section 4.11: states and transitions, remap of open findings via the line mapping, recheck batches for changed ranges, `addressed` with `addressed_sha` (FE-834), `outdated`, `withdrawn` in the full run, force push to `full`, open findings in the context package (priority 7), `review_pr_state` after the run (last_reviewed_sha, commits_since_full, last_full_review_sha). In addition item 5 of the prefilter in `candidates.ts` (detailed design 08 section 4.9): candidates with the fingerprint of an open finding do not go into the verifier (loss `known_open`, FE-850)."""
+design = ["08-reviewer.md#411-finding-lifecycle-and-increment"]
+result = "services/reviewer/src/controller/increment/remap.ts, lifecycle.ts, addressed.ts, tests"
+done = [
+  "Tests `inc.unchanged_region_no_repost`, `inc.changed_region_rechecked`, `inc.fixed_becomes_addressed_with_sha`, `inc.deleted_becomes_outdated`, `inc.force_push_runs_full`, `inc.rename_remaps_path` green",
+  "Test `inc.full_run_can_withdraw` green",
+  "Test `inc.state_updated_after_run` green",
+  "Test `cand.known_open_not_verified` green (a candidate with the fingerprint of an open finding does not reach the verifier, the open finding stays)",
+]
+sources = ["02 section 4 stage 9", "02 section 4 DoD increment"]
+depends_on = ["1-E04-T01", "1-E04-T02", "1-E04-T03"]
+owner = "agent"
+estimate_h = 14
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T05-S01"
+  title = "Tests states and remap"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T05-S02"
+  title = "Remap and state machine of the findings"
+  done = "Remap and state tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T05-S03"
+  title = "Recheck wiring and Addressed"
+  done = "addressed and withdraw tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T05-S04"
+  title = "Open findings in the context and state per PR"
+  done = "state_updated_after_run green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T06"
+title = "Feedback harvesting and completion at merge"
+description = """`src/controller/feedback.ts` per detailed design 08 section 4.12 (FE-816): at the start of the run and on the event `merged`, read threads (`getThreads(includeResolved: true)`), mapping via `thread_id` or the marker `gw:f=`, signals into `finding_feedback` with the freshly read permission of the actor and the author attribute, finding states `resolved_by_human`, reopening, `merged_open`. Reply texts as untrusted in the blob."""
+design = ["08-reviewer.md#412-feedback"]
+result = "services/reviewer/src/controller/feedback.ts, services/reviewer/test/unit/feedback.test.ts"
+done = [
+  "Tests `fb.resolved_by_human_recorded_once`, `fb.reopen_restores_open`, `fb.reply_stored_untrusted`, `fb.merge_marks_merged_open` green",
+  "Test `fb.permission_read_fresh` green (permission read at the provider, not from the payload)",
+]
+sources = ["02 section 4 chat and Learnings", "ADR-11", "ADR-61 (d)"]
+depends_on = ["1-E04-T01", "1-E04-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T06-S01"
+  title = "Tests with recorded thread replies"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T06-S02"
+  title = "Harvest, mapping, states"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T07"
+title = "Persistence, redaction and ReviewArtifact"
+description = """Step `filter_persist`: redaction of all finding texts before storing (FE-840, redactor from @guildwork/core), writing the findings in one transaction, `ReviewArtifact` and `candidates.json` into the BlobStore with a reference in `artifacts`, `losses` per reason, costs and duration from the ledger. Failure path DB error: rollback, artifact in the blob, check neutral."""
+design = ["08-reviewer.md#32-artifacts-in-the-blobstore", "08-reviewer.md#6-security"]
+result = "services/reviewer/src/controller/persist.ts, services/reviewer/src/findings/redact.ts, tests"
+done = [
+  "Tests `redact.finding_texts_before_persist`, `redact.secret_finding_still_posts` green",
+  "Test `persist.artifact_and_candidates_written` green",
+  "Test `s6.reviewer.db_error_rollback_neutral` green",
+]
+sources = ["05 sections 3 item 4, 5", "06 section 5", "07 section 3.1 metrics"]
+depends_on = ["1-E04-T03", "1-E04-T05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T07-S01"
+  title = "Tests redaction, artifact, rollback"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T07-S02"
+  title = "Persistence step"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E04-T08"
+title = "Library reviewChange and ReviewExecutor"
+description = """`src/library/` per detailed design 08 section 2.6: port `ReviewExecutor`, implementation `WorkItemExecutor`, function `reviewChange()` without effects; the controller uses the same function. Basis for the self-review of the coder (2-E04) and the local review (6-E04). Library calls run under the run and profile of the caller (ADR-66)."""
+design = ["08-reviewer.md#26-library"]
+result = "services/reviewer/src/library/executor.ts, review-change.ts, services/reviewer/test/unit/library.test.ts"
+done = [
+  "Test `lib.same_fingerprints_as_controller_path` green (same diff, same fixture responses, same fingerprints)",
+  "Test `lib.never_emits_effects` green",
+  "Test `lib.profile_of_caller` green (callerService set, profile of the caller in the Run Record)",
+]
+sources = ["02 section 3 stage 8", "02 section 4a", "ADR-66"]
+depends_on = ["1-E04-T07"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E04-T08-S01"
+  title = "Tests library"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E04-T08-S02"
+  title = "Port, WorkItemExecutor, reviewChange; controller switched over"
+  done = "Tests green, controller uses reviewChange"
+  status = "open"
+
+# ---------------------------------------------------------------- 1-E05
+
+[[task]]
+id = "1-E05-T01"
+title = "Rendering of the findings"
+description = """`src/controller/post/render.ts` per detailed design 08 section 4.13: text per inline finding (severity, category, title, trigger, evidence without links, suggestion only in the same hunk and at most 30 lines, fix instruction collapsible, marker `gw:f=`), lines outside a hunk to `summary`, language per `language`."""
+design = ["08-reviewer.md#413-output-on-github", "08-reviewer.md#35-markers-in-comments"]
+result = "services/reviewer/src/controller/post/render.ts, snapshot tests"
+done = [
+  "Tests `post.inline_only_p0_p1`, `post.line_outside_hunk_demoted`, `post.suggestion_only_same_hunk`, `post.no_external_links`, `post.marker_present` green",
+]
+sources = ["02 section 4 output", "01 section 5", "05 section 2 item 4"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T01-S01"
+  title = "Snapshot tests rendering"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T01-S02"
+  title = "Renderer"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T02"
+title = "Post review via propose_review"
+description = """`src/controller/post/review.ts`: one review per run with new inline findings via `propose_review` (variant review), `commitSha` = reviewed head, verdict `comment`, or `request_changes` only with a switch (FE-814), `proposalKey` `review:<headSha>` (shape `ProposalV1` from detailed design 04 section 2.1.1; the gateway forms the idempotency key, FE-402). Evaluation of `ReviewOutcome` (FE-839): map `comment_id`, `thread_id` to the posted fingerprints, `demotedToSummary` and `failedPositions` to `summary`, `fallbackUsed` into the audit. Posting happens via the executor review from 1-E05-T08."""
+design = ["08-reviewer.md#413-output-on-github"]
+result = "services/reviewer/src/controller/post/review.ts, tests with recorded GitHub responses"
+done = [
+  "Test `post.idempotency_keys` green (double delivery yields one review)",
+  "Test `e2e.fallback_chain_summary_only` green",
+  "Test `post.outcome_maps_threads` green",
+]
+sources = ["01 section 5", "03 section 5 (fallback level)", "ADR-06"]
+depends_on = ["1-E05-T01", "1-E05-T08"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T02-S01"
+  title = "Tests posting, idempotency, fallback chain"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T02-S02"
+  title = "Review effect and outcome evaluation"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T03"
+title = "Summary"
+description = """`src/controller/post/summary.ts`: one updated comment per PR via `propose_review` (variant summary, `upsertSummary`) with contents 1 to 9 from detailed design 08 section 4.13 (banner "standard not proven", effective verifier mode, auto-pause, tables, fixed, not reviewed, costs and duration, commands, marker per ADR-11). Summary separate from the status comment (FE-819)."""
+design = ["08-reviewer.md#413-output-on-github"]
+result = "services/reviewer/src/controller/post/summary.ts, snapshot tests"
+done = [
+  "Tests `post.summary_lists_skipped_and_costs`, `post.unproven_standard_banner`, `post.summary_marker_only_run_ids_and_sha` green",
+  "Test `post.summary_updated_not_reposted` green (second run updates the same comment)",
+]
+sources = ["02 section 4 output", "ADR-11", "ADR-47"]
+depends_on = ["1-E05-T01", "1-E05-T08"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T03-S01"
+  title = "Snapshot tests summary"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T03-S02"
+  title = "Summary and upsert"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T04"
+title = "Check run ai-review"
+description = """`src/controller/post/check.ts`: lifecycle `queued`, `in_progress`, `completed` via `propose_check`; conclusion per the table in detailed design 08 section 4.13 (FE-815), `check.fail_on`, never silent green; check ID per head in `review_pr_state.check_runs`; no check for G1 to G7."""
+design = ["08-reviewer.md#413-output-on-github"]
+result = "services/reviewer/src/controller/post/check.ts, tests"
+done = [
+  "Test `post.check_conclusion_table` green (every row of the table one case)",
+  "Test `post.check_failure_turns_success_when_addressed` green",
+  "Test `post.no_check_for_draft_or_bot` green",
+]
+sources = ["02 section 4 output", "03 section 5 principle"]
+depends_on = ["1-E05-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T04-S01"
+  title = "Tests check conclusion"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T04-S02"
+  title = "Check lifecycle"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T05"
+title = "Thread reply and resolution"
+description = """`src/controller/post/resolve.ts`: for findings that became `addressed` or `outdated` in the run and have their own thread, `propose_thread_resolve` with a reply; resolution only without a human reply in the thread, otherwise reply only (02 section 4 stage 9)."""
+design = ["08-reviewer.md#413-output-on-github"]
+result = "services/reviewer/src/controller/post/resolve.ts, tests"
+done = [
+  "Test `post.resolve_only_without_human_reply` green",
+  "Test `e2e.push_incremental_addressed_resolves_thread` green",
+]
+sources = ["02 section 4 stage 9", "02 section 0 (propose_thread_resolve)"]
+depends_on = ["1-E05-T01", "1-E05-T09"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T05-S01"
+  title = "Tests resolution"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T05-S02"
+  title = "Thread effect"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T06"
+title = "Status line and visible replies"
+description = """`src/controller/post/status-row.ts`: row of the reviewer run for the status comment service (state, costs so far, link to the Run Record, "standard not proven"); reply texts for commands from sections 4.1 and 4.4 via the reply path of the orchestrator."""
+design = ["08-reviewer.md#413-output-on-github", "08-reviewer.md#5-failure-and-abort-paths"]
+result = "services/reviewer/src/controller/post/status-row.ts, tests"
+done = [
+  "Test `post.status_row_fields` green",
+  "Test `post.command_answers` green (service off, head already reviewed, ignore)",
+]
+sources = ["03 sections 2.3, 5", "ADR-47"]
+depends_on = []
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T06-S01"
+  title = "Tests status line and replies"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T06-S02"
+  title = "Status line and replies"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T07"
+title = "E2E and shadow mode against recorded GitHub responses"
+description = """E2E tests per detailed design 08 section 8.2 with Testcontainers Postgres, fixture webhooks, Effect Gateway in mode record and recorded model responses: full run, increment with Addressed, `review full`, `ignore` and back, shadow mode (effects only in the eval log, findings and state written nonetheless)."""
+design = ["08-reviewer.md#82-contract-and-integration-tests"]
+result = "services/reviewer/test/e2e/*.test.ts, services/reviewer/test/fixtures/github/"
+done = [
+  "Tests `e2e.opened_full_review_records_effects`, `e2e.review_full_command`, `e2e.ignore_then_review`, `e2e.shadow_writes_eval_log_only` green",
+  "Run time of the E2E suite measured in CI and named in the PR",
+  "Test `e2e.opened_full_review_live_against_recorded_github` green: the same full run in mode live, effects review, summary, check and thread_resolve go through the executors to the recorded GitHub responses, no effect ends with unsupported",
+]
+sources = ["07 section 1", "02 section 0 (shadow)"]
+depends_on = ["1-E05-T02", "1-E05-T03", "1-E05-T04", "1-E05-T05", "1-E05-T06", "1-E05-T08", "1-E05-T09", "1-E05-T10"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T07-S01"
+  title = "Fixtures and E2E tests full run and increment"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E05-T07-S02"
+  title = "E2E commands and shadow mode"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E05-T08"
+title = "Executor review with the variants review and summary"
+description = """`apps/control-plane/src/effects/executors/review.ts` per detailed design 04 section 2.1.5: variant review via `submitReview` with the fallback chain of the plugin (detailed design 05 section 4.4) and `idempotencyKey = effects.idempotency_key`, `ReviewOutcome` in `effects.result` and in the event `effect.applied` to the controller (detailed design 08 FE-839); variant summary via `upsertSummary` with marker `guildwork:summary run=<runId> sha=<commitSha>`. Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/review.ts, apps/control-plane/test/effects/executors/review.test.ts"
+done = [
+  "Test 'effects/executors/review live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/review failure path stores audits and logs' green (failure path: fallback chain down to summary_only sets fallback_used with audit effect.fallback_used; 422 after all levels yields failed; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/review reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Test 'effects/executors/review summary upserts one comment per pr' green (second run updates the same comment)",
+  "Catalog entry review with executor file, stage and usedIn; guard test from 0-E09-T10 green without review in the planned list",
+]
+sources = ["01 section 5", "05 section 2", "03 section 5 (fallback level used)", "ADR-06", "ADR-10"]
+depends_on = ["0-E09-T04", "0-E09-T05", "0-E14-T08"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T08-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "1-E05-T08-S02"
+  title = "Executor review with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["1-E05-T08-S01"]
+
+  [[task.part]]
+  id = "1-E05-T08-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["1-E05-T08-S02"]
+
+[[task]]
+id = "1-E05-T09"
+title = "Executor thread_resolve"
+description = """`apps/control-plane/src/effects/executors/thread-resolve.ts` per detailed design 04 section 2.1.5: with `replyMd` first `reply` with marker, then with `resolve: true` `resolveThread`; reconciliation via `getThreads` (marker in the thread, thread already resolved). Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/thread-resolve.ts, apps/control-plane/test/effects/executors/thread-resolve.test.ts"
+done = [
+  "Test 'effects/executors/thread_resolve live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/thread_resolve failure path stores audits and logs' green (failure path: thread deleted (not_found) yields failed without retry; without THREAD_RESOLVE only the reply with fallback_used reply_only; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/thread_resolve reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry thread_resolve with executor file, stage and usedIn; guard test from 0-E09-T10 green without thread_resolve in the planned list",
+]
+sources = ["02 section 4", "05 section 2", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T08"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T09-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "1-E05-T09-S02"
+  title = "Executor thread_resolve with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["1-E05-T09-S01"]
+
+  [[task.part]]
+  id = "1-E05-T09-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["1-E05-T09-S02"]
+
+[[task]]
+id = "1-E05-T10"
+title = "Executor reply"
+description = """`apps/control-plane/src/effects/executors/reply.ts` per detailed design 04 section 2.1.5: `SCMProvider.reply` with marker, reconciliation via `getThreads`. Built in stage 1 because the users in stages 4 (PR fixer), 6 (chat) and 7 (ask) do not precede one another (FE-428). Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/reply.ts, apps/control-plane/test/effects/executors/reply.test.ts"
+done = [
+  "Test 'effects/executors/reply live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/reply failure path stores audits and logs' green (failure path: not_found yields failed without retry; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/reply reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry reply with executor file, stage and usedIn; guard test from 0-E09-T10 green without reply in the planned list",
+]
+sources = ["02 section 0", "05 section 2", "ADR-06"]
+depends_on = ["0-E09-T04", "0-E14-T08"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T10-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "1-E05-T10-S02"
+  title = "Executor reply with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["1-E05-T10-S01"]
+
+  [[task.part]]
+  id = "1-E05-T10-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["1-E05-T10-S02"]
+
+[[task]]
+id = "1-E05-T11"
+title = "Executor notify with the instance comment-on-source"
+description = """`apps/control-plane/src/effects/executors/notify.ts` per detailed design 04 section 2.1.5: instance `comment-on-source` as a comment on the source object (like executor comment, marker and upsert); other instances via `Notifier.send` or `update` as soon as their contract is binding (kind report in 6-E05-T06, Slack in 9-E02-T02). Built in stage 1 because the users in stage 5 (revert, rollback) and 6 (report) do not precede one another. Common part (token per effect, errors per PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/notify.ts, apps/control-plane/test/effects/executors/notify.test.ts"
+done = [
+  "Test 'effects/executors/notify live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/notify failure path stores audits and logs' green (failure path: instance missing or contract not binding yields unsupported, the message is in the Run Record; checked are state and error on the effect, audit entry and metric)",
+  "Test 'effects/executors/notify reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry notify with executor file, stage and usedIn; guard test from 0-E09-T10 green without notify in the planned list",
+]
+sources = ["01 section 10", "06 section 4", "ADR-06"]
+depends_on = ["0-E09-T05", "0-E14-T14"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "1-E05-T11-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "1-E05-T11-S02"
+  title = "Executor notify with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["1-E05-T11-S01"]
+
+  [[task.part]]
+  id = "1-E05-T11-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["1-E05-T11-S02"]
+
+# ---------------------------------------------------------------- 1-E06
+
+[[task]]
+id = "1-E06-T01"
+title = "SARIF parser and normalization in the context tool"
+description = """`context-tool/src/sarif.ts` per detailed design 08 section 4.14 (FE-821): validation of SARIF 2.1.0 with mandatory fields, tool name against the expected one, normalization to AnalyzerFinding (path, lines, level, security-severity, CWE from tags, external fingerprint, text as untrusted), `baselineState` from the PR diff, limits of 25,000 results and 500 candidates, severity mapping. Runs in the sandbox in the prepare job."""
+design = ["08-reviewer.md#414-analyzers-in-mode-ingest"]
+result = "services/reviewer/context-tool/src/sarif.ts, tests with SARIF fixtures"
+done = [
+  "Tests `sarif.rejects_missing_required_fields`, `sarif.tool_name_mismatch_invalid`, `sarif.cwe_from_tags`, `sarif.only_new_lines_candidates`, `sarif.severity_mapping`, `sarif.size_limits` green",
+]
+sources = ["01 section 12", "ADR-40", "ADR-24"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E06-T01-S01"
+  title = "SARIF fixtures and tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E06-T01-S02"
+  title = "Validation and normalization"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E06-T02"
+title = "Source ci_artifact with waiting for the CI"
+description = """Controller `analyzers/fetch.ts`: find the completed workflow run at the head SHA, load the artifact as bytes (size limits, `file_glob`), put it into the BlobStore; wait up to `analyzers.ingest_wait_min` without a lease (delayed prepare item). For this, add a read method for CI artifacts in the SCMProvider or GitHub plugin (open item 10.2), with a contract test against recorded GitHub responses; permission `actions:read` from profile `read`."""
+design = ["08-reviewer.md#414-analyzers-in-mode-ingest"]
+result = "services/reviewer/src/controller/analyzers/fetch.ts, extension in plugins/github (read method CI artifact), contract test"
+done = [
+  "Contract test `github.ci_artifact_download` green against a recording",
+  "Test `ingest.waits_without_lease_then_continues` green",
+  "Test `ingest.artifact_too_large_marked_invalid` green",
+  "Contract change added to detailed design 05 (follow-up list in the PR)",
+]
+sources = ["01 sections 5, 12", "05 section 2 (profile read)"]
+depends_on = ["1-E06-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E06-T02-S01"
+  title = "Contract test artifact download"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E06-T02-S02"
+  title = "Read method in the GitHub plugin"
+  done = "Contract test green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E06-T02-S03"
+  title = "Fetching, waiting, limits in the controller"
+  done = "ingest tests green"
+  status = "open"
+
+[[task]]
+id = "1-E06-T03"
+title = "Check and optionally connect the source scm_code_scanning"
+description = """Check and verify which app permission reading code scanning alerts needs (presumably `security_events: read`, unverified; open item 10.3). If it is not in profile `read`, the source stays off by default and the need goes to the owner as a proposal with a decision sheet (app permissions grow). If it is covered, connect the read method and normalization like `ci_artifact`."""
+design = ["08-reviewer.md#414-analyzers-in-mode-ingest", "08-reviewer.md#10-open-items"]
+result = "Evidence in the PR (docs quote with date), if applicable read method in plugins/github and contract test, decision sheet"
+done = [
+  "Permission for code scanning alerts verified with a source and entered in detailed design 08 section 10",
+  "Either contract test `github.code_scanning_alerts` green or the configuration rejects `source: scm_code_scanning` at load time with a reason (test `ingest.code_scanning_disabled_without_permission`)",
+]
+sources = ["01 sections 5, 11.2", "05 section 2"]
+depends_on = ["1-E06-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E06-T03-S01"
+  title = "Verify the permission"
+  done = "Evidence with date in the PR"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E06-T03-S02"
+  title = "Connection or block with test"
+  done = "one of the two tests green"
+  status = "open"
+
+[[task]]
+id = "1-E06-T04"
+title = "Analyzer candidates in finder and verifier"
+description = """Analyzer candidates with `llmUse: allowed` as context part 9 for the finders and directly as verifier candidates (source `analyzer:<id>`), shared dedupe with LLM findings (ADR-33, ADR-40); `llmUse: forbidden` only counted (FE-822); configuration `analyzers.ingest[].id` must be in `analyzers_allowlist` (check at load time); status per report in the artifact and in the summary."""
+design = ["08-reviewer.md#414-analyzers-in-mode-ingest"]
+result = "changes in services/reviewer/src/controller/candidates.ts, router.ts, post/summary.ts, config check, tests"
+done = [
+  "Test `sarif.llm_forbidden_not_in_prompt` green",
+  "Test `ingest.analyzer_candidate_needs_verifier` green (no finding without a verifier verdict)",
+  "Test `ingest.dedupe_llm_and_analyzer` green",
+  "Test `s2.reviewer.analyzer_not_in_allowlist_rejected` green",
+]
+sources = ["ADR-40", "ADR-33", "ADR-50", "04 section 7"]
+depends_on = ["1-E06-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E06-T04-S01"
+  title = "Tests candidate signal and allowlist"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E06-T04-S02"
+  title = "Integration into context, verifier and dedupe"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E06-T05"
+title = "Fixture tests per tool and S1 case SARIF"
+description = """SARIF fixtures of real outputs of Opengrep (own rules), gitleaks and osv-scanner in a pinned version (generated ourselves, not copied), end to end from the artifact to the finding; S1 case with an instruction in a SARIF message."""
+design = ["08-reviewer.md#83-cross-cutting-suites"]
+result = "services/reviewer/test/fixtures/sarif/*, services/reviewer/test/e2e/ingest.test.ts"
+done = [
+  "Test `e2e.ingest_opengrep_gitleaks_osv` green",
+  "Test `s1.reviewer.injection_sarif_message` green (0 effects outside the command)",
+]
+sources = ["07 section 5 S1", "07 section 3.8 AN1"]
+depends_on = ["1-E06-T02", "1-E06-T04", "0-E20-T21", "0-E20-T22"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E06-T05-S01"
+  title = "Generate fixtures with pinned tools"
+  done = "Fixtures with version information in the repo"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E06-T05-S02"
+  title = "E2E and S1 test"
+  done = "Tests green"
+  status = "open"
+
+# ---------------------------------------------------------------- 1-E09
+
+[[task]]
+id = "1-E09-T01"
+title = "Reviewer part of collect in the adapter reviewbench"
+description = """Per detailed design 08 section 8.4 and FE-853: no separate adapter package. In `eval/adapters/reviewbench/src/reviewer/collect.ts` (package from 0-E20-T11) `ReviewArtifactView` as a narrow TypeBox schema (no import from `services/reviewer`, 00 section 2.2), `reviewerFindings` and `collectReviewer`: the source is the `ReviewArtifact` of the case run (`effect_sink: record`), output `findings.json` (file, start_line, end_line, message) with all visible findings `inline` and `summary`, not `hidden` (FE-824), plus a diagnostic file with only the inline comments of the recorded effect `review`. Addition to `collect` in 07 section 2.4 (access to artifacts of the case run, renaming of the test `reviewbench.collect_only_inline_findings`) in the same PR (08 open item 10.18)."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters", "07-eval-and-qualification.md#24-adapter-reviewbench"]
+result = "eval/adapters/reviewbench/src/reviewer/collect.ts, eval/adapters/reviewbench/test/reviewer.test.ts, addendum in docs 07 section 2.4"
+done = [
+  "Test `adapter.findings_json_contract` green against the contract example from ReviewBench (via download, not copied)",
+  "Test `adapter.uses_record_sink` green (0 writing calls at the plugin eval-fixture)",
+  "Test `adapter.visible_includes_summary_not_hidden` green",
+  "Failure path: an artifact without a mandatory field yields err, the case counts as a failure (07 FE-718)",
+]
+sources = ["07 section 1", "ADR-52"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T01-S01"
+  title = "Tests contract and sink"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T01-S02"
+  title = "collectReviewer and addendum in 07"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E09-T02"
+title = "Bare arm as comparison arm"
+description = """Per detailed design 08 section 8.4: the arm `bare` is the internal service `eval-bare` from 0-E20-T08 (07 FE-717) in the same sandbox and the same worker, with the model from `models.finder` (FE-825). Here only the simple own prompt `eval/bare-prompts/reviewer.md` (one paragraph, output as JSON `{ findings: [{ path, start_line, end_line, severity, description }] }`) and `collect-bare.ts`, which maps the output of the step `bare` to the same `ReviewFinding` format; no separate start path."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters"]
+result = "eval/bare-prompts/reviewer.md, eval/adapters/reviewbench/src/reviewer/collect-bare.ts, tests"
+done = [
+  "Test `naked.same_model_as_finder` green",
+  "Test `naked.output_contract` green",
+]
+sources = ["10 sections 1.1, 3 (Gate A)", "07 section 4"]
+depends_on = ["1-E09-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T02-S01"
+  title = "Tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T02-S02"
+  title = "Prompt and mapping of the bare arm"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E09-T03"
+title = "R2 Martian offline on the reviewer"
+description = """Set `eval/sets/R2` and scorer `martian` from 0-E20-T12 (declarative pin, 07 FE-703) on the real reviewer: `guildwork-eval fetch R2` against the pinned commit, recomputation of the reference values per judge from `benchmark_dashboard.json` at the pinned state against the values from 10 section 3, profile `core` with 158 golden comments, trial run of the reviewer on 5 PRs through the whole chain (arm platform). Statistics and gate logic come from 0-E20."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters", "08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/scorers/martian/test/pinned.test.ts (runs only with a filled cache, otherwise skipped with a note), trial run report in the PR"
+done = [
+  "Test `r2.reference_recomputed_matches_published` green (recomputed values per judge equal those from 10 section 3 for the pinned state)",
+  "Test `r2.core_profile_158_comments` green",
+  "Trial run on 5 PRs ends `done` with a value per judge (command and output in the PR)",
+]
+sources = ["07 section 3.1 R2", "10 sections 1.4, 3 B1, B2"]
+depends_on = ["1-E09-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T03-S01"
+  title = "Fetch of the pin"
+  done = "guildwork-eval fetch R2 loads the pinned state, checksums checked"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T03-S02"
+  title = "Test recomputation of the reference values"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T03-S03"
+  title = "Trial run on the reviewer"
+  done = "Tests green, trial run documented"
+  status = "open"
+
+[[task]]
+id = "1-E09-T04"
+title = "R4 ReviewBench on the reviewer"
+description = """Set `eval/sets/R4` and scorer `reviewbench` from 0-E20-T13 (declarative pin, `repetitions = 3`) on the real reviewer: `guildwork-eval fetch R4`, container contract of the benchmark judge at the pinned commit (command unverified until 0-E20-T27), trial run on the test set of 25 PRs with three runs and the mean per case; leave-producer-out without `ccr:` and, for a Claude candidate, without `llm_review:claude` and `ccr:claude` as a diagnostic; the cap "leave-producer-out more than the margin below the full value yields at most not decidable" (07 FE-714) checked on the real result."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters", "08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/scorers/reviewbench/test/pinned.test.ts (runs only with a filled cache), trial run report in the PR"
+done = [
+  "Test `r4.three_runs_mean_per_case` green",
+  "Test `r4.leave_producer_out_diagnostic` green",
+  "Test `r4.lpo_drop_caps_status` green",
+]
+sources = ["07 section 3.1 R4", "10 section 3 B3"]
+depends_on = ["1-E09-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Check minor M117 against 10 section 3 before starting; per the current text (full set like the leaderboard, leave-producer-out only a diagnostic) it is done."
+
+  [[task.part]]
+  id = "1-E09-T04-S01"
+  title = "Fetch and container contract"
+  done = "Case run on the test set of 25 PRs green locally"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T04-S02"
+  title = "Three runs, leave-producer-out on the real result"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E09-T05"
+title = "R5 on the reviewer and calibration of the judge review-match"
+description = """Sets `eval/sets/R5-swe-prbench` and `eval/sets/R5-aacr`, scorers `swe-prbench` and `aacr` and judge `eval/judges/review-match/1/` from 0-E20-T14 on the real reviewer: `guildwork-eval fetch` of both pins, recall per PR paired (arms platform and bare), prompt hash of the judge in the result. Calibration of judge against human with `guildwork-eval calibrate --set <id> --judge review-match --source-run <id>` on 50 pairs (07 FE-751, human verdicts in `labels/calibration-review-match.jsonl`), agreement in the report."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters"]
+result = "eval/sets/R5-swe-prbench/labels/calibration-review-match.jsonl, eval/sets/R5-aacr/labels/calibration-review-match.jsonl, calibration report, tests"
+done = [
+  "Test `r5.judge_prompt_pinned` green (prompt hash in the result)",
+  "Test `r5.recall_per_pr_paired` green",
+  "Calibration on 50 pairs documented with agreement in the report (run kind calibration ends done)",
+]
+sources = ["07 sections 1, 3.1 R5", "10 section 3 Gate A"]
+depends_on = ["1-E09-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T05-S01"
+  title = "Fetch of both pins"
+  done = "both sets loaded, checksums checked"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T05-S02"
+  title = "Recall paired and prompt hash"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T05-S03"
+  title = "Calibration of judge against human"
+  done = "Agreement computed and documented"
+  status = "open"
+
+[[task]]
+id = "1-E09-T06"
+title = "R1: scorer own-review and instructions"
+description = """Scorer `eval/scorers/own-review/` per 07 FE-737 with the `labelSchema` `OwnReviewLabel` from 0-E20-T24 (FE-826, detailed design 08 section 8.4): per PR, matching of the findings with the labeled problems via the judge `review-match`, recall and precision per PR, the cluster is the PR; also applies to R3. Instructions in the section "Instructions" of `eval/sets/R1/README.md` (severities per 08 section 3.6; no further files under `eval/sets/`, 07 FE-728). Set, references and the label tool `guildwork-eval label` with a block for third-party product accounts (O18) come from 0-E20-T24."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters", "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"]
+result = "eval/scorers/own-review/*.ts with tests, section Instructions in eval/sets/R1/README.md"
+done = [
+  "Test `r1.schema_validates_cases` green (`guildwork-eval validate-set eval/sets/R1` checks labels against `labelSchema`)",
+  "Test `own_review.recall_precision_per_pr` green with synthetic fixtures in the set format",
+  "Failure path: a label with `no_issue: true` and non-empty `issues` is rejected by validate-set",
+]
+sources = ["07 section 3.1 R1", "O18", "ADR-52"]
+depends_on = ["1-E09-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Minor M133: only a human can supply labels; Gate A therefore runs on R5 first, on R1 as soon as 0-E20-T25 and 1-E09-T07 are done."
+
+  [[task.part]]
+  id = "1-E09-T06-S01"
+  title = "Tests of the scorer"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T06-S02"
+  title = "Scorer and instructions"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E09-T07"
+title = "R1: second person and agreement of the labels (owner)"
+description = """On the labels of the first round from 0-E20-T25 (at least 100 cases): have 20 % of the cases labeled by a second person with their own pseudonym via `guildwork-eval label --set R1`, if available (otherwise a limitation in the report); human-to-human agreement in `eval/sets/R1/README.md`. Agents prepare the case list but never label themselves."""
+design = ["08-reviewer.md#84-eval-sets-and-adapters"]
+result = "eval/sets/R1/labels/<pseudonym-2>.jsonl, statistics in eval/sets/R1/README.md"
+done = [
+  "`guildwork-eval validate-set eval/sets/R1` exit 0 with at least 100 labeled cases, every line with `labeler human:<pseudonym>`",
+  "List of the cases with a second labeler and agreement, or a note of the limitation",
+]
+sources = ["07 sections 1.1, 3.1 R1"]
+depends_on = ["1-E09-T06"]
+owner = "owner"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T07-S01"
+  title = "Prepare the case list for the second person (agent)"
+  done = "List with 20 % of the cases in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T07-S02"
+  title = "Labeling (second person)"
+  done = "Cases labeled or limitation noted"
+  status = "open"
+
+[[task]]
+id = "1-E09-T08"
+title = "Read reference values and check judge availability"
+description = """Before the first Gate B run: enter the best listed value of the ReviewBench leaderboard (JavaScript page, read via browser) and the Martian reference values per judge with date, source, version and classification in `eval/references/reviewer.json`; check whether the Claude judges Claude Opus 4.5 and Claude Sonnet 4.5 (R2) and the R4 judge Claude Sonnet 5 can be called via the subscription (`claude-cli` or model bridge, ADR-73). GPT-5.2 is not called (O28; shown in the report as not scored, detailed design 08 FE-854). Read-only, no external effect."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/references/reviewer.json"
+done = [
+  "File with value, date, source and classification per reference; screenshot or retrieval log as evidence in the PR",
+  "Availability of every judge verified with a trial call or noted as not available (that part then not decidable)",
+]
+sources = ["10 sections 1.3, 1.4, 18", "09 section 4", "08 stage 1"]
+depends_on = ["1-E09-T09"]
+owner = "agent"
+estimate_h = 3
+status = "open"
+note = "Minors M120 and M131 (judge shutdown): a rule for re-evaluation would be a change to 10; here only check availability and report."
+
+  [[task.part]]
+  id = "1-E09-T08-S01"
+  title = "Read leaderboard and file"
+  done = "Values entered"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T08-S02"
+  title = "Judge trial calls"
+  done = "Result per judge entered"
+  status = "open"
+
+[[task]]
+id = "1-E09-T09"
+title = "Set up the subscription runtime of the project installation for eval"
+description = """Per owner decision O28 (only Claude via the subscription), the candidate, own judges and benchmark judges run via the owner's subscription: the owner generates the token with `claude setup-token` on the worker host of the project's eval installation (pool `self-hosted` of the owner; later also the project installation from 1-E10-T09) and stores it in the host file of the worker user (architecture ADR-57, instructions from the agent). The agent configures the runtime `subscription` with `acknowledge_terms` and `operator`, pool `self-hosted` with `single_operator: true`, profile `operator_test` with inspection proxy for services with shell on public sets (ADR-72), `claude-cli` as the ModelProvider of the own judges (`judge-alt` is a different Claude model than the candidate) and the model bridge for benchmark judges (ADR-73, detailed design 07 FE-759). No API key, no OpenAI account, no secret in the SecretStore. Trial call per required Claude model (candidate, `review-match`, Claude Opus 4.5 and Claude Sonnet 4.5 for R2, Claude Sonnet 5 for R4); usage limits are only visible reactively (architecture 05 section 6 condition 6)."""
+design = ["08-reviewer.md#10-open-items", "07-eval-and-qualification.md#27-judges"]
+result = "Runtime entry in the installation configuration of the project's eval installation, instructions and log of the trial calls in the ops repo"
+done = [
+  "Runtime `subscription` with `acknowledge_terms` loads; `doctor` green for host file, pool and inspection proxy (log)",
+  "Trial call per required Claude model via `claude-cli` or the model bridge succeeds or is noted with a reason as not selectable (log)",
+  "Secret scan over configuration and ops repo does not find the subscription token",
+]
+sources = ["O28", "07 section 1", "05 section 6 conditions 9 and 10", "ADR-57, ADR-72, ADR-73"]
+depends_on = ["0-E15-T05", "0-E15-T09"]
+owner = "agent+owner"
+estimate_h = 3
+status = "open"
+note = "Until 2026-11-01 planned as an account step for API and OpenAI accounts (minor M127); replaced by O28."
+
+  [[task.part]]
+  id = "1-E09-T09-S01"
+  title = "Instructions for the subscription token and runtime configuration (agent)"
+  done = "Instructions in the ops repo, configuration loads"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T09-S02"
+  title = "Generate the token on the worker host (owner), trial calls (agent)"
+  done = "Trial calls logged"
+  status = "open"
+
+[[task]]
+id = "1-E09-T10"
+title = "Gate A run R1 and R5"
+description = """Paired run reviewer against bare harness on R5 and R1 with the same model, evaluation per 10 section 1.4 (margin 10 points, cluster bootstrap, minimum power); a not decidable Gate A is decided by enlarging the own set. Report `eval/reports/stufe-1/reviewer-gate-a-<date>.md` with costs and duration per case."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/reports/stufe-1/reviewer-gate-a-<date>.md and .json"
+done = [
+  "Gate A on R1 and R5 green per 10 section 1.4 (report with intervals and power)",
+  "Limits measured before and after the run (log)",
+  "Losses per filter stage, comments per PR and silent runs in the report",
+]
+sources = ["10 sections 1.2 item 6, 1.4, 3", "07 sections 1.1, 4", "08 stage 1"]
+depends_on = ["1-E09-T02", "1-E09-T05", "1-E09-T07", "1-E09-T09"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T10-S01"
+  title = "Run R5 and evaluation"
+  done = "R5 result in the report"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T10-S02"
+  title = "Run R1 and evaluation"
+  done = "R1 result in the report, Gate A decided"
+  status = "open"
+
+[[task]]
+id = "1-E09-T11"
+title = "Gate B run R2 and R4"
+description = """Run on R2 (under the two Claude judges of the file, GPT-5.2 shown as not scored, values not directly comparable with the leaderboard; O28, detailed design 08 FE-854) and R4 (three runs) with the reference values from 1-E09-T08; status per required part B1, B2, B3 and overall (green, red, not decidable) per 10 section 1.2 item 6; B2 as an estimated threshold not decidable in the first run, measured value reported; report part B5. Contamination per run per 10 section 1.5. Report `eval/reports/stufe-1/reviewer-gate-b-<date>.md`."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/reports/stufe-1/reviewer-gate-b-<date>.md and .json"
+done = [
+  "Gate B measured and reported with status per part and overall",
+  "Reference states (file version, leaderboard date) in the report",
+  "Proposal for the fixed precision threshold B2 from reference values and spread (not from the own result) in the report",
+]
+sources = ["10 sections 1.2, 1.4, 1.5, 3", "07 section 3.1", "08 stage 1"]
+depends_on = ["1-E09-T03", "1-E09-T04", "1-E09-T08", "1-E09-T09"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Minor M23 (precision starting values reviewer 55 % and security 70 %): fix them together after this run or justify the difference; change to 10 as a separate PR."
+
+  [[task.part]]
+  id = "1-E09-T11-S01"
+  title = "Run R2 under the Claude judges"
+  done = "B1, B2 computed"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T11-S02"
+  title = "Run R4 with three repetitions"
+  done = "B3 computed"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T11-S03"
+  title = "Report with status"
+  done = "Report in the repo"
+  status = "open"
+
+[[task]]
+id = "1-E09-T12"
+title = "Qualification row and reference qualification"
+description = """Write out the qualification profile of the measured reviewer per ADR-66, compute `qualification_key`, row with the Gate A result and Gate B status per part in `eval/qualification/<release>/reviewer.json` and `qualification` of the project installation; report only with metadata, metrics and references (minor M100). Publication happens with the release (1-E10-T12)."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/qualification/<release>/reviewer.json, report"
+done = [
+  "Test `qualification.key_matches_profile` green (the policy finds the row for the profile of the project installation)",
+  "Row carries Gate B status and reference states; test `qualification.no_transcripts_published` green",
+]
+sources = ["07 sections 2, 2.1", "10 section 1.2", "ADR-52", "ADR-66", "08 stage 1"]
+depends_on = ["1-E09-T10", "1-E09-T11"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "Minor M134: transfer of the row to `subscription` only after the contract test from 1-E07; result in the report."
+
+  [[task.part]]
+  id = "1-E09-T12-S01"
+  title = "Tests key and publication scope"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T12-S02"
+  title = "Generate and enter the row"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "1-E09-T13"
+title = "Submission to public leaderboards (owner, O23)"
+description = """After a green Gate A and an internal R4 run on the same state: submission to the ReviewBench portal and to Martian (O23 decided: yes). External effect, therefore owner. The agent prepares the image, description and cost estimate. Not a done criterion of stage 1."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "Submission evidence in the ops repo"
+done = [
+  "Submission made or deliberately postponed, with date and reason in the ops repo",
+]
+sources = ["O23", "07 section 7"]
+depends_on = ["1-E09-T10", "1-E09-T11"]
+owner = "owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "1-E09-T13-S01"
+  title = "Prepare documents (agent)"
+  done = "Image digest, description, costs in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E09-T13-S02"
+  title = "Submit (owner)"
+  done = "Evidence in the ops repo"
+  status = "open"
+
+# ---------------------------------------------------------------- 1-E10
+
+[[task]]
+id = "1-E10-T01"
+title = "S1 cases of the reviewer"
+description = """Cases per detailed design 08 section 8.3 in the suite scaffold from 0-E22: injection via PR text, code comment, commit message, CI log and SARIF message; the head version of `CLAUDE.md` does not become an instruction (build the fallback from 05 section 3 item 5 if the case fails); Markdown exfiltration (links, images) removed; finder without write tools; issue of another repo not loaded."""
+design = ["08-reviewer.md#83-cross-cutting-suites"]
+result = "services/reviewer/test/suites/s1/*.test.ts"
+done = [
+  "Cases `s1.reviewer.injection_pr_body`, `s1.reviewer.injection_code_comment`, `s1.reviewer.injection_commit_message`, `s1.reviewer.injection_ci_log`, `s1.reviewer.head_claude_md_not_instruction`, `s1.reviewer.markdown_exfil_link_image_stripped` green",
+  "Gate: 0 effects outside propose_review, propose_check, propose_thread_resolve; 0 external links or images",
+  "Result of the unverified question from 09 section 4 (does Claude Code load a CLAUDE.md despite --setting-sources user?) verified in the PR and added to 09",
+]
+sources = ["07 section 5 S1", "05 sections 3, 4", "09 section 4"]
+depends_on = []
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T01-S01"
+  title = "Injection cases per input kind"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T01-S02"
+  title = "Head CLAUDE.md case, build the fallback if needed"
+  done = "Case green, result added to 09"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T01-S03"
+  title = "Exfiltration via Markdown"
+  done = "Case green"
+  status = "open"
+
+[[task]]
+id = "1-E10-T02"
+title = "S2 cases of the reviewer"
+description = """Cases per detailed design 08 section 8.3: foreign trigger, fork PR without build, bot trigger, text edited after the trigger, `verifier.build: true` with `subscription` without `operator_test` rejected at load time, unreachable model reference, changed verifier model or `prompt_v` compared to the qualified row yields at most shadow, analyzer outside the allowlist, config change in the PR not effective, invalid repo configuration fail closed."""
+design = ["08-reviewer.md#83-cross-cutting-suites"]
+result = "services/reviewer/test/suites/s2/*.test.ts"
+done = [
+  "Cases `s2.reviewer.foreign_trigger_no_write`, `s2.reviewer.fork_pr_no_build`, `s2.reviewer.bot_trigger_skipped`, `s2.reviewer.edited_after_trigger`, `s2.reviewer.subscription_with_build_rejected_at_load`, `s2.reviewer.unreachable_model_rejected`, `s2.reviewer.profile_changed_verifier_model_shadow`, `s2.reviewer.prompt_v_changed_shadow`, `s2.reviewer.config_change_in_pr_not_effective`, `s2.reviewer.invalid_repo_config_fail_closed` green",
+  "Gate: 0 runs or rejection at load time; with a changed profile 0 live effects",
+]
+sources = ["07 section 5 S2", "ADR-58", "ADR-65", "ADR-66"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T02-S01"
+  title = "Permission and trigger cases"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T02-S02"
+  title = "Load and profile cases"
+  done = "Cases green"
+  status = "open"
+
+[[task]]
+id = "1-E10-T03"
+title = "S4: reviewer alone on, also with subscription"
+description = """`s4.reviewer.alone_on_others_silent` (all other services off) and `s4.reviewer.alone_on_subscription_gate_verifier_via_claude_cli` (runtime `subscription` in personal operator mode, gate and verifier via the ModelProvider `claude-cli`, finder via `claude-code` with nativeTools read, `verifier.build: false`), against a test repo of the operator with recorded responses; evidence via the Run Record."""
+design = ["08-reviewer.md#83-cross-cutting-suites"]
+result = "services/reviewer/test/suites/s4/*.test.ts"
+done = [
+  "both S4 cases green",
+  "Run Record shows for gate and verifier the ModelProvider claude-cli with capability level fallback",
+]
+sources = ["07 section 5 S4", "ADR-58", "08 stage 1"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T03-S01"
+  title = "Case alone on"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T03-S02"
+  title = "Case alone on with subscription"
+  done = "Case green with evidence in the Run Record"
+  status = "open"
+
+[[task]]
+id = "1-E10-T04"
+title = "S1 and S2 cases of the personal operator mode"
+description = """`s1.operator.subscription_token_exfil` (the finder tries to exfiltrate the subscription token via env, /proc, file search, comment and finding text; secret scan after the run over tables, work item envelopes, snapshots, logs and effects) and `s2.operator.trigger_not_operator`, `s2.operator.ticket_author_not_operator`, `s2.operator.repo_not_in_operator_repos`, `s2.operator.without_acknowledge_terms`, each with the reviewer as the service. Building blocks of the operator mode come from 1-E07."""
+design = ["08-reviewer.md#83-cross-cutting-suites"]
+result = "services/reviewer/test/suites/operator/*.test.ts"
+done = [
+  "S1 case green: 0 hits of the token outside the LLM endpoint",
+  "S2 cases green: 0 subscription runs",
+]
+sources = ["08 stage 1", "05 section 6", "07 section 5 S1, S2", "ADR-51", "ADR-57"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T04-S01"
+  title = "S1 case token exfiltration"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T04-S02"
+  title = "S2 cases operator mode"
+  done = "Cases green"
+  status = "open"
+
+[[task]]
+id = "1-E10-T05"
+title = "S6 cases of the reviewer"
+description = """For every row from detailed design 08 section 5 one case `s6.reviewer.<line>` that checks stored, audited, logged and visible behavior; cases that were already created in tasks of 1-E01 to 1-E06 are collected here and registered in the suite, missing ones added."""
+design = ["08-reviewer.md#5-failure-and-abort-paths", "08-reviewer.md#83-cross-cutting-suites"]
+result = "services/reviewer/test/suites/s6/*.test.ts, coverage list row to case"
+done = [
+  "Coverage list: every row from section 5 has exactly one named case",
+  "all S6 cases of the reviewer green",
+]
+sources = ["07 section 5 S6", "03 section 5"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T05-S01"
+  title = "Coverage list and missing cases"
+  done = "List complete"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T05-S02"
+  title = "Implement missing cases"
+  done = "all cases green"
+  status = "open"
+
+[[task]]
+id = "1-E10-T06"
+title = "Test repo and test app for the permissions test (owner)"
+description = """The owner creates a test repo and a GitHub App via the manifest flow of the platform (ADR-45) in a test organization and gives the agent access via the SecretStore of the test installation. The agent prepares the decision sheet and manifest."""
+design = ["08-reviewer.md#87-permission-test"]
+result = "Test repo and test app, references in the ops repo"
+done = [
+  "App created via manifest flow, installation ID and secret references in the ops repo",
+]
+sources = ["ADR-45", "05 section 2"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T06-S01"
+  title = "Decision sheet and manifest (agent)"
+  done = "Sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T06-S02"
+  title = "Creation (owner)"
+  done = "App installed"
+  status = "open"
+
+[[task]]
+id = "1-E10-T07"
+title = "Permissions test against the real app permissions"
+description = """Tests per detailed design 08 section 8.7 against the test app, with a recording for CI: exact app permissions (no workflows, no administration, no actions:write), no approve path in stage 1, no bypass entries, profile review cannot push."""
+design = ["08-reviewer.md#87-permission-test"]
+result = "services/reviewer/test/rights/*.test.ts, recordings"
+done = [
+  "Tests `rights.app_permissions_exact`, `rights.no_approve_path`, `rights.no_bypass`, `rights.review_profile_cannot_push` green against the real test app (log) and against the recording in CI",
+]
+sources = ["08 stage 1", "05 section 2", "ADR-14"]
+depends_on = ["1-E10-T06"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Minor M85: 'no approve' applies until stage 6; note it in the test name and report."
+
+  [[task.part]]
+  id = "1-E10-T07-S01"
+  title = "Tests against the real app"
+  done = "Tests green with log"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T07-S02"
+  title = "Recording for CI"
+  done = "Tests green in CI"
+  status = "open"
+
+[[task]]
+id = "1-E10-T08"
+title = "S8: installation, smoke review in shadow, upgrade with finding data"
+description = """In the test matrix from 0-E21: `s8.smoke_review_shadow` on a fresh installation amd64 and arm64, `s8.upgrade_keeps_findings` (upgrade from the release of stage 0 to stage 1 with data in findings, finding_feedback, review_pr_state; row counts and checksums), `s8.restore_keeps_review_state`."""
+design = ["08-reviewer.md#83-cross-cutting-suites"]
+result = "Cases in the portability and upgrade suite, job logs"
+done = [
+  "three S8 cases green on amd64 and arm64 (job log)",
+]
+sources = ["07 section 5 S8", "11 section 9", "08 principle 5"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T08-S01"
+  title = "Smoke review in shadow"
+  done = "Case green on both architectures"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T08-S02"
+  title = "Upgrade and restore with reviewer data"
+  done = "Cases green"
+  status = "open"
+
+[[task]]
+id = "1-E10-T09"
+title = "Project installation for dogfooding"
+description = """The agent creates the decision sheet (location and costs of the project installation `single-host` with pool `self-hosted` and `single_operator: true`, own GitHub App via manifest flow, credential `subscription` of the owner in personal operator mode per O28, 12 section 5.4; minor M135). Only runs that the owner triggers go via the subscription; contributions by third parties get no platform run. The owner decides, creates host and app; the agent installs with the documented command and verifies `doctor` green."""
+design = ["08-reviewer.md#86-rollout"]
+result = "Decision sheet and installation log in the ops repo"
+done = [
+  "Decision sheet in the ops repo, decision of the owner with date",
+  "Installation with `doctor` green (log), reviewer `mode: shadow` on the project repo",
+]
+sources = ["12 section 5.4", "08 stage 1", "ADR-45"]
+depends_on = []
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T09-S01"
+  title = "Decision sheet (agent)"
+  done = "Sheet in the ops repo"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T09-S02"
+  title = "Create host and app (owner)"
+  done = "Access available"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T09-S03"
+  title = "Installation and doctor (agent)"
+  done = "doctor green"
+  status = "open"
+
+[[task]]
+id = "1-E10-T10"
+title = "Shadow mode on own repos and online metric"
+description = """Reviewer in shadow on maintainer PRs of the project repo, on fork PRs only without the build verifier; at least two weeks or 30 PRs (estimate); the maintainer rates shadow outputs in the admin UI; address rate and recall per the Martian definition with the MIT pipeline `online/etl` on the shadow data (report part B4); confirmed findings may go into R1. Observe costs per run (minor M89 on foreign triggers)."""
+design = ["08-reviewer.md#86-rollout", "08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "eval/reports/stufe-1/reviewer-shadow-<date>.md"
+done = [
+  "Report with number of runs, costs, comments per PR, silent runs and address rate per the Martian definition (or the reason why it is not measurable)",
+  "no effects of the reviewer at the provider during the shadow period (reconciliation of eval log against provider comments)",
+]
+sources = ["08 stage 1", "07 sections 2, 3.1 online", "10 section 3 B4", "12 section 5.4"]
+depends_on = ["1-E10-T09"]
+owner = "agent+owner"
+estimate_h = 8
+status = "open"
+note = "Minor M71 (dogfooding on fork PRs): rule from 12 section 5.4 applied here."
+
+  [[task.part]]
+  id = "1-E10-T10-S01"
+  title = "Switch on shadow mode and observe"
+  done = "Period elapsed, data available"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T10-S02"
+  title = "Online metric and report"
+  done = "Report in the repo"
+  status = "open"
+
+[[task]]
+id = "1-E10-T11"
+title = "Decision live on the project repo"
+description = """With a qualified row (Gate A and all Gate B required parts green) for exactly the profile of the project installation, the owner switches the reviewer on the project repo to live; otherwise it stays shadow (no operator deviation for the project). The agent prepares the config change as a PR and the decision sheet."""
+design = ["08-reviewer.md#86-rollout"]
+result = "Config PR or justified staying in shadow, decision sheet"
+done = [
+  "Decision with date and reason in the ops repo; for live: policy test `qualification.key_matches_profile` green on the project installation",
+]
+sources = ["ADR-47", "10 section 1.2", "08 stage 1"]
+depends_on = ["1-E10-T10"]
+owner = "agent+owner"
+estimate_h = 2
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T11-S01"
+  title = "Decision sheet and config PR (agent)"
+  done = "PR open or sheet with recommendation"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T11-S02"
+  title = "Decision (owner)"
+  done = "Decision entered"
+  status = "open"
+
+[[task]]
+id = "1-E10-T12"
+title = "Release of stage 1"
+description = """Release following the pattern from 0-E21: signed images with SBOM and attestation, license gate green, portability test amd64 and arm64, upgrade from the release of stage 0 tested, qualification row of the reviewer as reference qualification in the release (1-E09-T12). Tag and publication only with the owner's go."""
+design = ["08-reviewer.md#85-gate-a-gate-b-qualification"]
+result = "Release stage 1 with release notes and eval/qualification/<release>/"
+done = [
+  "Release workflow green (log), S8 green, upgrade test green",
+  "Reference qualification published in the release (link)",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 principle 5", "ADR-52", "05 section 10"]
+depends_on = ["1-E10-T01", "1-E10-T02", "1-E10-T03", "1-E10-T04", "1-E10-T05", "1-E10-T07", "1-E10-T08"]
+owner = "agent+owner"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T12-S01"
+  title = "Prepare the release (agent)"
+  done = "Release candidate with all checks green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T12-S02"
+  title = "Go and publication (owner)"
+  done = "Release published"
+  status = "open"
+
+[[task]]
+id = "1-E10-T13"
+title = "Stage report stage 1"
+description = """Report `docs/berichte/stufe-1.md` (or the location from 0-E22) with every done criterion from 08 stage 1 and evidence (command and output or eval report), also the criteria from 1-E07 (contract tests API key via relay and subscription behind the inspection proxy) and 1-E08 (admin UI); Gate B status of the reviewer per 10 section 1.2 item 6; measured effort against estimate per epic (docs/plan/README.md section 6); open minors of the area."""
+design = ["08-reviewer.md#1-purpose-and-sources"]
+result = "Stage report stage 1"
+done = [
+  "every row of the table 'done criteria of stage 1' in detailed design 08 section 1 has evidence in the report",
+  "Status of the stage ('done', 'done, Gate B red' or 'done, Gate B undecidable') named",
+  "Estimates of the following stages corrected by measured effort (change to the TOML files in the same PR, plan.py check green)",
+]
+sources = ["08 stage 1", "10 section 1.2 item 6", "ADR-55"]
+depends_on = ["1-E10-T11", "1-E10-T12"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E10-T13-S01"
+  title = "Collect evidence"
+  done = "every criterion row with evidence"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E10-T13-S02"
+  title = "Report and estimate correction"
+  done = "Report in the repo, plan.py check green"
+  status = "open"

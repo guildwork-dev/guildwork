@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "repo-einstellungen-pruefung"
+title = "Target state of the repo settings and read-back check"
+kind = "tool"
+path = "tools/ci/check_settings.py"
+stage = "R"
+purpose = "Records the target values of the repo settings (ruleset, environments, variables, security, SHA pinning) in machine-readable form and compares them read-only with the actual state at the hoster. Sets no setting itself; the owner does that."
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools", "00-codebase-and-conventions.md#7-configuration", "00-codebase-and-conventions.md#6-security"]
+built_by = ["R-E05-T01", "R-E05-T06"]
+
+[[provides]]
+name = "settings-expected"
+kind = "file"
+title = "publish/settings-expected.json (ops repo) and sheet publish/settings-sheet.md"
+defined_in = "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"
+from_task = "R-E05-T01"
+
+[[provides]]
+name = "check-settings"
+kind = "cli"
+title = "tools/ci/check_settings.py --expected <file> --repo <owner/name>: deviations are findings"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E05-T06"
+
+[[uses]]
+interface = "ci-workflows/ci-ok"
+from_task = "R-E05-T01"
+purpose = "Name of the only required check ci-ok in the target state of the ruleset"
+
+[[uses]]
+interface = "denylist-scanner/deny-jobs"
+from_task = "R-E05-T01"
+purpose = "Environment denylist with the secret names DENYLIST and ALLOW_AUTHORS in the target state"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/ruleset-und-release"
+from_task = "R-E05-T06"
+purpose = "Read back the actual state of ruleset, SHA pinning and environment release"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/produkt-repo-oeffentlich"
+from_task = "R-E05-T06"
+purpose = "Read back the actual state of environment denylist, variable and security settings"

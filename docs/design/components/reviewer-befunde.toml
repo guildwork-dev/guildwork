@@ -1,0 +1,159 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-befunde"
+title = "Findings: tables, fingerprint v1, code filters, dedupe, noise filter, persistence"
+kind = "service"
+path = "services/reviewer/src/findings/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Turns verifier verdicts into findings: fingerprint v1, deterministic filter chain, noise filter, redaction and storage in findings together with ReviewArtifact and candidate blob. The tables findings and finding_feedback are created by 0-E02 (01 section 3.5); here repositories are created via the storage port and missing columns as an expand migration."
+design = [
+  "08-reviewer.md#31-tables",
+  "08-reviewer.md#32-artifacts-in-the-blobstore",
+  "08-reviewer.md#34-fingerprint",
+  "08-reviewer.md#36-severities-and-categories",
+  "08-reviewer.md#410-code-filter-dedupe-noise-filter-output-limit",
+  "08-reviewer.md#28-entry-point-host-port-and-store-port",
+  "08-reviewer.md#6-security",
+]
+built_by = ["1-E04-T01", "1-E04-T02", "1-E04-T03", "1-E04-T04", "1-E04-T07"]
+
+[[provides]]
+name = "befund-repositories"
+kind = "ts-api"
+title = "findings-repo and feedback-repo via ReviewerStore: upsert per fingerprint, append-only with (provider_ref, kind)"
+defined_in = "08-reviewer.md#28-entry-point-host-port-and-store-port"
+from_task = "1-E04-T01"
+
+[[provides]]
+name = "fingerprint-v1"
+kind = "ts-api"
+title = "fingerprintV1(FingerprintInput), normalizeLine(), anchor line; pure, with golden test vectors"
+defined_in = "08-reviewer.md#34-fingerprint"
+from_task = "1-E04-T02"
+
+[[provides]]
+name = "filterkette"
+kind = "ts-api"
+title = "Filters 1 to 7 and 9: verdict, cap, convention citation, score, profile, fingerprint, dedupe, presentation"
+defined_in = "08-reviewer.md#410-code-filter-dedupe-noise-filter-output-limit"
+from_task = "1-E04-T03"
+
+[[provides]]
+name = "rauschfilter"
+kind = "ts-api"
+title = "Noise filter via DismissedFinding (fingerprint or word Jaccard), P0 and P1 never suppressed"
+defined_in = "08-reviewer.md#410-code-filter-dedupe-noise-filter-output-limit"
+from_task = "1-E04-T04"
+
+[[provides]]
+name = "review-artefakt"
+kind = "file"
+title = "ReviewArtifact (guildwork.review/v1) as runs/<runId>/reviewer/artifact.json with reference in artifacts"
+defined_in = "08-reviewer.md#32-artifacts-in-the-blobstore"
+from_task = "1-E04-T07"
+
+[[provides]]
+name = "kandidaten-blob"
+kind = "file"
+title = "candidates.json: all candidates with source, verdict, loss reason and fingerprint (eval metric losses per filter stage)"
+defined_in = "08-reviewer.md#32-artifacts-in-the-blobstore"
+from_task = "1-E04-T07"
+
+[[provides]]
+name = "persistenz"
+kind = "ts-api"
+title = "Step filter_persist: redaction (FE-840), findings in one transaction, losses, rollback path"
+defined_in = "08-reviewer.md#43-run-and-step-states"
+from_task = "1-E04-T07"
+
+[[uses]]
+interface = "service-reviewer/speicher-port"
+from_task = "1-E04-T01"
+purpose = "Repositories via ReviewerStoreTx"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "1-E04-T01"
+purpose = "Table findings from 0-E02-T06, missing columns as an expand migration"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.finding-feedback"
+from_task = "1-E04-T01"
+purpose = "Table finding_feedback append-only"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "1-E04-T01"
+purpose = "Expand migration in the block of stage 1"
+
+[[uses]]
+interface = "db/connect"
+from_task = "1-E04-T01"
+purpose = "Kysely in the implementation of ReviewerStore"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "1-E04-T01"
+purpose = "Tenant context of the transaction"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "1-E04-T01"
+purpose = "real Postgres for upsert and RLS"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "1-E04-T02"
+purpose = "FindingCategory and Severity in the FingerprintInput"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "1-E04-T02"
+purpose = "sha256 of the fingerprint"
+
+[[uses]]
+interface = "reviewer-verifier/reviewer.verify"
+from_task = "1-E04-T03"
+purpose = "Verdicts as input of the filter chain"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-symbols"
+from_task = "1-E04-T03"
+purpose = "enclosing symbol per anchor line for the fingerprint"
+
+[[uses]]
+interface = "guidelines/lader-stufe-1"
+from_task = "1-E04-T03"
+purpose = "Rule sources at the base SHA for the citation check"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E04-T03"
+purpose = "min_score, profile, inline_min_*, max_comments, noise_filter.*"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "1-E04-T07"
+purpose = "Redaction of the finding texts before storage (FE-840)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "1-E04-T07"
+purpose = "Reference to ReviewArtifact in artifacts"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "1-E04-T07"
+purpose = "Artifact and candidates.json via ControllerHost.blobs"
+
+[[uses]]
+interface = "limit-ledger/usage"
+from_task = "1-E04-T07"
+purpose = "Usage and costs of the run in the artifact"
+
+[[uses]]
+interface = "reviewer-inkrement-und-feedback/befund-lebenszyklus"
+from_task = "1-E04-T07"
+purpose = "States of the findings when persisting"

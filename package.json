@@ -1,0 +1,30 @@
+{
+  "name": "guildwork",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": "22.23.4"
+  },
+  "scripts": {
+    "typecheck": "tsc -b",
+    "fmt": "biome format --write .",
+    "fmt-check": "biome format .",
+    "lint": "biome lint . && eslint .",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "new:package": "python3 tools/ci/new_package.py"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.14.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

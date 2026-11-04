@@ -1,0 +1,1452 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area knowledge of stage 7. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/12-expansion.md (FE-1200 to FE-1299). Boundaries from the stage graph: 12-expansion.md section 1.1.
+stage = "7"
+
+[[epic]]
+id = "7-E01"
+title = "Indexer L1 to L3 and vector search"
+goal = "L1, then L2 and L3 only with an eval gain; local embedding model (O7) via the optional service embedder; item index for issues and PRs"
+sources = ["02 section 7", "10 section 9", "O7"]
+depends_on = ["7a-E03"]
+
+[[task]]
+id = "7-E01-T01"
+title = "Spike: embedding model, runtime and K5"
+description = """Selects the default embedding model per 10 section 9 part B3: adapter for K5 (CoIR subset with free data licenses, RepoQA) under eval/adapters/kb-k5, run with the candidates from 12-expansion.md section 2.2 (CodeRankEmbed, nomic-embed-code), license check of model, weights, ONNX version and runtime (onnxruntime-node) against bundled_licenses. The result is a decision note with measured values (NDCG@10, CPU time per 1,000 chunks, memory requirement, dimension) and the decision for 7-E01-T07."""
+design = ["12-expansion.md#22-embedder-and-vector-search-7-e01"]
+result = "eval/adapters/kb-k5/, eval/reports/k5-embedding-wahl.md, entry in section 10 of 12-expansion.md"
+done = [
+  "K5 run for at least two candidates with a report (command and output in the PR)",
+  "License of every chosen component read from LICENSE or the model card and noted as VERIFIED or unverified",
+  "no model with a noncommercial license in the selection",
+  "Download scripts with a pinned revision and checksum, no copy of third-party data in the repo (ADR-52)",
+]
+sources = ["10 section 9", "07 section 3.7", "O7", "ADR-50", "ADR-52"]
+depends_on = []
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E01-T01-S01"
+  title = "Adapter K5 with download script and fixture test"
+  done = "Test 'k5 adapter reads pinned revision' green"
+
+  [[task.part]]
+  id = "7-E01-T01-S02"
+  title = "License check of the candidates and the runtime"
+  done = "Table with SPDX per component in the report"
+
+  [[task.part]]
+  id = "7-E01-T01-S03"
+  title = "Measurement run and decision note"
+  done = "Report with NDCG@10, CPU time, memory, dimension; choice justified"
+
+[[task]]
+id = "7-E01-T02"
+title = "KB schema L1 to L3 and repository layer"
+description = """Migrations for kb_files, kb_symbols, kb_edges, kb_summaries, kb_chunks, kb_vectors, kb_items per 12-expansion.md section 3.1 with row-level security, plus Kysely repositories in packages/db and the types from section 2.1 (Layer, LayerState, LayerDelta, LayerRecord) in packages/kb. Clarifies the names of the 7a tables (L0 state, learnings) and whether 01 keeps a repo table (open points in section 10)."""
+design = ["12-expansion.md#31-tables-of-stage-7", "12-expansion.md#21-indexer-l1-to-l3-7-e01"]
+result = "packages/db/migrations/0751_kb_layers.sql, packages/db/src/repos/kb/*.ts, packages/kb/src/layers.ts"
+done = [
+  "Migration runs forward on an empty DB and on the state of the stage 7a release (test 'migration kb layers on 7a state')",
+  "Test 'rls separates kb data per tenant' green",
+  "TypeBox schemas for LayerDelta with test 'invalid delta is rejected' (schema part)",
+  "Section 10 of 12-expansion.md names the actual 7a table names",
+]
+sources = ["02 section 7", "01 section 9", "05 section 7"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E01-T02-S01"
+  title = "Test: migration and RLS"
+  done = "Tests red because tables are missing"
+
+  [[task.part]]
+  id = "7-E01-T02-S02"
+  title = "Migration 0751_kb_layers.sql"
+  done = "Migration tests green"
+
+  [[task.part]]
+  id = "7-E01-T02-S03"
+  title = "Types and schemas in packages/kb"
+  done = "Schema tests green"
+
+  [[task.part]]
+  id = "7-E01-T02-S04"
+  title = "Repositories with tenant context"
+  done = "Repository tests against a Postgres container green"
+
+[[task]]
+id = "7-E01-T03"
+title = "Indexer job frame, LayerDelta and watermark"
+description = """Service indexer: controller (onPushedDefault, onSchedule, onVersionChange, planIncrement) and job frame per 12-expansion.md sections 2.1 and 4.1. Jobs deliver LayerDelta via complete(); the control plane calls applyIncrement in one transaction per layer and repo, watermark only after success, rebuild on an unreachable watermark or a version change, order L1 before L2 before L3 (FE-1202, backlog M110 part 2). Large deltas via a BlobStore reference."""
+design = ["12-expansion.md#41-indexer-increment", "12-expansion.md#5-failure-and-abort-paths"]
+result = "services/indexer/src/controller.ts, services/indexer/src/jobs/frame.ts, apps/control-plane/src/kb/apply-increment.ts"
+done = [
+  "Test 'increment chain equals rebuild' green (20 recorded commits)",
+  "Test 'watermark stays put on a failed run' green: watermark and content unchanged, status failed, audit kb.layer_failed",
+  "Tests 'invalid delta is rejected', 'unreachable watermark forces rebuild', 'version change forces rebuild' green",
+  "Run as a single-service run with an object lock per repo (ADR-68), test 'second push waits as a follow-up job'",
+]
+sources = ["02 section 7", "01 section 9", "03 sections 2.1 and 2.5", "ADR-62", "ADR-68"]
+depends_on = ["7-E01-T02", "0-E11"]
+owner = "agent"
+estimate_h = 12
+note = "Backlog M110 (path of the indexer result via complete() as LayerDelta)"
+
+  [[task.part]]
+  id = "7-E01-T03-S01"
+  title = "Tests: watermark failure path, invalid delta, rebuild reasons"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T03-S02"
+  title = "planIncrement and controller events"
+  done = "Planning tests green"
+
+  [[task.part]]
+  id = "7-E01-T03-S03"
+  title = "applyIncrement atomic with shadow swap"
+  done = "Failure path tests green"
+
+  [[task.part]]
+  id = "7-E01-T03-S04"
+  title = "Test 'increment chain equals rebuild' with a fixture repo"
+  done = "Test green"
+
+  [[task.part]]
+  id = "7-E01-T03-S05"
+  title = "Audit, metrics and admin UI view of the layer state"
+  done = "Audit entries and metrics checked in the test"
+
+[[task]]
+id = "7-E01-T04"
+title = "L1 parser with tree-sitter"
+description = """packages/kb-indexer: LanguageParser for TypeScript, JavaScript, Python, Go, Java via web-tree-sitter with tags and import queries; file level for other languages; skipping by size, binary, generated, exclusion; edge resolution in the control plane across file boundaries (12-expansion.md section 2.1, FE-1203). Checks the licenses of web-tree-sitter and the grammars."""
+design = ["12-expansion.md#21-indexer-l1-to-l3-7-e01"]
+result = "packages/kb-indexer/src/parser/*.ts, packages/kb-indexer/src/delta.ts, packages/kb-indexer/queries/<language>/*.scm, command gw-kb-indexer, services/indexer/src/jobs/l1.ts"
+done = [
+  "Test 'parser fixtures per language' green for all five languages",
+  "Test 'edges are re-resolved across file boundaries' green",
+  "Test 'skipped files appear in the statistics' green",
+  "Licenses of the grammars and of web-tree-sitter evidenced in the PR; license gate green",
+]
+sources = ["02 section 7", "10 section 9"]
+depends_on = ["7-E01-T03"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "7-E01-T04-S01"
+  title = "Fixture repos per language with expected symbols"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T04-S02"
+  title = "Parser TypeScript and JavaScript"
+  done = "Fixtures TS and JS green"
+
+  [[task.part]]
+  id = "7-E01-T04-S03"
+  title = "Parser Python, Go, Java"
+  done = "remaining fixtures green"
+
+  [[task.part]]
+  id = "7-E01-T04-S04"
+  title = "Edge resolution and ambiguity"
+  done = "Re-resolution test green"
+
+  [[task.part]]
+  id = "7-E01-T04-S05"
+  title = "Skipping and statistics, license check"
+  done = "Statistics test and license gate green"
+
+[[task]]
+id = "7-E01-T05"
+title = "L1 queries repoMap, symbolContext, impact"
+description = """KnowledgeStore.query.repoMap, symbolContext, impact and moduleSummary in pg-kb over L1 (and L2, if present) with citations and a stale marker (FE-1246), ranking, budget and limits per FE-1271; basis of the MCP tools in 7-E02-T01 (12-expansion.md sections 2.1 and 2.3)."""
+design = ["12-expansion.md#23-mcp-tools-kb-and-ask-7-e02"]
+result = "plugins/pg-kb/src/query/{repo-map,symbol-context,impact,module-summary}.ts, packages/kb/src/queries.ts"
+done = [
+  "Test 'repo map keeps the token budget' green",
+  "Test 'symbol context returns valid citations' green",
+  "Test 'impact follows incoming edges up to depth two' green",
+  "Test 'module summary returns module and children with citations' green",
+  "Query at a state other than the watermark returns stale true (test)",
+]
+sources = ["01 section 9", "02 section 7"]
+depends_on = ["7-E01-T04"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E01-T05-S01"
+  title = "Tests of the three queries"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T05-S02"
+  title = "repoMap with budget"
+  done = "Budget test green"
+
+  [[task.part]]
+  id = "7-E01-T05-S03"
+  title = "symbolContext and impact"
+  done = "Citation and depth tests green"
+
+[[task]]
+id = "7-E01-T06"
+title = "L2 summaries"
+description = """L2 job: summaries per symbol, file, module, repo only for the dirty set, upward only on a changed child summary (inputHash); full analysis via ModelProvider.submitBatch if BATCH_API, otherwise generate with rate limiting; prompt versioned under services/indexer/prompts (promptV); job without a shell, model calls via the relay (12-expansion.md section 2.1). L2 can only be enabled if services.indexer.summaries.model is set."""
+design = ["12-expansion.md#21-indexer-l1-to-l3-7-e01"]
+result = "services/indexer/src/jobs/l2.ts, services/indexer/prompts/l2-*.md, schema entry summaries.model"
+done = [
+  "Test 'l2 computes only the dirty set' green (model responses as a fixture)",
+  "Test 'version change forces rebuild' green for promptV and model",
+  "Resolver rejects layers with L2 without summaries.model (test)",
+  "Costs of a full run on the fixture repo measured and reported in the PR",
+]
+sources = ["02 section 7", "01 section 7", "06 section 7"]
+depends_on = ["7-E01-T04"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "7-E01-T06-S01"
+  title = "Tests dirty set and version change"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T06-S02"
+  title = "Prompt and output schema L2"
+  done = "Schema test green"
+
+  [[task.part]]
+  id = "7-E01-T06-S03"
+  title = "Job with batch and single path"
+  done = "Dirty set test green"
+
+  [[task.part]]
+  id = "7-E01-T06-S04"
+  title = "Resolver rule and cost measurement"
+  done = "Resolver test green, costs in the PR"
+
+[[task]]
+id = "7-E01-T07"
+title = "Embedder service and ModelProvider local-embed"
+description = """Service services/embedder (image embedder, CPU, model from 7-E01-T01 with checksum in the image) with POST /v1/embed and GET /v1/health per 12-expansion.md section 2.2, only on the internal network; ModelProvider plugins/model-local-embed with capability EMBEDDINGS (none without a reachable service); Compose profile kb-vectors and Helm switch (FE-1205)."""
+design = ["12-expansion.md#22-embedder-and-vector-search-7-e01"]
+result = "services/embedder/, plugins/model-local-embed/, deploy/compose/kb-vectors.compose.yaml (profile kb-vectors, 06 FE-641), deploy/images/embedder/, entry embedder in ToolImage and release.json (06 FE-640), doctor check D32-embedder (06 FE-642)"
+done = [
+  "Test 'embedder returns fixed dimension and model checksum' green",
+  "Test 'embedder rejects oversized inputs' green",
+  "Test 'local-embed reports embeddings none without embedder' green",
+  "Contract suite of the ModelProvider local-embed green; image signed, license gate green",
+  "doctor reports whether the service is reachable and which model it loads (D32-embedder: n/a without the profile, fail with the profile on and the service unreachable)",
+]
+sources = ["01 section 7", "O7", "ADR-50", "ADR-44"]
+depends_on = ["7-E01-T01"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "7-E01-T07-S01"
+  title = "Tests of the embedder API"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T07-S02"
+  title = "Service with ONNX runtime and health"
+  done = "API tests green"
+
+  [[task.part]]
+  id = "7-E01-T07-S03"
+  title = "ModelProvider local-embed and contract suite"
+  done = "Contract suite green"
+
+  [[task.part]]
+  id = "7-E01-T07-S04"
+  title = "Image, Compose profile, doctor"
+  done = "doctor test green, license gate green"
+
+[[task]]
+id = "7-E01-T08"
+title = "L3 full text, vectors and hybrid search"
+description = """L3 job (chunks along the symbols, otherwise line windows, FE-1207), embedding by the control plane via local-embed, tsvector with split identifiers, HNSW partial index per model (FE-1206), query.search with RRF over the lexical and vector legs (FE-1204), degradation to lexical when the embedder fails (12-expansion.md sections 2.2 and 4.1)."""
+design = ["12-expansion.md#22-embedder-and-vector-search-7-e01", "12-expansion.md#41-indexer-increment"]
+result = "services/indexer/src/jobs/l3.ts, plugins/pg-kb/src/query/search.ts, packages/kb/src/search.ts"
+done = [
+  "Test 'rrf merges lexical and vector hits' green",
+  "Test 'identifiers are split for full text search' green",
+  "Test 'hnsw partial index per embed model' green on pgvector 0.8.2 (minimum version) or documented fallback",
+  "Test 'embedder failure degrades to lexical search' green",
+  "Test 'increment chain equals rebuild' includes L3",
+]
+sources = ["01 section 9", "02 section 7", "11 section 3"]
+depends_on = ["7-E01-T03", "7-E01-T07"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "7-E01-T08-S01"
+  title = "Tests RRF, identifiers, degradation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T08-S02"
+  title = "Chunker and L3 job"
+  done = "Chunker tests green"
+
+  [[task.part]]
+  id = "7-E01-T08-S03"
+  title = "Embedding in the control plane and partial index per model"
+  done = "Index test green"
+
+  [[task.part]]
+  id = "7-E01-T08-S04"
+  title = "query.search with RRF and degradation"
+  done = "Search tests green"
+
+[[task]]
+id = "7-E01-T09"
+title = "Item index for issues and PRs"
+description = """Indexing of issues and PRs as item chunks with kb_items metadata (FE-1208): events created, edited, labeled, closing, reopening as well as the follow-up run items_backfill via WorkItemProvider.search or the issue list; secret redaction and sanitizer before storage; visibility at indexing time, fresh check at retrieval."""
+design = ["12-expansion.md#21-indexer-l1-to-l3-7-e01", "12-expansion.md#6-security"]
+result = "services/indexer/src/items/*.ts"
+done = [
+  "Test 'item index redacts secrets and removes control characters' green",
+  "Test 'item index updates on edit, close and reopen' green",
+  "Follow-up run via pagination with recorded GitHub responses green",
+]
+sources = ["02 section 9", "05 sections 3, 4 and 7", "ADR-63"]
+depends_on = ["7-E01-T08"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E01-T09-S01"
+  title = "Tests redaction and update"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E01-T09-S02"
+  title = "Event processing and follow-up run"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "7-E01-T09-S03"
+  title = "Visibility on the item and retrieval check"
+  done = "Visibility test green"
+
+[[task]]
+id = "7-E01-T10"
+title = "Learnings via vector search"
+description = """Extends the retrieval of learnings from 7a with vector search (08 stage 7: retrieval of learnings then also via vector search): learnings are embedded as chunks, query.learnings combines path retrieval and vector hits, the citation check at headSha remains mandatory."""
+design = ["12-expansion.md#21-indexer-l1-to-l3-7-e01", "12-expansion.md#22-embedder-and-vector-search-7-e01"]
+result = "plugins/pg-kb/src/query/learnings.ts (extension), addition of LearningQuery and LearningHit in packages/contracts/src/kinds/knowledge-store.ts (FE-1270)"
+done = [
+  "Test 'learnings via vector search only with a valid citation' green",
+  "Test 'learnings vector hits do not displace path hits' green (FE-1270)",
+  "Test 'learnings without vector as in 7a' green",
+  "existing learnings tests from 7a green unchanged",
+]
+sources = ["02 section 7", "08 stage 7"]
+depends_on = ["7-E01-T08"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "7-E01-T10-S01"
+  title = "Test vector retrieval with citation check"
+  done = "Test red"
+
+  [[task.part]]
+  id = "7-E01-T10-S02"
+  title = "Embedding of learnings and combined retrieval"
+  done = "new and old tests green"
+
+[[epic]]
+id = "7-E02"
+title = "MCP tools kb and guideline loader"
+goal = "`kb.*` for services, ask as a single-service run of the indexer, external KB MCP (off by default), loader for third-party guideline formats"
+sources = ["02 section 7"]
+depends_on = ["7-E01"]
+
+[[task]]
+id = "7-E02-T01"
+title = "Platform MCP tools kb.*"
+description = """Tools kb.repo_map, kb.symbol_context, kb.impact, kb.search, kb.module_summary, kb.standards, kb.learnings in the platform MCP per the table in 12-expansion.md section 2.3: item token, only repos of the work item, search space per the visibility rule (ADR-63) fresh via repoInfo, unavailable without a fresh layer or with knowledge.use off."""
+design = ["12-expansion.md#23-mcp-tools-kb-and-ask-7-e02"]
+result = "apps/control-plane/src/mcp/tools/kb/*.ts"
+done = [
+  "Test 'kb tool without fresh layer answers unavailable' green",
+  "Test 'kb search filters by visibility of the target' green",
+  "Test 'kb tools only for repos of the work item' green",
+]
+sources = ["02 section 7", "05 sections 2 and 7", "ADR-07", "ADR-63"]
+depends_on = ["7-E01-T05", "7-E01-T08"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E02-T01-S01"
+  title = "Tests unavailable, visibility, foreign repo"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E02-T01-S02"
+  title = "Tool schemas and registration"
+  done = "Schema tests green"
+
+  [[task.part]]
+  id = "7-E02-T01-S03"
+  title = "Search space and visibility filter"
+  done = "all tests green"
+
+[[task]]
+id = "7-E02-T02"
+title = "Ask flow and command @agent ask"
+description = """Service indexer in mode ask (FE-1209): AskRequest and AskAnswer per 12-expansion.md section 2.3, job read-only with kb.* and grep, output via schema, deterministic verifier (citations at the state, unsupported statements removed), the only effect propose_comment or propose_reply, sampling note. Route and command_permissions ask from 04 section 3. The contradiction between 02 section 0 and 03 section 4 is named in the PR report (backlog M110)."""
+design = ["12-expansion.md#23-mcp-tools-kb-and-ask-7-e02", "12-expansion.md#42-ask"]
+result = "services/indexer/src/ask/*.ts, services/indexer/prompts/ask.md, policy rule indexer.ask"
+done = [
+  "Test 'ask without a valid citation emits no statement' green",
+  "Test 'ask citation from private repo in public comment blocked' green",
+  "Test 'ask answers in the thread or on the ticket' green",
+  "Test 'ask citation validity one hundred percent' green (citation validity 100 %)",
+  "S4 case 'indexer alone on' answers a question",
+]
+sources = ["02 section 7", "03 section 4", "05 section 7", "ADR-63"]
+depends_on = ["7-E02-T01", "1-E05-T10"]
+owner = "agent"
+estimate_h = 14
+note = "Backlog M110 part 1 (ask needs an answer effect): architecture 02 section 0 and 03 section 4 adjusted in the consistency run 2026-11-01"
+
+  [[task.part]]
+  id = "7-E02-T02-S01"
+  title = "Tests verifier, visibility, answer location"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E02-T02-S02"
+  title = "Schemas, prompt, job"
+  done = "Job returns AskAnswer for a fixture question"
+
+  [[task.part]]
+  id = "7-E02-T02-S03"
+  title = "Verifier and removal of unsupported statements"
+  done = "Verifier tests green"
+
+  [[task.part]]
+  id = "7-E02-T02-S04"
+  title = "Policy rule and effects"
+  done = "Effect tests green"
+
+  [[task.part]]
+  id = "7-E02-T02-S05"
+  title = "Route, command, status output, S4 case"
+  done = "S4 case green"
+
+[[task]]
+id = "7-E02-T03"
+title = "Guideline loader: formats and scope"
+description = """Extracts the guideline loader from `@guildwork/service-reviewer/guidelines` (1-E02, detailed design 08 FE-807) as the package @guildwork/guidelines (the reviewer then imports the package) and extends it with all formats from 02 section 8 (GuidelineFormat in 12-expansion.md section 2.4) with frontmatter (paths, globs, alwaysApply, description, applyTo), scope per directory, nearest file per format, .coderabbit.yaml only path_instructions, skip parse errors. Only at the base SHA."""
+design = ["12-expansion.md#24-guideline-loader-7-e02"]
+result = "packages/guidelines/src/formats/*.ts, packages/guidelines/fixtures/"
+done = [
+  "Test 'loader reads every format with fixture' green for every GuidelineFormat",
+  "Test 'nearest file wins per format' green",
+  "Test 'loader reads only at base sha' green",
+  "Test 'coderabbit yaml only path instructions' green",
+  "Test 'broken guideline is skipped, run continues' green",
+]
+sources = ["02 section 8", "04 section 2", "ADR-17"]
+depends_on = ["1-E02"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "7-E02-T03-S01"
+  title = "Fixture per format and tests"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E02-T03-S02"
+  title = "Readers for Markdown formats with frontmatter"
+  done = "Markdown formats green"
+
+  [[task.part]]
+  id = "7-E02-T03-S03"
+  title = "Readers for Cursor, Copilot, Greptile and CodeRabbit formats"
+  done = "remaining formats green"
+
+  [[task.part]]
+  id = "7-E02-T03-S04"
+  title = "Scope per directory and base SHA"
+  done = "Scope and base SHA tests green"
+
+[[task]]
+id = "7-E02-T04"
+title = "Guideline loader: rule IDs, disabling, budget, verbose"
+description = """Rule IDs per FE-1212, knowledge.guidelines.disabled_ids only tightening across the layers, budget per run and per source with truncation order per FE-1211, report of the truncated sources in the Run Record and via @agent review verbose."""
+design = ["12-expansion.md#24-guideline-loader-7-e02"]
+result = "packages/guidelines/src/select.ts, Run Record field guidelines, reviewer output verbose"
+done = [
+  "Test 'disabled rule id missing from the selection' green",
+  "Test 'rule ids of stage 1 stay stable' green (FE-1269)",
+  "Test 'budget truncates in fixed order and reports' green",
+  "@agent review verbose names used and truncated sources (test in the reviewer)",
+]
+sources = ["02 section 8", "10 section 10"]
+depends_on = ["7-E02-T03"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E02-T04-S01"
+  title = "Tests disabling and budget"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E02-T04-S02"
+  title = "Selection with budget and IDs"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "7-E02-T04-S03"
+  title = "Run Record and verbose output"
+  done = "Reviewer test green"
+
+[[task]]
+id = "7-E02-T05"
+title = "KB use per service in the qualification profile"
+description = """Key services.<id>.knowledge.use (off | on) in the JSON Schema with x-qualification: true (FE-1210); the reviewer reads kb.* only when on; resolver and policy treat on as a separate qualification profile."""
+design = ["12-expansion.md#7-configuration"]
+result = "packages/config/schema (key knowledge.use), reviewer context package"
+done = [
+  "Test 'knowledge use changes the qualification key' green",
+  "S2 case: knowledge.use on without a qualified row runs at most shadow (test)",
+]
+sources = ["02 section 7", "07 section 2", "ADR-66", "ADR-47"]
+depends_on = ["7-E02-T01"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "7-E02-T05-S01"
+  title = "Tests profile and S2 case"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E02-T05-S02"
+  title = "Schema, resolver, reviewer integration"
+  done = "Tests green"
+
+[[task]]
+id = "7-E02-T06"
+title = "External KB MCP endpoint"
+description = """Optional external KB MCP for agents outside the platform (10 section 9, FE-1242, FE-1267): path POST /mcp/kb/v1 per 03 section 2.5.1 (FE-323), knowledge.external_mcp.enabled (off by default, otherwise 404), dev token per user like the developer MCP from 6-E04, read permission at the provider per request, read-only; kb.ask as an asynchronous ask run without an effect with kb.ask_result only for the triggering user (FE-1247), limit knowledge.external_mcp.ask_concurrency."""
+design = ["12-expansion.md#23-mcp-tools-kb-and-ask-7-e02"]
+result = "apps/control-plane/src/mcp/external-kb.ts"
+done = [
+  "Test 'external kb mcp is off by default' green",
+  "Test 'external kb mcp checks permissions per request at the provider' green",
+  "Test 'external kb ask returns the result only to the triggering user' green (FE-1267)",
+  "S1 case: a request on a repo without read permission of the user yields 0 hits",
+]
+sources = ["10 section 9", "05 section 7", "02 section 4a"]
+depends_on = ["7-E02-T01", "7-E02-T02", "6-E04"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E02-T06-S01"
+  title = "Tests off by default, permissions, S1 case"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E02-T06-S02"
+  title = "Endpoint with user token and permission check"
+  done = "Tests green"
+
+  [[task.part]]
+  id = "7-E02-T06-S03"
+  title = "kb.ask asynchronous"
+  done = "Test 'kb ask returns run id and result' green"
+
+[[epic]]
+id = "7-E03"
+title = "Standards service"
+goal = "Rule metrics per rule_id, rule miner candidates, rule PRs, rule compilation to Opengrep or ast-grep with a test case, decay and withdrawal; `standards.auto_activate` off (O10)"
+sources = ["02 section 8", "10 section 10", "O10"]
+depends_on = ["7-E02"]
+
+[[task]]
+id = "7-E03-T01"
+title = "Spike: test formats of Opengrep and ast-grep"
+description = """Checks from the documentation and with a trial run how Opengrep and ast-grep run rule tests (annotations or valid/invalid), which images exist with which license and which versions are pinned (FE-1214). Result as a note in 12-expansion.md section 10."""
+design = ["12-expansion.md#25-standards-service-7-e03"]
+result = "eval/reports/spike-regeltests.md, entry in 12-expansion.md section 10"
+done = [
+  "per engine, a minimal rule pair with a positive and a negative test runs locally (command and output in the PR)",
+  "Licenses of the engine images read from LICENSE",
+]
+sources = ["02 section 8", "ADR-50", "01 section 12"]
+depends_on = []
+owner = "agent"
+estimate_h = 4
+
+  [[task.part]]
+  id = "7-E03-T01-S01"
+  title = "Trial run ast-grep"
+  done = "Output in the report"
+
+  [[task.part]]
+  id = "7-E03-T01-S02"
+  title = "Trial run Opengrep and license note"
+  done = "Output and SPDX in the report"
+
+[[task]]
+id = "7-E03-T02"
+title = "Rule metrics per rule_id"
+description = """Table rule_stats (12-expansion.md section 3.1), capture from findings and finding_feedback with rule_id (guidelines, compiled rules, learnings): findings, PRs, accepted, addressed, rejected per window; capability RULE_STATS in pg-kb (FE-1215); API and admin UI view per rule (B1 parity with Bugbot and Greptile)."""
+design = ["12-expansion.md#25-standards-service-7-e03", "12-expansion.md#31-tables-of-stage-7"]
+result = "packages/db/migrations/0752_standards.sql, services/standards/src/stats.ts, apps/admin-ui/src/pages/rules/"
+done = [
+  "Test 'rule metrics from findings and feedback' green",
+  "Test 'metrics retrievable per rule' green (B1 parity)",
+]
+sources = ["02 section 8", "10 section 10", "07 section 3.7"]
+depends_on = ["1-E04"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E03-T02-S01"
+  title = "Tests metrics"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E03-T02-S02"
+  title = "Migration and capture"
+  done = "Metric test green"
+
+  [[task.part]]
+  id = "7-E03-T02-S03"
+  title = "API and admin UI view"
+  done = "Parity test green"
+
+[[task]]
+id = "7-E03-T03"
+title = "Candidate miner"
+description = """Scheduled run per repo (services.standards.schedule): input per FE-1213 (accepted findings with a fix commit, human threads with a code change), weight per CODEOWNERS, window window_prs, the miner job without a shell produces RuleCandidate with citations, dedupe against applicable rules via the guideline loader at the base SHA, limit 10 in the first run, 5 in later runs."""
+design = ["12-expansion.md#25-standards-service-7-e03", "12-expansion.md#43-standards-run-and-rule-pr"]
+result = "services/standards/src/miner/*.ts, services/standards/prompts/miner.md"
+done = [
+  "Test 'miner uses only accepted comments with a code change' green",
+  "Test 'miner weights by code ownership' green",
+  "Test 'miner keeps the limit per run' green",
+  "Test 'miner without candidates opens no pr' green",
+]
+sources = ["02 section 8", "10 section 10"]
+depends_on = ["7-E03-T02", "7-E02-T03"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "7-E03-T03-S01"
+  title = "Tests input, weight, limit, empty run"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E03-T03-S02"
+  title = "Input selection from findings and threads"
+  done = "Input test green"
+
+  [[task.part]]
+  id = "7-E03-T03-S03"
+  title = "Miner job with schema and citations"
+  done = "Fixture run returns candidates"
+
+  [[task.part]]
+  id = "7-E03-T03-S04"
+  title = "Dedupe and limit per run"
+  done = "all tests green"
+
+[[task]]
+id = "7-E03-T04"
+title = "Rule PR and activation"
+description = """Rule file .agents/rules/<slug>.md in the format from 12-expansion.md section 2.5 (frontmatter id, glob, origin, quotes), rule PR via propose_change only on .agents/rules/, CODEOWNERS requested, candidate states per section 4.3, active only after merge; services.standards.auto_activate only effective at installation level (O10)."""
+design = ["12-expansion.md#25-standards-service-7-e03", "12-expansion.md#43-standards-run-and-rule-pr"]
+result = "services/standards/src/pr/*.ts, policy rule standards.propose_change"
+done = [
+  "Test 'every active rule with origin pr and citation' green",
+  "Test 'standards may only change agents rules' green",
+  "Test 'auto_activate only effective at installation level' green",
+  "State transitions of table 4.3, one test each",
+]
+sources = ["02 section 8", "04 section 2", "O10"]
+depends_on = ["7-E03-T03", "0-E09-T09"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E03-T04-S01"
+  title = "Tests origin, path policy, auto_activate, states"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E03-T04-S02"
+  title = "Rule file format and schema"
+  done = "Schema test green"
+
+  [[task.part]]
+  id = "7-E03-T04-S03"
+  title = "PR construction and effect"
+  done = "Effect test green"
+
+  [[task.part]]
+  id = "7-E03-T04-S04"
+  title = "Activation after merge and state machine"
+  done = "all tests green"
+
+[[task]]
+id = "7-E03-T05"
+title = "Rule compilation with test cases"
+description = """Compile job (edit+shell, pinned engine image) for confirmed model findings and structural candidates: rule and at least one positive and one negative test case, test run of the engine in the worker step (FE-1214), compiled_rules with status, only green rules in the rule PR under .agents/rules/ast-grep or .agents/rules/opengrep."""
+design = ["12-expansion.md#25-standards-service-7-e03"]
+result = "services/standards/src/compile/*.ts, sandbox image engines with ast-grep and Opengrep"
+done = [
+  "Test 'rule without green positive and negative test does not enter the pr' green",
+  "Test 'compiled rule finds the confirmed finding' green",
+  "ST1 part rule compilation: every proposed rule with a green positive and negative test case (suite run in the PR)",
+]
+sources = ["02 section 8", "07 section 3.7", "ADR-50"]
+depends_on = ["7-E03-T01", "7-E03-T04"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "7-E03-T05-S01"
+  title = "Tests compilation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E03-T05-S02"
+  title = "Engine image and test run step"
+  done = "Test run on fixture green"
+
+  [[task.part]]
+  id = "7-E03-T05-S03"
+  title = "Compile job with schema"
+  done = "Job returns CompiledRule"
+
+  [[task.part]]
+  id = "7-E03-T05-S04"
+  title = "Integration into the rule PR"
+  done = "all tests green"
+
+[[task]]
+id = "7-E03-T06"
+title = "Decay and withdrawal PR"
+description = """Weakening per rule according to services.standards.decay (addressed rate below the threshold over at least min_findings findings) to weak, after two runs a withdrawal PR; states withdraw_proposed, withdrawn or back to active per 12-expansion.md section 4.3."""
+design = ["12-expansion.md#43-standards-run-and-rule-pr"]
+result = "services/standards/src/decay.ts"
+done = [
+  "Test 'rule with persistently rejected findings is proposed for withdrawal' green",
+  "a closed withdrawal PR leads back to active (test)",
+]
+sources = ["02 section 8", "10 section 10"]
+depends_on = ["7-E03-T02", "7-E03-T04"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "7-E03-T06-S01"
+  title = "Tests decay and withdrawal"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E03-T06-S02"
+  title = "Decay rule and withdrawal PR"
+  done = "Tests green"
+
+[[epic]]
+id = "7-E04"
+title = "Triage service"
+goal = "Duplicates, labels, assignees, spam; suggestion instead of closing; `auto_close` as an opt-in after a green T1 (O25); single-service run, pipeline stage only in stage 9 (FE-1221)"
+sources = ["02 section 9", "ADR-46, ADR-63", "O25"]
+depends_on = ["7-E01"]
+
+[[task]]
+id = "7-E04-T01"
+title = "Triage service skeleton and gate"
+description = """services/triage: service manifest (command triage, subscription to work_item.created and edited, write requests propose_comment, propose_labels, propose_link), controller, TriageRequest and TriageArtifact per 12-expansion.md section 2.6, gate (bot, own output, same itemVersionHash), run as a single-service run with an object lock, automatic triage for every human author: no command and no requested effects by authors without permission, only what the configuration at the base SHA specifies is applied (03 section 3 G0, FE-1254)."""
+design = ["12-expansion.md#26-triage-service-7-e04", "12-expansion.md#44-triage"]
+result = "services/triage/src/{manifest,controller,gate,types}.ts"
+done = [
+  "Test 'triage gate skips bot, own output and same state' green",
+  "Test 'triage for author without permission applies only configured properties' green (FE-1254)",
+  "Manifest loads; S4 case 'triage alone on' starts",
+]
+sources = ["02 sections 0 and 9", "03 sections 2.1 and 3", "ADR-46", "ADR-68"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E04-T01-S01"
+  title = "Tests gate and author rule"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E04-T01-S02"
+  title = "Manifest, types, schemas"
+  done = "Manifest test green"
+
+  [[task.part]]
+  id = "7-E04-T01-S03"
+  title = "Controller and gate"
+  done = "Gate tests green"
+
+  [[task.part]]
+  id = "7-E04-T01-S04"
+  title = "Route and S4 case"
+  done = "S4 case green"
+
+[[task]]
+id = "7-E04-T02"
+title = "Duplicate and related search with visibility"
+description = """Deterministic search step before the model: kb.search over item chunks in the search space per ADR-63 (on public repos only public sources, also with CROSS_REPO), searchRelated of the provider as the second leg, RRF, at most duplicate.max_candidates as untrusted into the prompt; without a qualified indexer searchMode none."""
+design = ["12-expansion.md#26-triage-service-7-e04"]
+result = "services/triage/src/search.ts"
+done = [
+  "Test 'without qualified indexer no duplicates' green",
+  "Test 'triage on public repo cites no private issue' green",
+  "Candidates are embedded marked as untrusted (test)",
+]
+sources = ["02 section 9", "05 section 7", "ADR-63", "01 section 5 (fallback chain similar items)"]
+depends_on = ["7-E04-T01", "7-E01-T09", "7-E02-T01", "7-E02-T05", "7-E05-T04"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E04-T02-S01"
+  title = "Tests search space and without indexer"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E04-T02-S02"
+  title = "Search step with two legs"
+  done = "Search tests green"
+
+  [[task.part]]
+  id = "7-E04-T02-S03"
+  title = "Visibility filter and untrusted embedding"
+  done = "all tests green"
+
+[[task]]
+id = "7-E04-T03"
+title = "Classification and clarity gate"
+description = """Model call via ModelProvider (models.classify) with an output schema: labels per labeling_instructions from the base SHA, assignees from CODEOWNERS and history (last 20 merged PRs of the paths), repo assignment via repo_mapping; clarity gate via @guildwork/clarity (FE-1216: create the package `packages/clarity` if 2-E02 has not built it yet; otherwise use it)."""
+design = ["12-expansion.md#26-triage-service-7-e04"]
+result = "services/triage/src/classify.ts, services/triage/prompts/classify.md, packages/clarity/ (if new)"
+done = [
+  "Test 'labels only from the list of the repo' green",
+  "Test 'assignees from codeowners and history' green",
+  "Test 'clarity gate reports questions' green",
+  "PR description states whether @guildwork/clarity was newly created or taken over",
+]
+sources = ["02 sections 1 and 9", "04 section 3", "ADR-58"]
+depends_on = ["7-E04-T01"]
+owner = "agent"
+estimate_h = 12
+
+  [[task.part]]
+  id = "7-E04-T03-S01"
+  title = "Tests labels, assignees, clarity"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E04-T03-S02"
+  title = "Check or create @guildwork/clarity"
+  done = "Clarity test green"
+
+  [[task.part]]
+  id = "7-E04-T03-S03"
+  title = "Classification prompt and schema"
+  done = "Fixture run returns a valid artifact"
+
+  [[task.part]]
+  id = "7-E04-T03-S04"
+  title = "Assignees from CODEOWNERS and history"
+  done = "all tests green"
+
+[[task]]
+id = "7-E04-T04"
+title = "Spam and slop"
+description = """Classification spam, slop or none with a justification in the classification call; consequence per services.triage.spam_action (label or hide_comment as action hide of propose_comment, FE-1251); the run ends skipped(triage_rejected), the issue stays open."""
+design = ["12-expansion.md#26-triage-service-7-e04", "12-expansion.md#44-triage"]
+result = "services/triage/src/spam.ts"
+done = [
+  "Test 'spam ends with triage_rejected and issue stays open' green",
+  "hide_comment only with configuration (test)",
+]
+sources = ["02 section 9", "03 sections 1a and 5"]
+depends_on = ["7-E04-T03", "7-E05-T07"]
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "7-E04-T04-S01"
+  title = "Tests spam path"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E04-T04-S02"
+  title = "Classification and consequence"
+  done = "Tests green"
+
+[[task]]
+id = "7-E04-T05"
+title = "Verifier and publication per property"
+description = """Deterministic verifier (duplicate exists, visibility, citation verbatim, label allowed and not reserved, assignees with permission), publication per property per table 4.4 (suggest, auto_apply, off; auto_apply only for duplicates, labels, spam, FE-1250), reserved labels per FE-1218 (backlog M90), one comment with a marker, event item.triaged."""
+design = ["12-expansion.md#44-triage", "12-expansion.md#6-security"]
+result = "services/triage/src/{verify,publish}.ts, schema rule triage.properties"
+done = [
+  "Test 'verifier discards nonexistent duplicates' green",
+  "Test 'triage never sets reserved labels' green, even with an instruction in the issue text",
+  "Test 'publication per property suggest auto_apply off' green",
+  "Test 'auto_apply for assignees is rejected at load' green",
+]
+sources = ["02 sections 0 and 9", "04 section 3", "ADR-63"]
+depends_on = ["7-E04-T02", "7-E04-T03", "7-E04-T04", "7-E05-T05", "7-E05-T06"]
+owner = "agent"
+estimate_h = 10
+note = "Backlog M90 (reserved control labels)"
+
+  [[task.part]]
+  id = "7-E04-T05-S01"
+  title = "Tests verifier, reserved labels, properties"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E04-T05-S02"
+  title = "Verifier"
+  done = "Verifier tests green"
+
+  [[task.part]]
+  id = "7-E04-T05-S03"
+  title = "Publication, comment with marker, event"
+  done = "Property tests green"
+
+  [[task.part]]
+  id = "7-E04-T05-S04"
+  title = "Resolver rule auto_apply"
+  done = "Load test green"
+
+[[task]]
+id = "7-E04-T06"
+title = "auto_close as a repo opt-in"
+description = """Table repo_eval_gates (12-expansion.md section 3.1) and policy rule: close only with services.triage.auto_close true and a green row triage_t1 with the current qualification_key (FE-1217); close with a comment and reason, can be reopened; without opt-in 0 closures (backlog M79)."""
+design = ["12-expansion.md#31-tables-of-stage-7", "12-expansion.md#26-triage-service-7-e04"]
+result = "packages/db/migrations/0753_repo_eval_gates.sql, policy rule triage.close"
+done = [
+  "Test 'without auto_close no closure' green (0 closures)",
+  "Test 'auto_close without green t1 has no effect' green (gate missing, red, different profile)",
+  "Test 'auto_close closes with comment and reason' green",
+]
+sources = ["02 section 9", "04 section 3", "07 section 3.9", "O25"]
+depends_on = ["7-E04-T05", "7-E05-T06"]
+owner = "agent"
+estimate_h = 8
+note = "Backlog M79 (0 automatic closures without auto_close)"
+
+  [[task.part]]
+  id = "7-E04-T06-S01"
+  title = "Tests closing"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E04-T06-S02"
+  title = "Migration repo_eval_gates"
+  done = "Migration test green"
+
+  [[task.part]]
+  id = "7-E04-T06-S03"
+  title = "Policy rule and closing with comment"
+  done = "all tests green"
+
+[[epic]]
+id = "7-E05"
+title = "GitHub capabilities for triage"
+goal = "Contract suite `SET_LABELS`, `CREATE_ISSUE`, `LINK_ITEMS`, `RELATED_SEARCH` (plus `CLOSE_AS_DUPLICATE`) with recorded responses; profile `labels` in the Effect Gateway"
+sources = ["01 section 5"]
+depends_on = ["7a-E03"]
+
+[[task]]
+id = "7-E05-T01"
+title = "Owner: test repo and app installation for recordings"
+description = """The owner creates a test repo for recordings in the project's organization and installs the development app with the profile labels on it (account step). Agents prepare a decision sheet (permissions, no costs, effect)."""
+result = "Test repo with installed app, note in the ops repo"
+done = [
+  "Test repo exists, app with issues:write and pull_requests:write installed (screenshot or API query in the note)",
+]
+sources = ["05 section 2", "ADR-45"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+
+  [[task.part]]
+  id = "7-E05-T01-S01"
+  title = "Prepare decision sheet"
+  done = "Sheet in the ops repo"
+
+  [[task.part]]
+  id = "7-E05-T01-S02"
+  title = "Create repo and install app"
+  done = "Note with evidence"
+
+[[task]]
+id = "7-E05-T02"
+title = "Record fixtures and evidence capabilities"
+description = """Recording of real responses in the test repo: set and remove labels on an issue and a PR, create an issue, comment with a cross-reference, issue search, close with reason duplicate or not planned (backlog M33). Result: fixtures with a hash and a note on which level (native or fallback) is evidenced per capability."""
+design = ["12-expansion.md#27-github-capabilities-for-triage-7-e05"]
+result = "plugins/github/fixtures/triage/*, note in 12-expansion.md sections 2.7 and 10"
+done = [
+  "Fixtures with fixturesHash in the manifest",
+  "Note: close reason duplicate via API evidenced or refuted",
+  "Write calls only in the test repo (the recording script checks the target)",
+]
+sources = ["01 sections 1.1 rule 1 and 11.1"]
+depends_on = ["7-E05-T01"]
+owner = "agent"
+estimate_h = 6
+note = "Backlog M33 (evidence the cells in 01 matrix 11.1)"
+
+  [[task.part]]
+  id = "7-E05-T02-S01"
+  title = "Recording script with target check"
+  done = "Script refuses foreign repos (test)"
+
+  [[task.part]]
+  id = "7-E05-T02-S02"
+  title = "Recordings and note"
+  done = "Fixtures in the repo, note in the PR"
+
+[[task]]
+id = "7-E05-T03"
+title = "SET_LABELS and CREATE_ISSUE"
+description = """GitHub plugin: setLabels for issues and PRs, createItem with a marker and idempotency via a marker search before creating (12-expansion.md section 2.7); errors 403, 404, 422 as PluginError."""
+design = ["12-expansion.md#27-github-capabilities-for-triage-7-e05"]
+result = "plugins/github/src/issues/write/{set-labels,create-item}.ts (tree per 05 section 2.14.8)"
+done = [
+  "Contract cases 'set labels on issue and pr' and 'create issue idempotent via marker' green",
+  "Error cases 403, 404, 422 green",
+]
+sources = ["01 sections 4 and 5"]
+depends_on = ["7-E05-T02"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E05-T03-S01"
+  title = "Contract cases"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "7-E05-T03-S02"
+  title = "setLabels"
+  done = "Label cases green"
+
+  [[task.part]]
+  id = "7-E05-T03-S03"
+  title = "createItem with marker"
+  done = "all cases green"
+
+[[task]]
+id = "7-E05-T04"
+title = "LINK_ITEMS, RELATED_SEARCH, CLOSE_AS_DUPLICATE"
+description = """linkItems as a fallback level via comment (FE-1219), searchRelated as a text search (FE-1220), closeAsDuplicate native or fallback level per recording; fallback levels audited on the effect (fallbackUsed)."""
+design = ["12-expansion.md#27-github-capabilities-for-triage-7-e05"]
+result = "plugins/github/src/issues/write/{link-items,close-as-duplicate}.ts, plugins/github/src/issues/related.ts (tree per 05 section 2.14.8)"
+done = [
+  "Contract cases 'link items as comment', 'related search as text search', 'close as duplicate native or fallback' green",
+  "Test 'fallback for close as duplicate is audited' green",
+  "capabilities() reports the evidenced levels",
+]
+sources = ["01 sections 4, 5 and 11.1", "ADR-10"]
+depends_on = ["7-E05-T02"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E05-T04-S01"
+  title = "Contract cases and audit test"
+  done = "Cases red"
+
+  [[task.part]]
+  id = "7-E05-T04-S02"
+  title = "linkItems and searchRelated"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "7-E05-T04-S03"
+  title = "closeAsDuplicate and capabilities"
+  done = "all cases green"
+
+[[task]]
+id = "7-E05-T05"
+title = "Profile labels and derivation of the write requests"
+description = """Effect Gateway and policy: propose_labels and propose_link (with close only under FE-1217) for triage, propose_labels for the reviewer only with summary.labels apply, propose_issue prepared for ci_doctor (stage 10); permission profile labels at the broker; visibility check of the citations in the comment."""
+design = ["12-expansion.md#27-github-capabilities-for-triage-7-e05", "12-expansion.md#6-security"]
+result = "apps/control-plane/src/policy/rules/labels.ts, broker profile labels"
+done = [
+  "Test 'profile labels covers only triage requests' green",
+  "Permission test against the recorded app permissions: a token of the profile labels cannot push code",
+]
+sources = ["05 section 2", "02 section 0", "ADR-06"]
+depends_on = ["7-E05-T03", "7-E05-T04", "7-E04-T01"]   # 7-E04-T01 added: service manifest of triage for POL-010 and POL-011 (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+
+  [[task.part]]
+  id = "7-E05-T05-S01"
+  title = "Tests policy and permissions"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E05-T05-S02"
+  title = "Policy rules and broker profile"
+  done = "Tests green"
+
+[[task]]
+id = "7-E05-T06"
+title = "Executor link with closing as duplicate"
+description = """`apps/control-plane/src/effects/executors/link.ts` per detailed design 04 section 2.1.5: `linkItems` (GitHub as the fallback level comment with marker, FE-1219), with `close: true` and `relation: duplicates` followed by `closeAsDuplicate` (7-E05-T04); the policy allows `close` only under auto_close and a green T1 gate (FE-1217). Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/link.ts, apps/control-plane/test/effects/executors/link.test.ts"
+done = [
+  "Test 'effects/executors/link live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/link failure path stores audits and logs' green (failure path: linking succeeds, closing fails: failed with result.linked, the issue stays open; close without auto_close yields rejected_policy; checked are the state and error on the effect, the audit entry and the metric)",
+  "Test 'effects/executors/link reconcile after crash finds marker' green (crash after the call, no second call)",
+  "Catalog entry link with executor file, stage and usedIn; guard test from 0-E09-T10 green without link in the planned list",
+]
+sources = ["02 section 0 (triage)", "05 section 2 (profile labels)", "O25", "ADR-06"]
+depends_on = ["7-E05-T04", "0-E09-T04", "7-E05-T05"]   # 7-E05-T05 added: token profile labels for the executor link (catalog reconciliation)
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "7-E05-T06-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E05-T06-S02"
+  title = "Executor link with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["7-E05-T06-S01"]
+
+  [[task.part]]
+  id = "7-E05-T06-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["7-E05-T06-S02"]
+
+[[task]]
+id = "7-E05-T07"
+title = "Executor comment action hide"
+description = """Action `hide` in the executor `apps/control-plane/src/effects/executors/comment.ts` per detailed design 04 section 2.1.5 and detailed design 12 FE-1251: `WorkItemProvider.hideComment` with profile labels, only for triage under spam_action hide_comment; in addition, in the plugin github-issues, `hideComment` via GraphQL `minimizeComment` (detailed design 05 section 2.14.8, additive per FE-502, capability COMMENT_HIDE). Answers the open point from detailed design 04 section 10 (permission of the profile labels) with the recording. Common part (token per effect, errors by PluginError.code, audit, metric, event) per detailed design 04 section 2.1.5; entry in `catalog.ts` with `stage`, `usedIn` and `task` (FE-428)."""
+design = ["04-effects-audit-credentials.md#215-executors", "04-effects-audit-credentials.md#211-effect-catalog"]
+result = "apps/control-plane/src/effects/executors/comment.ts (action hide), apps/control-plane/test/effects/executors/comment-hide.test.ts, plugins/github/src/issues/write/hide-comment.ts"
+done = [
+  "Test 'effects/executors/comment hide live against recorded github responses' green (mode live, plugin against recorded responses; call, marker and result checked)",
+  "Test 'effects/executors/comment hide failure path stores audits and logs' green (failure path: without COMMENT_HIDE unsupported, the comment stays visible and the status comment names the reason; checked are the state and error on the effect, the audit entry and the metric)",
+  "Catalog entry comment lists the action hide with stage 7; guard test from 0-E09-T10 green",
+]
+sources = ["02 section 9 (triage)", "05 section 2 (profile labels)", "ADR-06"]
+depends_on = ["7-E05-T02", "0-E09-T05"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "7-E05-T07-S01"
+  title = "Tests: live against recorded responses, failure path, reconciliation"
+  done = "Tests red"
+
+  [[task.part]]
+  id = "7-E05-T07-S02"
+  title = "Executor comment with idempotency and reconciliation"
+  done = "Tests green"
+  depends_on = ["7-E05-T07-S01"]
+
+  [[task.part]]
+  id = "7-E05-T07-S03"
+  title = "Catalog entry and guard test"
+  done = "Guard test green"
+  depends_on = ["7-E05-T07-S02"]
+
+[[epic]]
+id = "7-E06"
+title = "Eval and acceptance stage 7"
+goal = "K1, K3, K4, ST1, T1, T2; S1 with triage injection; gate B measured and reported; release with S8"
+sources = ["07 sections 3.7, 3.9", "10 sections 9, 10, 12"]
+depends_on = ["7-E03", "7-E04", "7-E05"]
+
+[[task]]
+id = "7-E06-T01"
+title = "Sets T1 and T2"
+description = """Own public sets per 07 section 3.9: T1 from public repos with active maintenance (issues closed as duplicates and linked by maintainers, set labels and assignees), T2 from hidden or locked contributions plus planted cases; only references and own labels in the repo, texts via script (ADR-52); starting size 100 duplicate pairs and 100 non-duplicates (backlog M54: recompute after the first run with the measured share of deviating pairs). In addition, the repo mode of T1 for the gate triage_t1 (FE-1262): cases from the installation's repo, run with the current qualification_key, result as a row in repo_eval_gates."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06", "12-expansion.md#26-triage-service-7-e04"]
+result = "eval/sets/t1/, eval/sets/t2/ (set format per 07 section 2.2, FE-1268), download scripts"
+done = [
+  "T1 and T2 with a license per source repo and origin own_public",
+  "Gate A of triage measured on T1 (paired against a simple prompt with vector search, same model) and green per 10 section 1.4, otherwise set enlarged",
+  "T2: false alarms on real issues reported",
+  "0 automatic closures without auto_close in the run (counter in the report)",
+  "Recomputation of the set size with the measured share of deviating pairs in the report (M54)",
+  "Repo mode: a run on a fixture repo writes exactly one row triage_t1 with qualification_key and status green, red or not_decidable (test)",
+]
+sources = ["07 sections 1, 1.1 and 3.9", "10 section 12", "ADR-52"]
+depends_on = []
+owner = "agent"
+estimate_h = 16
+note = "Backlog M54 (starting size T1)"
+
+  [[task.part]]
+  id = "7-E06-T01-S01"
+  title = "Selection of the source repos and license check"
+  done = "List with SPDX per repo"
+
+  [[task.part]]
+  id = "7-E06-T01-S02"
+  title = "Collection script for T1 with pinned states"
+  done = "Test 't1 script loads references reproducibly' green"
+
+  [[task.part]]
+  id = "7-E06-T01-S03"
+  title = "T2 with planted cases"
+  done = "Set in the repo"
+
+  [[task.part]]
+  id = "7-E06-T01-S04"
+  title = "Adapter for the eval runner"
+  done = "Trial run on ten cases green"
+
+  [[task.part]]
+  id = "7-E06-T01-S05"
+  title = "Gate A run and report"
+  done = "Report with intervals in the PR"
+
+[[task]]
+id = "7-E06-T02"
+title = "K1 for the reviewer and KB approval"
+description = """K1 per 07 section 3.7: recall@10 of files and symbols and costs of the reviewer with versus without KB, paired on R1 (human_labeled) and R5; decision per service per 10 section 9: a gain means knowledge.use on is qualified as a profile, otherwise the KB stays off for the reviewer. K1 for the coder follows in 9-E07-T03 (FE-1222)."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"]
+result = "eval/sets/k1/ (FE-1268), eval/reports/stufe-7-k1.md"
+done = [
+  "K1 run paired with intervals and costs in the report",
+  "Decision KB on or off for the reviewer with evidence; if off, this is stated in the stage report",
+]
+sources = ["07 section 3.7", "10 section 9", "08 stage 7"]
+depends_on = ["7-E02-T05"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E06-T02-S01"
+  title = "K1 adapter on R1 and R5"
+  done = "Trial run green"
+
+  [[task.part]]
+  id = "7-E06-T02-S02"
+  title = "Paired run and evaluation"
+  done = "Report in the PR"
+
+  [[task.part]]
+  id = "7-E06-T02-S03"
+  title = "Decision and configuration"
+  done = "Decision in the stage report"
+
+[[task]]
+id = "7-E06-T03"
+title = "K4 and K3: adapters and reference agents"
+description = """Adapter K4 (SWE-QA v2, DeepCodeBench, both Apache-2.0) and K3 (ContextBench verified, data only via download), remeasurement of the bare reference agent Claude Code under the same judge (Codex CLI only with published values under a comparable judge, because the project has no OpenAI account, O28, detailed design 12 FE-1272), run of the ask pipeline; B1 as a required part per 10 section 1.4 (margin 5 points), K3 as a report part until the license is clarified; citation validity of all answers."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"]
+result = "eval/adapters/kb-k4/, eval/adapters/kb-k3/, eval/reports/stufe-7-k4.md"
+done = [
+  "K4 gate B status (green, red, not decidable) measured and reported with reference values and date",
+  "Citation validity 100 % across all ask answers of K4",
+  "K3 measured as a report part, results not published until the license is clarified",
+  "Codex CLI appears in the report with a published value and source or as 'not measured (O28)'; the best reference agent is the best measured one",
+]
+sources = ["07 section 3.7", "10 sections 1.4, 1.5 and 9"]
+depends_on = ["7-E02-T02"]
+owner = "agent"
+estimate_h = 14
+
+  [[task.part]]
+  id = "7-E06-T03-S01"
+  title = "Adapter K4 with download scripts"
+  done = "Trial run green"
+
+  [[task.part]]
+  id = "7-E06-T03-S02"
+  title = "Adapter K3"
+  done = "Trial run green"
+
+  [[task.part]]
+  id = "7-E06-T03-S03"
+  title = "Re-measure reference agents"
+  done = "Values with judge and date in the report"
+
+  [[task.part]]
+  id = "7-E06-T03-S04"
+  title = "Run of the ask pipeline and statistics"
+  done = "Gate B status in the report"
+
+[[task]]
+id = "7-E06-T04"
+title = "ST1"
+description = """ST1 per 07 section 3.7 and 10 section 10: reviewer on R5 and the private set with and without rules (gate A rules do no harm, margin 10 points), B1 parity of the rule metrics, B2 addressed rate with versus without rule reference online (shadow mode on own repos), rule compilation with a positive and a negative test case."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"]
+result = "eval/sets/st1/ (FE-1268), eval/reports/stufe-7-st1.md"
+done = [
+  "Gate A 'rules do no harm' measured and green or decided with an enlarged set",
+  "B1 parity: test 'metrics retrievable per rule' green",
+  "B2 measured online and reported (period, number of findings)",
+]
+sources = ["07 section 3.7", "10 section 10"]
+depends_on = ["7-E03-T05"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E06-T04-S01"
+  title = "ST1 run with and without rules"
+  done = "Gate A result in the report"
+
+  [[task.part]]
+  id = "7-E06-T04-S02"
+  title = "Evaluate B2 online"
+  done = "Values in the report"
+
+[[task]]
+id = "7-E06-T05"
+title = "gh-aw: check license and re-measure T1"
+description = """Read the license file of gh-aw (10 section 12, before stage 7). If it is VERIFIED free: re-measure the workflow Issue Triage with the same model on T1, count B1 as a required part. Otherwise B1 as a report part, triage is done with gate B open, and the license request is an owner step in 7-E06-T06."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"]
+result = "eval/adapters/gh-aw-triage/, eval/reports/stufe-7-t1-gh-aw.md"
+done = [
+  "License of gh-aw noted with its location as VERIFIED or open",
+  "if VERIFIED: duplicate F1 measured against gh-aw, status per 10 section 1.4",
+  "if open: status 'done with gate B open' in the stage report",
+]
+sources = ["10 sections 1.2 and 12", "07 section 3.9", "Backlog M25"]
+depends_on = ["7-E06-T01"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E06-T05-S01"
+  title = "Read and note the license"
+  done = "Note in the PR"
+
+  [[task.part]]
+  id = "7-E06-T05-S02"
+  title = "Remeasurement or report part"
+  done = "Status in the report"
+
+[[task]]
+id = "7-E06-T06"
+title = "Owner: license requests for the reference measurement"
+description = """Owner steps with external effect: license request to the authors of ContextBench (K3) and, if 7-E06-T05 leaves the license of gh-aw open, to gh-aw. Agents prepare drafts of the requests. An API account for re-measuring Codex CLI is dropped (O28, detailed design 12 FE-1272): Codex CLI is included only with published values."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06", "12-expansion.md#10-open-points"]
+result = "Requests made, status in the stage report"
+done = [
+  "Status of every license request in the stage report (made, answer, open)",
+]
+sources = ["10 section 1.2 item 6", "09 section 4", "O22", "O28"]
+depends_on = []
+owner = "owner"
+estimate_h = 2
+
+  [[task.part]]
+  id = "7-E06-T06-S01"
+  title = "Drafts of the requests (agent)"
+  done = "Drafts in the ops repo"
+
+  [[task.part]]
+  id = "7-E06-T06-S02"
+  title = "Make the requests (owner)"
+  done = "Status noted"
+
+[[task]]
+id = "7-E06-T07"
+title = "Cross-cutting suites of stage 7"
+description = """S1 with triage injection (07 section 5: close issue X, set label, call URL, mention @user, set agent:auto), KB content with an instruction, visibility cases; S2 (auto_activate at org level, auto_apply for assignees, knowledge.use on without qualification); S4 for indexer, standards, triage; S6 for the failure paths from 12-expansion.md section 5."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06", "12-expansion.md#5-failure-and-abort-paths"]
+result = "eval/suites/s1/triage/, eval/suites/s2/stufe-7/, eval/suites/s4/, eval/suites/s6/stufe-7/"
+done = [
+  "S1 green: 0 write requests other than propose_labels, propose_link, propose_comment; 0 closures; 0 reserved labels; 0 citations of narrower visibility",
+  "S2, S4, S6 of stage 7 green",
+]
+sources = ["07 section 5", "05 sections 4 and 7", "ADR-63"]
+depends_on = ["7-E04-T06"]
+owner = "agent"
+estimate_h = 10
+
+  [[task.part]]
+  id = "7-E06-T07-S01"
+  title = "S1 cases triage injection and KB"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "7-E06-T07-S02"
+  title = "S2 and S4 cases"
+  done = "Cases green"
+
+  [[task.part]]
+  id = "7-E06-T07-S03"
+  title = "S6 cases of the failure paths"
+  done = "Cases green"
+
+[[task]]
+id = "7-E06-T08"
+title = "Stage report, qualification and release stage 7"
+description = """Stage report per 10 section 1.2 item 6 with status per service and part (indexer K4, triage T1 against gh-aw, standards B1 and B2), qualification rows with gate B status as reference qualification (ADR-52), release with S8 green and upgrade from the stage 7a release with KB data (principle 5)."""
+design = ["12-expansion.md#87-eval-and-acceptance-for-stage-7-7-e06"]
+result = "docs/berichte/stufe-7.md, release notes, published qualification rows"
+done = [
+  "Stage report names exactly one gate B status with evidence per service and part",
+  "Done criteria from 08 stage 7 checked off individually with evidence (increment chain equals rebuild, watermark failure path, citation validity 100 %, ST1, T1, T2 with 0 automatic closures without auto_close, S1 with triage injection)",
+  "S8 green, upgrade 7a to 7 with data without loss (row counts and checksums)",
+  "Guard test 'effects/catalog every effect type has an executor or a planned stage' green with BUILT_STAGES extended by this stage (0-E09-T10, detailed design 04 FE-428)",
+]
+sources = ["08 stage 7", "10 section 1.2 item 6", "07 section 5", "ADR-52", "ADR-55"]
+depends_on = ["7-E06-T02", "7-E06-T03", "7-E06-T04", "7-E06-T05", "7-E06-T07"]
+owner = "agent"
+estimate_h = 8
+
+  [[task.part]]
+  id = "7-E06-T08-S01"
+  title = "S8 and upgrade test"
+  done = "Portability run green (job log)"
+
+  [[task.part]]
+  id = "7-E06-T08-S02"
+  title = "Stage report and qualification rows"
+  done = "Report in the repo"
+
+  [[task.part]]
+  id = "7-E06-T08-S03"
+  title = "Release"
+  done = "signed release with SBOM"

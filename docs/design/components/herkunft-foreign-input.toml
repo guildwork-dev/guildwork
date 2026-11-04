@@ -1,0 +1,137 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "herkunft-foreign-input"
+title = "Provenance attribute foreign_input_seen"
+kind = "role"
+path = "apps/control-plane/src/provenance/"
+package = "@guildwork/control-plane"
+stage = "2"
+purpose = "Records in the control plane every untrusted input from a person that a service sees in the run, computes with a fresh permission query whether it is foreign, and sets runs.foreign_input_seen; QA and PR-Fixer report their inputs via the same service. Not: the block in the merge gate (stage 5) and no inputs without a person (code, CI logs, SARIF)."
+design = ["10-planner-architect-coder.md#28-origin-attribute-foreign_input_seen-adr-60", "10-planner-architect-coder.md#219-endpoints"]
+built_by = ["2-E01-T12", "3-E01-T08", "4-E01-T03"]
+
+[[provides]]
+name = "provenance-dienst"
+kind = "ts-api"
+title = "ProvenanceService.record and permissionOf: computation of foreign, writing of run_untrusted_inputs, setting of runs.foreign_input_seen"
+defined_in = "10-planner-architect-coder.md#28-origin-attribute-foreign_input_seen-adr-60"
+from_task = "2-E01-T12"
+
+[[provides]]
+name = "untrusted-inputs-endpunkt"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/untrusted-inputs (connection of the UntrustedReporter in the worker)"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T12"
+
+[[provides]]
+name = "mcp-lese-erfassung"
+kind = "ts-api"
+title = "Recording of the contents that the read tools of the platform MCP return (via mcp_tool)"
+defined_in = "10-planner-architect-coder.md#28-origin-attribute-foreign_input_seen-adr-60"
+from_task = "2-E01-T12"
+
+[[provides]]
+name = "tabelle-run-untrusted-inputs"
+kind = "table"
+title = "run_untrusted_inputs (migration 0207)"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E01-T12"
+
+[[provides]]
+name = "admin-api-untrusted-inputs"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/untrusted-inputs"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T12"
+
+[[uses]]
+interface = "agent-step/untrusted-input-record"
+from_task = "2-E01-T12"
+purpose = "Types UntrustedInputRecord and UntrustedSource"
+
+[[uses]]
+interface = "agent-step/untrusted-reporter"
+from_task = "2-E01-T12"
+purpose = "Counterpart of the endpoint to the UntrustedReporter"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "2-E01-T12"
+purpose = "set runs.foreign_input_seen"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E01-T12"
+purpose = "Migration 0207 run_untrusted_inputs"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E01-T12"
+purpose = "Repository run_untrusted_inputs"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "2-E01-T12"
+purpose = "withTenant for writing per tenant"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E01-T12"
+purpose = "getPermission fresh from the provider"
+
+[[uses]]
+interface = "work-api/http-heartbeat"
+from_task = "2-E01-T12"
+purpose = "Lease check of the endpoint like the Work API (lease_expired)"
+
+[[uses]]
+interface = "plattform-mcp/tool-registry"
+from_task = "2-E01-T12"
+purpose = "Recording of the responses of the read tools (via mcp_tool)"
+
+[[uses]]
+interface = "plattform-mcp/item"
+from_task = "2-E01-T12"
+purpose = "item.get and item.comments report their contents"
+
+[[uses]]
+interface = "plattform-mcp/change"
+from_task = "2-E01-T12"
+purpose = "change.get and change.files report PR texts"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E01-T12"
+purpose = "GET /admin/api/v1/runs/{runId}/untrusted-inputs"
+
+[[uses]]
+interface = "ui-run-record/run-record-view"
+from_task = "2-E01-T12"
+purpose = "Source and author of every foreign input in the Run Record"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E01-T12"
+purpose = "Audit provenance.permission_unknown and provenance.report_failed"
+
+[[uses]]
+interface = "service-qa/herkunft"
+from_task = "3-E01-T08"
+purpose = "QAReport.untrustedInputs to ProvenanceService.record"
+
+[[uses]]
+interface = "service-prfixer/herkunft"
+from_task = "4-E01-T03"
+purpose = "FixResult.untrustedInputs to ProvenanceService.record"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "2-E01-T12"
+purpose = "sha256Hex for contentSha256"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E01-T12"
+purpose = "real Postgres per test file for the migrations and repositories"

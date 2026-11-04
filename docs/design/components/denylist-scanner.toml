@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "denylist-scanner"
+title = "Deny list scanner with deny jobs in the CI"
+kind = "tool"
+path = "tools/denylist/"
+stage = "R"
+purpose = "Finds references to companies, persons and hosts, private networks and home paths in tree, history, commits, identities and PR texts, without ever printing a term or the matching text; runs locally, in the CI and before publication. Not the text rules for language and dashes (hooks-und-textpruefung)."
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools", "00-codebase-and-conventions.md#6-security", "00-codebase-and-conventions.md#211-ci-workflows"]
+built_by = ["R-E02-T08", "R-E03-T02"]
+
+[[provides]]
+name = "scan"
+kind = "cli"
+title = "tools/denylist/scan.py with modes tree, commits --range, history --all, pr; output <location>:<line>:<column> <id> <kind> with term-<sha256[:12]>, generic-<rule> or identity-not-allowed"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T08"
+
+[[provides]]
+name = "make-denylist"
+kind = "cli"
+title = "make denylist and make denylist-history (DENYLIST_FILE, ALLOW_AUTHORS_FILE, DENYLIST_FLAGS)"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E02-T08"
+
+[[provides]]
+name = "deny-liste-format"
+kind = "file"
+title = "Format of the private list (literal, re:, word:) and allow-authors.txt"
+defined_in = "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"
+from_task = "R-E02-T08"
+
+[[provides]]
+name = "ausnahmen-und-generisch"
+kind = "file"
+title = "quality/denylist/exceptions.toml (per term hash and line) and generic.toml"
+defined_in = "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"
+from_task = "R-E02-T08"
+
+[[provides]]
+name = "deny-jobs"
+kind = "file"
+title = "Jobs denylist (PRs from the repo without bot author, push, workflow_dispatch) and denylist-fork (forks and bots) in ci.yml, workflow denylist-main.yml without concurrency"
+defined_in = "00-codebase-and-conventions.md#211-ci-workflows"
+from_task = "R-E03-T02"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E02-T08"
+purpose = "scan.py under ruff and mypy, tests with unittest"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E02-T08"
+purpose = "Register the gates denylist and denylist-history"
+
+[[uses]]
+interface = "hooks-und-textpruefung/commit-konvention"
+from_task = "R-E02-T08"
+purpose = "Addresses from quality/commits/bots.txt as allowed mail addresses of the generic rules"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "R-E03-T02"
+purpose = "Insert the jobs denylist and denylist-fork into ci.yml"
+
+[[uses]]
+interface = "ci-workflows/commit-range"
+from_task = "R-E03-T02"
+purpose = "Deny jobs and denylist-main.yml set COMMIT_RANGE from commit_range.py"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "R-E03-T02"
+purpose = "Check the deny jobs and denylist-main.yml against the policy"

@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+name: Documentation
+description: Something in the documentation is wrong, missing or unclear.
+title: "docs: "
+labels: ["status: triage", "type: docs"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: Path of the file or link to the page.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong, missing or unclear
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change

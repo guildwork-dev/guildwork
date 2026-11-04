@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-analyzer-git-cliff"
+title = "Analyzer git-cliff for release notes"
+kind = "plugin"
+path = "plugins/analyzer-git-cliff/"
+package = "@guildwork/plugin-analyzer-git-cliff"
+stage = "10"
+purpose = "Returns version, tag, date, commits and breaking list deterministically from Conventional Commits as a properties bag for the mode release of the docs service. Produces no findings and no prose; version and date never come from a model."
+design = [
+  "15-stage-10-edge-layers.md#236-mode-release-and-analyzer-git-cliff",
+  "15-stage-10-edge-layers.md#263-shared-rules-of-the-three-new-analyzers",
+  "15-stage-10-edge-layers.md#264-an1",
+  "15-stage-10-edge-layers.md#44-release",
+]
+built_by = ["10-E01-T04"]
+
+[[provides]]
+name = "analyzer"
+kind = "contract"
+title = "Analyzer contract v1alpha1: manifestExt, describe, run with GitCliffConfig, AnalyzerReport without findings"
+defined_in = "15-stage-10-edge-layers.md#236-mode-release-and-analyzer-git-cliff"
+from_task = "10-E01-T04"
+
+[[provides]]
+name = "beutel-release-facts"
+kind = "ts-api"
+title = "properties bag guildwork/release-facts@1 (ReleaseFacts) in packages/sarif/src/bags/release-facts.ts"
+defined_in = "15-stage-10-edge-layers.md#232-types"
+from_task = "10-E01-T04"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "GitCliffConfig { tagPattern, requestedVersion, date } and analyzer instance analyzers[git-cliff]"
+defined_in = "15-stage-10-edge-layers.md#236-mode-release-and-analyzer-git-cliff"
+from_task = "10-E01-T04"
+
+[[provides]]
+name = "an1-fixtures"
+kind = "file"
+title = "20 fixture repos under packages/testkit/src/contract/fixtures/analyzer-an1/git-cliff/"
+defined_in = "15-stage-10-edge-layers.md#264-an1"
+from_task = "10-E01-T04"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "10-E01-T04"
+purpose = "Analyzer contract v1alpha1: describe, run, AnalyzerReport"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "10-E01-T04"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "10-E01-T04"
+purpose = "PluginManifest with kind Analyzer, distribution and license"
+
+[[uses]]
+interface = "sarif/sarif-api"
+from_task = "10-E01-T04"
+purpose = "Produce and check SARIF 2.1.0 with run.properties"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "10-E01-T04"
+purpose = "canonicalJson for the AN1 comparison of the bag"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "10-E01-T04"
+purpose = "load as a BuiltinPluginPackage or operator_supplied"
+
+[[uses]]
+interface = "analyzer-runner/analyzer-runner-dienst"
+from_task = "10-E01-T04"
+purpose = "Execution in the tool sandbox without network with the full history"
+
+[[uses]]
+interface = "container-images/images-workflow"
+from_task = "10-E01-T04"
+purpose = "Build the image deploy/images/analyzer-git-cliff by digest"
+
+[[uses]]
+interface = "release-werkzeuge/image-lizenz-gate"
+from_task = "10-E01-T04"
+purpose = "License gate of the image before distribution bundled"
+
+[[uses]]
+interface = "lizenz-gate/toolchain-md"
+from_task = "10-E01-T04"
+purpose = "License of git-cliff with source location"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "10-E01-T04"
+purpose = "Contract suite of the kind Analyzer with error cases"
+
+[[uses]]
+interface = "contract-harness/an1-suite"
+from_task = "10-E01-T04"
+purpose = "AN1 against the direct call of the same tool version"

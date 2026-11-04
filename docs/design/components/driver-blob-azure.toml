@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "driver-blob-azure"
+title = "BlobStore azure-blob"
+kind = "driver"
+path = "drivers/blob-azure/"
+package = "@guildwork/driver-blob-azure"
+stage = "0b"
+purpose = "Driver BlobStore azure-blob with PRESIGN via user delegation SAS, VERSIONING and OBJECT_LOCK via version-level immutability, sign-in only via DefaultAzureCredential, plus recording and replay for Azure SDK clients in the testkit (FE-628); connection string only for Azurite in tests."
+design = ["06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault", "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"]
+built_by = ["0b-E01-T01", "0b-E01-T02", "0b-E01-T03", "0b-E01-T05"]
+
+[[provides]]
+name = "coverage"
+kind = "file"
+title = "drivers/blob-azure/test/COVERAGE.md: each case of the contract suite against Azurite or recording"
+defined_in = "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"
+from_task = "0b-E01-T01"
+
+[[provides]]
+name = "azure-recorder"
+kind = "ts-api"
+title = "azureRecorder and AzureRecorder (HttpClient record and replay with redaction), scanFixturesForCredentials"
+defined_in = "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"
+from_task = "0b-E01-T02"
+
+[[provides]]
+name = "blobstore-azure-blob"
+kind = "contract"
+title = "BlobStore azure-blob: put, get, list, delete, presignPut, presignGet; capabilities PRESIGN, VERSIONING, OBJECT_LOCK, SSE_KMS none"
+defined_in = "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"
+from_task = "0b-E01-T03"
+
+[[provides]]
+name = "azure-blob-config"
+kind = "config"
+title = "AzureBlobConfig (accountUrl, container, auth, presignTtlMaxS)"
+defined_in = "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"
+from_task = "0b-E01-T03"
+
+[[provides]]
+name = "azure-drivers-workflow"
+kind = "file"
+title = "azure-drivers.yml: contract suites of both Azure drivers against Azurite and recordings"
+defined_in = "06-installation-operations-ui.md#218-check-tools-for-release-portability-and-acceptance"
+from_task = "0b-E01-T03"
+
+[[provides]]
+name = "fixtures-blob"
+kind = "file"
+title = "Redacted recordings against real Azure under drivers/blob-azure/test/fixtures/"
+defined_in = "06-installation-operations-ui.md#215-drivers-azure-blob-and-azure-keyvault"
+from_task = "0b-E01-T05"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "0b-E01-T01"
+purpose = "Cases of the suite blob-store for COVERAGE.md"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0b-E01-T03"
+purpose = "BlobStore v1alpha1"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0b-E01-T03"
+purpose = "DriverManifest with SPDX license"
+
+[[uses]]
+interface = "treiber-lader/konfig-treiber-auswahl"
+from_task = "0b-E01-T03"
+purpose = "blob.driver azure-blob"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "0b-E01-T03"
+purpose = "License gate for the Azure SDK packages"

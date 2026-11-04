@@ -1,0 +1,354 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "db-schema-kern"
+title = "Migrations 0001 to 0008 of the core tables with row-level security"
+kind = "package"
+path = "packages/db/migrations/"
+package = "@guildwork/db"
+stage = "0"
+purpose = "SQL migrations 0001 to 0008 with the core tables of stage 0 (DDL, constraints, indexes, partitioning, append-only protection of the audit) and tenant separation via row-level security. Not here: tables of individual areas and later stages (table directory, each its own migration of the building task), maintenance functions 0009 (db), domain logic of the writers."
+design = ["01-data-model.md#31-conventions", "01-data-model.md#31a-migration-blocks-and-table-directory", "01-data-model.md#32-foundations-tenants-and-identity-migration-0001", "01-data-model.md#33-intake-migration-0002", "01-data-model.md#34-flow-migration-0003", "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004", "01-data-model.md#36-ledger-and-configuration-migration-0005", "01-data-model.md#37-audit-and-merge-gate-migration-0006", "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007", "01-data-model.md#39-row-level-security-migration-0008", "01-data-model.md#6-security"]
+built_by = ["0-E02-T04", "0-E02-T05", "0-E02-T06", "0-E02-T07", "0-E02-T08", "0-E02-T09"]
+
+[[provides]]
+name = "sql-mandanten-funktionen"
+kind = "contract"
+title = "Migration 0001: schema guildwork, empty schema pgboss with default privileges for guildwork_app, role grants, SQL functions current_tenant() and installation_scope() for the policies of all migrations, grant_ops_role() for the optional role guildwork_ops (FE-141)"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.schema-migrations"
+kind = "table"
+title = "Table schema_migrations: applied migrations with checksum and min_app_release (written only by the migrator)"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.schema-state"
+kind = "table"
+title = "Table schema_state: schema version, min_app_release, state machine versions (start check, ADR-67)"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.tenants"
+kind = "table"
+title = "Table tenants: tenants: one installation tenant and one per org, drain switch, deletion"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.plugin-instances"
+kind = "table"
+title = "Table plugin_instances: plugin instances with manifest, attestation, state, capabilities, health"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.identities"
+kind = "table"
+title = "Table identities: identities at the provider (stable ID, login for display only, deletion)"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.identity-links"
+kind = "table"
+title = "Table identity_links: link between work item and SCM identity, confirmed only via OAuth"
+defined_in = "01-data-model.md#32-foundations-tenants-and-identity-migration-0001"
+from_task = "0-E02-T04"
+
+[[provides]]
+name = "tabelle.inbox"
+kind = "table"
+title = "Table inbox: durable inbox of incoming deliveries with signature check and quarantine (FE-124)"
+defined_in = "01-data-model.md#33-intake-migration-0002"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.events"
+kind = "table"
+title = "Table events: normalized events, partitioned monthly, with routing state"
+defined_in = "01-data-model.md#33-intake-migration-0002"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.event-dedupe"
+kind = "table"
+title = "Table event_dedupe: dedupe keys across partition boundaries with expiry"
+defined_in = "01-data-model.md#33-intake-migration-0002"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.runs"
+kind = "table"
+title = "Table runs: runs with all run states, optimistic version, Run Record fields, trigger with or without event and effect_sink (FE-139); check constraints runs_state_check and runs_object_kind_check with fixed names (FE-138)"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.run-transitions"
+kind = "table"
+title = "Table run_transitions: history of the transitions per run with idempotency key"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.run-object-locks"
+kind = "table"
+title = "Table run_object_locks: object lock per object and service (unique partial index, FE-115)"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.run-followups"
+kind = "table"
+title = "Table run_followups: merged follow-up job per object and service"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.run-steer-messages"
+kind = "table"
+title = "Table run_steer_messages: steering instructions @agent say until delivery"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.steps"
+kind = "table"
+title = "Table steps: steps of a run with step name, attempt and valid result; parallel steps per stage allowed (FE-140)"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.work-items"
+kind = "table"
+title = "Table work_items: work items with envelope, requirements, pool, blocking reason"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.leases"
+kind = "table"
+title = "Table leases: leases with item token identifier, expiry, heartbeat, usage state"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.status-comments"
+kind = "table"
+title = "Table status_comments: status comment per object with compare-and-swap version (FE-116)"
+defined_in = "01-data-model.md#34-flow-migration-0003"
+from_task = "0-E02-T05"
+
+[[provides]]
+name = "tabelle.policy-decisions"
+kind = "table"
+title = "Table policy_decisions: policy decisions with rule ID and hash of the inputs"
+defined_in = "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"
+from_task = "0-E02-T06"
+
+[[provides]]
+name = "tabelle.effects"
+kind = "table"
+title = "Table effects: effect outbox with idempotency key, ordering per target, shadow reason, SHA chain"
+defined_in = "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"
+from_task = "0-E02-T06"
+
+[[provides]]
+name = "tabelle.approvals"
+kind = "table"
+title = "Table approvals: approvals G1, G4, G5 with bound plan or SHA"
+defined_in = "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"
+from_task = "0-E02-T06"
+
+[[provides]]
+name = "tabelle.artifacts"
+kind = "table"
+title = "Table artifacts: artifact references with kind, domain type, version, rescan"
+defined_in = "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"
+from_task = "0-E02-T06"
+
+[[provides]]
+name = "tabelle.findings"
+kind = "table"
+title = "Table findings: findings with identity via repo, change, fingerprint and state (ADR-11)"
+defined_in = "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"
+from_task = "0-E02-T06"
+
+[[provides]]
+name = "tabelle.finding-feedback"
+kind = "table"
+title = "Table finding_feedback: feedback signals on findings, append-only"
+defined_in = "01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"
+from_task = "0-E02-T06"
+
+[[provides]]
+name = "tabelle.config-snapshots"
+kind = "table"
+title = "Table config_snapshots: effective configuration per run, deduplicated via hash"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.config-last-valid"
+kind = "table"
+title = "Table config_last_valid: last valid version per configuration file (ADR-65)"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.repo-overrides"
+kind = "table"
+title = "Table repo_overrides: repo overrides from orchestrator and admin, one active per key"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.buckets"
+kind = "table"
+title = "Table buckets: ledger buckets per key, metric and window; check constraint buckets_key_kind_check with fixed name (FE-138)"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.reservations"
+kind = "table"
+title = "Table reservations: reservations per run and step with expiry"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.reservation-lines"
+kind = "table"
+title = "Table reservation_lines: reservation shares per bucket"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.usage"
+kind = "table"
+title = "Table usage: raw usage counters per model, partitioned monthly (FE-122)"
+defined_in = "01-data-model.md#36-ledger-and-configuration-migration-0005"
+from_task = "0-E02-T07"
+
+[[provides]]
+name = "tabelle.audit"
+kind = "table"
+title = "Table audit: audit chain, partitioned, append-only; writing only via the SQL functions audit_head and audit_insert (FE-125, FE-127)"
+defined_in = "01-data-model.md#37-audit-and-merge-gate-migration-0006"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.audit-anchors"
+kind = "table"
+title = "Table audit_anchors: daily anchors of the audit chain, installation-wide"
+defined_in = "01-data-model.md#37-audit-and-merge-gate-migration-0006"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.merge-gate-decisions"
+kind = "table"
+title = "Table merge_gate_decisions: merge gate decisions, append-only except for superseded_by"
+defined_in = "01-data-model.md#37-audit-and-merge-gate-migration-0006"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.pools"
+kind = "table"
+title = "Table pools: worker pools from installation.yaml"
+defined_in = "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.workers"
+kind = "table"
+title = "Table workers: pool key per worker as SHA-256 (04 FE-412)"
+defined_in = "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.backup-runs"
+kind = "table"
+title = "Table backup_runs: backup runs, installation-wide (backup gate, alarm backup_failed)"
+defined_in = "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.blob-refs"
+kind = "table"
+title = "Table blob_refs: directory of all BlobStore objects with retention period, Object Lock, evidence hold"
+defined_in = "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "tabelle.issued-jwts"
+kind = "table"
+title = "Table issued_jwts: single-use JWT identifiers for the WIF exchange"
+defined_in = "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007"
+from_task = "0-E02-T08"
+
+[[provides]]
+name = "rls"
+kind = "contract"
+title = "Migration 0008: policy tenant_isolation with FORCE on every table with tenant_id, policy tenant_self, privileges of installation-wide tables (table in section 3.9, also job_outbox); pattern for every later migration (policy in the same file)"
+defined_in = "01-data-model.md#39-row-level-security-migration-0008"
+from_task = "0-E02-T09"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E02-T04"
+purpose = "File format with header lines for 0001 to 0008"
+
+[[uses]]
+interface = "db-migrator/migrator"
+from_task = "0-E02-T04"
+purpose = "Apply migrations in tests (migrator.runs_as_non_superuser)"
+
+[[uses]]
+interface = "db-migrator/test-rueckruf"
+from_task = "0-E02-T04"
+purpose = "migrateForTests for the constraint tests"
+
+[[uses]]
+interface = "db-migrator/tabellenverzeichnis"
+from_task = "0-E02-T04"
+purpose = "Numbers 0001 to 0008 in the block of stage 0"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E02-T04"
+purpose = "Test connections as guildwork_owner and guildwork_app"
+
+[[uses]]
+interface = "db/sperren"
+from_task = "0-E02-T08"
+purpose = "AUDIT_CHAIN_LOCK as a number in audit_head and audit_insert"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E02-T09"
+purpose = "RLS tests with withTenant, withInstallationScope and inInstallationScope"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E02-T04"
+purpose = "Postgres 17 and 18 for the migration tests"
+
+[[uses]]
+interface = "testkit/postgres-rollen"
+from_task = "0-E02-T04"
+purpose = "Roles guildwork_owner and guildwork_app in the test database"
+
+[[uses]]
+interface = "testkit/integration-setup"
+from_task = "0-E02-T04"
+purpose = "migrated template gw_template per test file"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E02-T04"
+purpose = "UUIDv7 for test rows (FE-103, without DB default)"

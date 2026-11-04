@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "tofu-cloud-module"
+title = "OpenTofu modules aws, gcp, hetzner and host preparation as cloud-init"
+kind = "delivery"
+path = "deploy/tofu/"
+stage = "8"
+purpose = "OpenTofu modules for the bases aws, gcp and hetzner as well as the module host-prepare, which renders host-prepare.sh as a cloud-init part (FE-1232), with a check that no secret is a variable or output. Not included: the modules generic-vm and azure (stage 0b) and real applies (owner, prozess-abnahme-stufe-8)."
+design = [
+  "13-stage-8-providers-and-bases.md#245-host-preparation-host-prepare",
+  "13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner",
+  "13-stage-8-providers-and-bases.md#84-bases-8-e04",
+]
+built_by = ["8-E04-T06", "8-E04-T07", "8-E04-T08", "8-E04-T09"]
+
+[[provides]]
+name = "modul-host-prepare"
+kind = "config"
+title = "deploy/tofu/host-prepare: variables guildwork_version, bundle_sha256, isolation, kvm, role, supported_distros; output cloud_init_part (without secret) for generic-vm and the target modules"
+defined_in = "13-stage-8-providers-and-bases.md#245-host-preparation-host-prepare"
+from_task = "8-E04-T06"
+
+[[provides]]
+name = "modul-aws"
+kind = "config"
+title = "deploy/tofu/aws: shared variables and outputs (admin_url, db_endpoint, bucket_name, secret_store_ref, item_role_ref etc.), control_plane_platform with default vm; item role for Bedrock"
+defined_in = "13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"
+from_task = "8-E04-T07"
+
+[[provides]]
+name = "pruefung-no-secret-io"
+kind = "cli"
+title = "tools/tofu/no_secret_io.py: no variable and no output whose name or description points to a secret or which is sensitive; part of tofu.yml"
+defined_in = "13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"
+from_task = "8-E04-T07"
+
+[[provides]]
+name = "modul-gcp"
+kind = "config"
+title = "deploy/tofu/gcp: shared variables and outputs, control_plane_platform with default vm; item service account for Vertex, worker pool on Intel"
+defined_in = "13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"
+from_task = "8-E04-T08"
+
+[[provides]]
+name = "modul-hetzner"
+kind = "config"
+title = "deploy/tofu/hetzner: shared variables and outputs, cloud server with generic-vm and host-prepare, Object Storage via s3; microvm only on dedicated servers"
+defined_in = "13-stage-8-providers-and-bases.md#246-opentofu-aws-gcp-and-hetzner"
+from_task = "8-E04-T09"
+
+[[uses]]
+interface = "compose-buendel/host-prepare"
+from_task = "8-E04-T06"
+purpose = "Run host-prepare.sh from the release bundle"
+
+[[uses]]
+interface = "release-werkzeuge/buendel"
+from_task = "8-E04-T06"
+purpose = "Bundle and checksum bundle_sha256"
+
+[[uses]]
+interface = "worker-paket/systemd-einheit"
+from_task = "8-E04-T06"
+purpose = "role worker: systemd unit of the worker package"
+
+[[uses]]
+interface = "tofu-generic-vm/modul-generic-vm"
+from_task = "8-E04-T06"
+purpose = "cloud_init_part as multipart cloud-init in generic-vm"
+
+[[uses]]
+interface = "tofu-generic-vm/tofu-workflow"
+from_task = "8-E04-T06"
+purpose = "Modules run in tofu.yml (fmt, validate, test, plan)"
+
+[[uses]]
+interface = "driver-blob-s3/konfig"
+from_task = "8-E04-T07"
+purpose = "S3 bucket as blob driver s3"
+
+[[uses]]
+interface = "driver-secret-aws-secretsmanager/konfig"
+from_task = "8-E04-T07"
+purpose = "Output secret_store_ref for the driver aws-secretsmanager"
+
+[[uses]]
+interface = "driver-identity-aws/konfig"
+from_task = "8-E04-T07"
+purpose = "Item role for Bedrock as item_role_ref"
+
+[[uses]]
+interface = "driver-blob-gcs/konfig"
+from_task = "8-E04-T08"
+purpose = "GCS bucket for the driver gcs"
+
+[[uses]]
+interface = "driver-secret-gcp-secretmanager/konfig"
+from_task = "8-E04-T08"
+purpose = "Output secret_store_ref for the driver gcp-secretmanager"
+
+[[uses]]
+interface = "driver-identity-gcp/konfig"
+from_task = "8-E04-T08"
+purpose = "Item service account for Vertex as item_role_ref"
+
+[[uses]]
+interface = "compose-buendel/compose-yaml"
+from_task = "8-E04-T09"
+purpose = "Control plane as Compose bundle with Postgres in the bundle"
+
+[[uses]]
+interface = "driver-secret-file/konfig"
+from_task = "8-E04-T09"
+purpose = "SecretStore file on the server"
+
+[[uses]]
+interface = "driver-identity-self-issuer/konfig"
+from_task = "8-E04-T09"
+purpose = "Identity self-issuer without cloud identity"

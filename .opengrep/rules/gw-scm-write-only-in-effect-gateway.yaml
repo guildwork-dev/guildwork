@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Only the executors of the Effect Gateway import the write code of a plugin
+# (ADR-06, FE-030). Plugins export their write methods only through the subpath
+# `./write` (`@guildwork/plugin-<name>/write`, sources in plugins/<name>/src/write/).
+# Relative imports are matched by their text: a path through plugins/<name>/src/write/,
+# or a write/ directory next to or above the importing file. Tests:
+# .opengrep/tests/gw-scm-write-only-in-effect-gateway/ (make opengrep).
+rules:
+  - id: gw-scm-write-only-in-effect-gateway
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      The write subpath of a plugin may only be imported by the executors of the
+      Effect Gateway (apps/control-plane/src/effects/executors/) and by the plugin's
+      own tests (ADR-06, FE-030). Propose an effect instead of writing directly.
+    paths:
+      exclude:
+        - "apps/control-plane/src/effects/executors/**"
+        - "plugins/*/test/**"
+        - "plugins/*/**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: import "$MOD"
+          - pattern: export * from "$MOD"
+          - pattern: export {...} from "$MOD"
+          - pattern: import("$MOD")
+          - pattern: require("$MOD")
+      - metavariable-regex:
+          metavariable: $MOD
+          regex: ^(@guildwork/plugin-[^/]+/write|(\./|(\.\./)+)write|.*(^|/)plugins/[^/]+/src/write)(/.*)?$

@@ -1,0 +1,168 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "limit-ledger"
+title = "Limit ledger: buckets, reservation, consumption, settlement, time windows"
+kind = "role"
+path = "apps/control-plane/src/ledger/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Hard limit for costs, runs, tokens and parallelism: key chain and buckets from the snapshot, atomic reservation across all keys before the run, booking of cumulative usage during the run with abort, settlement and release afterwards. Does not start or end runs itself; it reports budget_exhausted to the orchestrator."
+design = [
+  "02-control-plane.md#48-limit-ledger",
+  "02-control-plane.md#22-public-interfaces",
+]
+built_by = [
+  "0-E07-T01",
+  "0-E07-T02",
+  "0-E07-T03",
+  "0-E07-T04",
+  "0-E07-T05",
+  "0-E07-T06",
+  "8-E06-T01",
+  "10-E05-T01",
+]
+
+[[provides]]
+name = "schluesselkette"
+kind = "ts-api"
+title = "keyChain(snapshot, KeyChainInput), ensureBuckets, BucketKey, BucketKeyKind (FE-260); from 10-E05-T01 key campaign (FE-266)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E07-T01"
+
+[[provides]]
+name = "reserve"
+kind = "ts-api"
+title = "createLedger, Ledger.reserve(ReservationRequest): ReservationResult, Ledger.status: BucketStatus[] (FE-261); from 8-E06-T01 estimate from PriceLookup (FE-266)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E07-T02"
+
+[[provides]]
+name = "usage"
+kind = "ts-api"
+title = "Ledger.recordUsage(UsageReport): cumulative per lease, response cancel when exceeded, CostSource (FE-262)"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E07-T03"
+
+[[provides]]
+name = "settle"
+kind = "ts-api"
+title = "Ledger.settle and Ledger.release: settlement with runs.cost_usd, release on cancelled, expired, failed, paused_budget"
+defined_in = "02-control-plane.md#22-public-interfaces"
+from_task = "0-E07-T04"
+
+[[provides]]
+name = "ledger-queues"
+kind = "queue"
+title = "Queues ledger-settle (payload { tenantId, reservationId }) and ledger-expire (sweeper every 5 minutes)"
+defined_in = "02-control-plane.md#3-data"
+from_task = "0-E07-T04"
+
+[[provides]]
+name = "konfig-ledger"
+kind = "config"
+title = "ledger.estimate.tokens_per_turn, ledger.reservation_ttl_factor; evaluation of limits.* according to the table in 4.8"
+defined_in = "02-control-plane.md#48-limit-ledger"
+from_task = "0-E07-T02"
+
+[[provides]]
+name = "metriken"
+kind = "metric"
+title = "guildwork.ledger.rejected, guildwork.ledger.cancel, guildwork.ledger.fill_ratio, guildwork.run.cost, guildwork.run.tokens"
+defined_in = "02-control-plane.md#51-metrics-of-this-area"
+from_task = "0-E07-T04"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "0-E07-T01"
+purpose = "EffectiveConfig with limits.* as the source of the key chain and the limits"
+
+[[uses]]
+interface = "db/connect"
+from_task = "0-E07-T01"
+purpose = "Tx of the caller for ensureBuckets, reserve, recordUsage, settle, release"
+
+[[uses]]
+interface = "db/repos"
+from_task = "0-E07-T01"
+purpose = "Repositories buckets, reservations, reservation_lines, usage"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.buckets"
+from_task = "0-E07-T01"
+purpose = "Bucket per key, metric and window with limit_value and source_snapshot_hash"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "0-E07-T02"
+purpose = "inInstallationScope(tx, ledger) for pool buckets at the installation tenant (FE-261)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservations"
+from_task = "0-E07-T02"
+purpose = "Reservation held or rejected with bucket and metric"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservation-lines"
+from_task = "0-E07-T02"
+purpose = "Share per bucket, consumed during the run"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E07-T02"
+purpose = "Clock for window start, expires_at and rolling window"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E07-T02"
+purpose = "Counters guildwork.ledger.rejected and cancel, gauge fill_ratio, histograms run.cost and run.tokens"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E07-T01"
+purpose = "Ledger tests against real Postgres, parallel reservations"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "0-E07-T05"
+purpose = "FakeClock for window changes and the month boundary in UTC"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "0-E07-T05"
+purpose = "Rolling 5 hour window over usage with bucket_keys; from 0-E07-T03 write usage rows"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.leases"
+from_task = "0-E07-T03"
+purpose = "Delta against leases.usage_reported (FE-262)"
+
+[[uses]]
+interface = "control-plane-orchestrator/orchestrator-event"
+from_task = "0-E07-T03"
+purpose = "RunEvent budget_exhausted and, after a failed settlement, error_after_retries to the run (FE-265)"
+
+[[uses]]
+interface = "db-queue/send-in-tx"
+from_task = "0-E07-T03"
+purpose = "Send the RunEvent in the transaction of the booking"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "0-E07-T04"
+purpose = "set runs.cost_usd when settling"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "0-E07-T04"
+purpose = "Audit ledger.reservation_expired and ledger.settlement_retried"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E07-T04"
+purpose = "Job type of the handlers ledger-settle and ledger-expire"
+
+[[uses]]
+interface = "pricing/price-lookup"
+from_task = "8-E06-T01"
+purpose = "createLedger({ prices }): USD of the reservation from the price table, at most usd_run (13 FE-1363)"

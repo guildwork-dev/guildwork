@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "worker-harness-umgebung"
+title = "Harness environment from allowlist and start path subscription in the worker"
+kind = "role"
+path = "apps/worker/src/harness/"
+package = "@guildwork/worker"
+stage = "0"
+area = "03"
+purpose = "Builds in the worker the environment of the harness process from an empty environment and an allowlist per credential kind, reads the subscription token per item from the host file of the operator and gives the runtime the harness cache directory of the worker host (copied in via copyIn, FE-333). Does not start the harness itself (that is done by the runtime plugin via the item lifecycle) and stores no credential."
+design = [
+  "03-execution.md#211-harness-environment-and-start-path-subscription-worker-side",
+  "03-execution.md#27-sandbox-executionbackend-docker-sysbox-and-docker-gvisor",
+  "03-execution.md#2111-runtime-and-modelprovider-in-the-worker-05-fe-550-fe-551-fe-339",
+]
+built_by = ["0-E12-T08"]
+
+[[provides]]
+name = "build-harness-env"
+kind = "ts-api"
+title = "buildHarnessEnv(HarnessEnvInput): environment from allowlist per credential kind, runtimeExtra checked against credential patterns; called from the spawn wrapper for AgentRuntime and ModelProvider (05 FE-550); kinds of stage 8 per 13 section 2.2.5 (FE-1323)"
+defined_in = "03-execution.md#211-harness-environment-and-start-path-subscription-worker-side"
+from_task = "0-E12-T08"
+
+[[provides]]
+name = "read-subscription-token"
+kind = "ts-api"
+title = "readSubscriptionToken(WorkerConfig): read token file per item with check of owner, mode and format (TokenFileError)"
+defined_in = "03-execution.md#211-harness-environment-and-start-path-subscription-worker-side"
+from_task = "0-E12-T08"
+
+[[provides]]
+name = "harness-cache"
+kind = "ts-api"
+title = "harness/cache.ts: check the harness cache directory runtimes.claude_code.cache_dir (in the Compose bundle fixed as the volume harness-cache under /var/lib/guildwork/harness, FE-343) and give it to the runtime; into the sandbox via copyIn, no mount (FE-333)"
+defined_in = "03-execution.md#27-sandbox-executionbackend-docker-sysbox-and-docker-gvisor"
+from_task = "0-E12-T08"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "0-E12-T08"
+purpose = "runtimes.claude_code.subscription_token_file, runtimes.claude_code.cache_dir and single_operator from WorkerConfig"
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E12-T08"
+purpose = "CredentialKind as key of the allowlist"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "0-E12-T08"
+purpose = "Subscription token only as SecretValue"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E12-T08"
+purpose = "Result with TokenFileError"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E12-T08"
+purpose = "Log check errors of the token file without content"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "0-E12-T08"
+purpose = "exec and spawn with env in the sandbox; harness via copyIn in the test"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "0-E12-T08"
+purpose = "Secret scan over envelope, result, artifacts and logs"
+
+[[provides]]
+name = "spawn-huelle"
+kind = "ts-api"
+title = "wrapSandbox(sb, SpawnWrapContext): wrapper of the SandboxHandle whose spawn with role agent passes CLAUDE_CONFIG_DIR as configDir and the rest as runtimeExtra to buildHarnessEnv, token from readSubscriptionToken (05 FE-550, FE-339)"
+defined_in = "03-execution.md#2111-runtime-and-modelprovider-in-the-worker-05-fe-550-fe-551-fe-339"
+from_task = "0-E12-T08"

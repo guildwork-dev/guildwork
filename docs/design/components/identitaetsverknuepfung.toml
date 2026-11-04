@@ -1,0 +1,205 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "identitaetsverknuepfung"
+title = "identity_links via OAuth confirmation with a UI page"
+kind = "role"
+path = "apps/control-plane/src/identity/"
+package = "@guildwork/control-plane"
+stage = "8"
+purpose = "Links an account of a ticket system (Jira) with an SCM account (GitHub) only through OAuth confirmation of both sides by the user themselves, with the page Link accounts, revocation and audit (FE-1225, FE-1312, FE-1313). Not included: the permission AND check in the router, which only calls resolve, and the base model of the tables identities and identity_links (01)."
+design = [
+  "13-stage-8-providers-and-bases.md#216-identity-linking",
+  "13-stage-8-providers-and-bases.md#43-identity-linking",
+  "13-stage-8-providers-and-bases.md#32-tables-of-stage-8",
+]
+built_by = ["8-E01-T07"]
+
+[[provides]]
+name = "identity-link-service"
+kind = "ts-api"
+title = "IdentityLinkService: start, callback, resolve(workItemInstance, accountId) only active ones, listOwn, listAll, revoke; types IdentityLink, IdentityLinkStep, IdentityLinkError, OAuthIdentityClient"
+defined_in = "13-stage-8-providers-and-bases.md#216-identity-linking"
+from_task = "8-E01-T07"
+
+[[provides]]
+name = "http-identity-links"
+kind = "http"
+title = "Admin API /admin/api/v1/identity-links: GET own ones or scope=all, POST /flows starts a flow, DELETE /{id} revokes with a reason"
+defined_in = "13-stage-8-providers-and-bases.md#216-identity-linking"
+from_task = "8-E01-T07"
+
+[[provides]]
+name = "http-oauth-rueckruf"
+kind = "http"
+title = "Browser callbacks GET /admin/oauth/identity-link/atlassian/callback and /github/callback with code and state"
+defined_in = "13-stage-8-providers-and-bases.md#216-identity-linking"
+from_task = "8-E01-T07"
+
+[[provides]]
+name = "ui-konten-verknuepfen"
+kind = "ui"
+title = "Admin UI page Link accounts under /admin/identity-link (start, own links, revocation; all of them for admin) with error pages; target of the link on identity_not_linked"
+defined_in = "13-stage-8-providers-and-bases.md#216-identity-linking"
+from_task = "8-E01-T07"
+
+[[provides]]
+name = "tabelle-identity-link-flows"
+kind = "table"
+title = "identity_link_flows (open flows, at most 15 minutes) and column identity_links.revoked_by, migration 0801_identity_links.sql"
+defined_in = "13-stage-8-providers-and-bases.md#32-tables-of-stage-8"
+from_task = "8-E01-T07"
+
+[[provides]]
+name = "konfig-identity-link"
+kind = "config"
+title = "identity_link.oauth.atlassian, identity_link.oauth.github (client_id_ref, client_secret_ref) and identity_link.flow_ttl_s; without OAuth values or without WRITE on the SecretStore the page is off"
+defined_in = "13-stage-8-providers-and-bases.md#7-configuration"
+from_task = "8-E01-T07"
+
+[[provides]]
+name = "audit-identity-link"
+kind = "event"
+title = "Audit identity.link_started, identity.linked, identity.link_failed, identity.revoked"
+defined_in = "13-stage-8-providers-and-bases.md#34-events-and-audit-actions"
+from_task = "8-E01-T07"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "8-E01-T07"
+purpose = "Upsert of the Jira and GitHub identity via (plugin_instance_id, provider_user_id)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identity-links"
+from_task = "8-E01-T07"
+purpose = "Create, resolve and revoke the link; column revoked_by via expand"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.plugin-instances"
+from_task = "8-E01-T07"
+purpose = "WorkItemProvider and SCM instance of the flow"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.tenants"
+from_task = "8-E01-T07"
+purpose = "Tenant of the flow row"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "8-E01-T07"
+purpose = "Migration 0801_identity_links.sql in block 0800"
+
+[[uses]]
+interface = "migration-lint/lint"
+from_task = "8-E01-T07"
+purpose = "Migration 0801 passes migration-lint"
+
+[[uses]]
+interface = "db/repos"
+from_task = "8-E01-T07"
+purpose = "Access to identities, identity_links and identity_link_flows"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "8-E01-T07"
+purpose = "Queries under withTenant"
+
+[[uses]]
+interface = "db/wartung"
+from_task = "8-E01-T07"
+purpose = "Deletion rule for identity_link_flows after expires_at plus 1 day in runRetention"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "8-E01-T07"
+purpose = "Endpoints /admin/api/v1/identity-links and OAuth callbacks"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "8-E01-T07"
+purpose = "AdminSession, AdminRole and Problem responses"
+
+[[uses]]
+interface = "admin-api/auth-oidc"
+from_task = "8-E01-T07"
+purpose = "link only OIDC sessions, never the emergency admin (FE-1313)"
+
+[[uses]]
+interface = "admin-api/admin-sessions"
+from_task = "8-E01-T07"
+purpose = "Binding of the flow to the session via SHA-256 of the session ID"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "8-E01-T07"
+purpose = "Page Link accounts under /admin/identity-link"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "8-E01-T07"
+purpose = "Typed client of the new endpoints"
+
+[[uses]]
+interface = "admin-ui/ui-e2e-grundlage"
+from_task = "8-E01-T07"
+purpose = "UI test of the flow with a test IdP"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "8-E01-T07"
+purpose = "SecretStore with capability WRITE for the PKCE verifier"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "8-E01-T07"
+purpose = "put for storing and overwriting the verifier"
+
+[[uses]]
+interface = "credential-broker/secrets"
+from_task = "8-E01-T07"
+purpose = "Resolve client_id_ref and client_secret_ref of the OAuth apps"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "8-E01-T07"
+purpose = "Audit identity.link_started, linked, link_failed, revoked"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "8-E01-T07"
+purpose = "Keys identity_link.* in installation.yaml"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "8-E01-T07"
+purpose = "SHA-256 of the session and the OIDC subject"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "8-E01-T07"
+purpose = "state from 32 random bytes and expiry time"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "8-E01-T07"
+purpose = "User token only as SecretValue in exchange"
+
+[[uses]]
+interface = "cli-doctor/doctor-check"
+from_task = "8-E01-T07"
+purpose = "doctor names the reason when the page is off (FE-1309)"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "8-E01-T07"
+purpose = "Integration tests with a real database"
+
+[[uses]]
+interface = "testkit/test-idp"
+from_task = "8-E01-T07"
+purpose = "OIDC session in the test"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "8-E01-T07"
+purpose = "Secret scan after a link finds no user token"

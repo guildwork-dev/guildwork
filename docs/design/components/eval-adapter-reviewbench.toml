@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-adapter-reviewbench"
+title = "Adapter ReviewBench"
+kind = "eval"
+path = "eval/adapters/reviewbench/"
+package = "@guildwork/eval-adapter-reviewbench"
+stage = "0"
+purpose = "Maps review cases (repo at head, base, diff) to a PR fixture of a platform run and translates recorded inline findings into findings.json per the ReviewBench container contract; serves R2, R4, R5 and own review sets. Not for scoring (scorers of the sets) and not for the reviewer-specific adapter from stage 1."
+design = [
+  "07-eval-and-qualification.md#24-adapter-reviewbench",
+  "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values",
+]
+built_by = ["0-E20-T11"]
+
+[[provides]]
+name = "adapter"
+kind = "ts-api"
+title = "ReviewBenchAdapter (prepare, collect, runContainerContract) and ReviewFinding"
+defined_in = "07-eval-and-qualification.md#24-adapter-reviewbench"
+from_task = "0-E20-T11"
+
+[[provides]]
+name = "findings-json"
+kind = "file"
+title = "findings.json with file, start_line, end_line, message (optional fields unverified until 0-E20-T27)"
+defined_in = "07-eval-and-qualification.md#24-adapter-reviewbench"
+from_task = "0-E20-T11"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "0-E20-T11"
+purpose = "EvalAdapter, PrepareCtx and RecordedEffect"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T11"
+purpose = "EvalCase and CaseInput pull_request"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E20-T11"
+purpose = "Result of prepare and collect"
+
+[[uses]]
+interface = "eval-fixture-provider/pr-fixture"
+from_task = "0-E20-T11"
+purpose = "PR fixture as the result of prepare"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "0-E20-T11"
+purpose = "Read the payload propose_comment with position in collect"

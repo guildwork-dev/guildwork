@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-suites"
+title = "Cross-cutting cases of the reviewer S1, S2, S4, S6, S8 and operator mode"
+kind = "eval"
+path = "services/reviewer/test/suites/"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Cases of the reviewer in the cross-cutting suites (injection, permissions, switched on alone, failure paths, installation and upgrade) and in the personal operator mode, as well as the permission tests against the real test app, from stage 6 on with approve. Does not provide the suite scaffold itself (that comes from 0-E22)."
+design = [
+  "08-reviewer.md#83-cross-cutting-suites",
+  "08-reviewer.md#5-failure-and-abort-paths",
+  "08-reviewer.md#87-permission-test",
+  "09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases",
+]
+built_by = ["1-E10-T01", "1-E10-T02", "1-E10-T03", "1-E10-T04", "1-E10-T05", "1-E10-T06", "1-E10-T07", "1-E10-T08", "6-E07-T07"]
+
+[[provides]]
+name = "s1-faelle"
+kind = "contract"
+title = "S1 cases s1.reviewer.* (injection via PR text, code, commit, CI log, SARIF; head CLAUDE.md; exfiltration)"
+defined_in = "08-reviewer.md#83-cross-cutting-suites"
+from_task = "1-E10-T01"
+
+[[provides]]
+name = "s2-faelle"
+kind = "contract"
+title = "S2 cases s2.reviewer.* (foreign trigger, fork without build, rejection on load, at most shadow)"
+defined_in = "08-reviewer.md#83-cross-cutting-suites"
+from_task = "1-E10-T02"
+
+[[provides]]
+name = "s4-faelle"
+kind = "contract"
+title = "S4 cases s4.reviewer.alone_on_* including subscription with gate and verifier via claude-cli"
+defined_in = "08-reviewer.md#83-cross-cutting-suites"
+from_task = "1-E10-T03"
+
+[[provides]]
+name = "betreiber-faelle"
+kind = "contract"
+title = "S1 and S2 cases of the personal operator mode s1.operator.*, s2.operator.*"
+defined_in = "08-reviewer.md#83-cross-cutting-suites"
+from_task = "1-E10-T04"
+
+[[provides]]
+name = "s6-faelle"
+kind = "contract"
+title = "S6 cases s6.reviewer.<line> per row of the failure path table with coverage list"
+defined_in = "08-reviewer.md#5-failure-and-abort-paths"
+from_task = "1-E10-T05"
+
+[[provides]]
+name = "rechte-test"
+kind = "contract"
+title = "Permission tests rights.* against the real test app with a recording for CI"
+defined_in = "08-reviewer.md#87-permission-test"
+from_task = "1-E10-T07"
+
+[[provides]]
+name = "s8-faelle"
+kind = "contract"
+title = "S8 cases s8.smoke_review_shadow, s8.upgrade_keeps_findings, s8.restore_keeps_review_state"
+defined_in = "08-reviewer.md#83-cross-cutting-suites"
+from_task = "1-E10-T08"
+
+[[provides]]
+name = "rechte-test-approve"
+kind = "contract"
+title = "Permission tests rights/approve-* against the real app (stage 6)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"
+from_task = "6-E07-T07"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "1-E10-T01"
+purpose = "defineSuiteCase for the cases s1.reviewer.*"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "1-E10-T01"
+purpose = "Required cases in s1.yaml to s8.yaml"
+
+[[uses]]
+interface = "eval-querschnitts-suites/sonden"
+from_task = "1-E10-T01"
+purpose = "EffectProbe, EgressProbe, SecretScanProbe"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "1-E10-T01"
+purpose = "Stack with webhook fixtures and effects"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "1-E10-T02"
+purpose = "Config from the base SHA, fail closed on an invalid repo file"
+
+[[uses]]
+interface = "config-resolver-regeln/personal-modes"
+from_task = "1-E10-T02"
+purpose = "subscription with verifier.build without operator_test rejected"
+
+[[uses]]
+interface = "config-resolver-regeln/model-reachability"
+from_task = "1-E10-T02"
+purpose = "unreachable model reference rejected"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "1-E10-T02"
+purpose = "changed profile yields at most shadow"
+
+[[uses]]
+interface = "plugin-model-claude-cli/model-provider"
+from_task = "1-E10-T03"
+purpose = "Gate and verifier via claude-cli with subscription"
+
+[[uses]]
+interface = "ui-run-record/run-record-view"
+from_task = "1-E10-T03"
+purpose = "Proof of the providers per role in the Run Record"
+
+[[uses]]
+interface = "config-resolver-regeln/operator-claim"
+from_task = "1-E10-T04"
+purpose = "Checks operator, operator_repos, acknowledge_terms"
+
+[[uses]]
+interface = "worker-harness-umgebung/read-subscription-token"
+from_task = "1-E10-T04"
+purpose = "Subscription token per item for the exfiltration attempt"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "1-E10-T04"
+purpose = "Secret scan over tables, envelopes, snapshots, logs, effects"
+
+[[uses]]
+interface = "plugin-github/app-manifest-flow"
+from_task = "1-E10-T06"
+purpose = "Test app via manifest flow"
+
+[[uses]]
+interface = "plugin-github/mint-token"
+from_task = "1-E10-T07"
+purpose = "Token with profile review for rights.review_profile_cannot_push"
+
+[[uses]]
+interface = "testkit/aufzeichnungsformat"
+from_task = "1-E10-T07"
+purpose = "Recording of the permission test for CI"
+
+[[uses]]
+interface = "portabilitaetstest/smoke"
+from_task = "1-E10-T08"
+purpose = "Smoke review in shadow on a fresh installation"
+
+[[uses]]
+interface = "portabilitaetstest/upgrade-backup-jobs"
+from_task = "1-E10-T08"
+purpose = "Upgrade N-1 to N with reviewer data"
+
+[[uses]]
+interface = "backup-restore/cmd-restore"
+from_task = "1-E10-T08"
+purpose = "s8.restore_keeps_review_state"
+
+[[uses]]
+interface = "prozess-abnahme-stufe-0/release-v0-1-0"
+from_task = "1-E10-T08"
+purpose = "Release of stage 0 as N-1"
+
+[[uses]]
+interface = "plugin-github-scm/approve"
+from_task = "6-E07-T07"
+purpose = "approve only at the head SHA against the real app"
+
+[[uses]]
+interface = "effekt-executoren/approve-human"
+from_task = "6-E07-T07"
+purpose = "Executor approve_human in the permission tests"

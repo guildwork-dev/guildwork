@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "driver-blob-gcs"
+title = "BlobStore gcs"
+kind = "driver"
+path = "drivers/blob-gcs/"
+package = "@guildwork/driver-blob-gcs"
+stage = "8"
+purpose = "Driver of the BlobStore contract for Google Cloud Storage with signed URLs, versioning and retention per bucket setting, sign-in ambient or via the own issuer (FE-1340). No lifecycle management of the bucket; the bucket is created by the OpenTofu module gcp or by the operator."
+design = [
+  "13-stage-8-providers-and-bases.md#241-blobstore-gcs",
+  "13-stage-8-providers-and-bases.md#84-bases-8-e04",
+]
+built_by = ["8-E04-T01"]
+
+[[provides]]
+name = "blobstore"
+kind = "contract"
+title = "BlobStore gcs: put, get, delete, list, presignPut, presignGet; capabilities VERSIONING, OBJECT_LOCK, PRESIGN by probe at init; error mapping; contract attestation"
+defined_in = "13-stage-8-providers-and-bases.md#241-blobstore-gcs"
+from_task = "8-E04-T01"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "blob with driver gcs: GcsBlobConfig (bucket, prefix, auth ambient or self_issuer, presign.serviceAccount)"
+defined_in = "13-stage-8-providers-and-bases.md#241-blobstore-gcs"
+from_task = "8-E04-T01"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "8-E04-T01"
+purpose = "Contract of the driver"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "8-E04-T01"
+purpose = "DriverManifest with capabilities by probe"
+
+[[uses]]
+interface = "treiber-lader/load-drivers"
+from_task = "8-E04-T01"
+purpose = "Loading via loadDrivers with CapabilitySet"
+
+[[uses]]
+interface = "treiber-lader/konfig-treiber-auswahl"
+from_task = "8-E04-T01"
+purpose = "Selection via blob.driver gcs"
+
+[[uses]]
+interface = "treiber-lader/health-source"
+from_task = "8-E04-T01"
+purpose = "health() every 60 s, source of driver_unhealthy"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "8-E04-T01"
+purpose = "Driver suite as loading condition"
+
+[[uses]]
+interface = "contract-harness/kassettenformat"
+from_task = "8-E04-T01"
+purpose = "Recorded responses of the provider"
+
+[[uses]]
+interface = "config-installation/installation-schema"
+from_task = "8-E04-T01"
+purpose = "Schema entry for the driver configuration"
+
+[[uses]]
+interface = "credential-broker/keyring"
+from_task = "8-E04-T01"
+purpose = "source self_issuer: JWT of the own issuer for the exchange at the provider (FE-1340)"
+
+[[uses]]
+interface = "lizenz-gate/make-licenses"
+from_task = "8-E04-T01"
+purpose = "License gate for the SDK of the provider"

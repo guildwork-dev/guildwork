@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "driver-identity-self-issuer"
+title = "CloudIdentity self-issuer with key ring"
+kind = "driver"
+path = "drivers/identity-self-issuer/"
+package = "@guildwork/driver-identity-self-issuer"
+stage = "0"
+purpose = "Own OIDC issuer of the installation: key ring ES256 with next, active, retired in the SecretStore (FE-410, FE-411, FE-427) and ambientToken for federation targets. No exchange for foreign credentials in stage 0 (exchange yields unsupported, FE-424); the HTTP endpoints are provided by the credential broker."
+design = [
+  "04-effects-audit-credentials.md#246-cloudidentity-self-issuer",
+  "04-effects-audit-credentials.md#233-own-oidc-issuer-and-key-ring",
+  "04-effects-audit-credentials.md#44-key-rotation",
+]
+built_by = ["0-E03-T06"]
+
+[[provides]]
+name = "cloud-identity"
+kind = "contract"
+title = "CloudIdentity contract (05 section 2.11.7) as driver self-issuer: ambientToken, exchange unsupported"
+defined_in = "04-effects-audit-credentials.md#246-cloudidentity-self-issuer"
+from_task = "0-E03-T06"
+
+[[provides]]
+name = "issuer-keyring"
+kind = "ts-api"
+title = "IssuerKeyRing (activeKid, sign, jwks, rotate) and IssuerKey with KeyState in src/keyring.ts"
+defined_in = "04-effects-audit-credentials.md#233-own-oidc-issuer-and-key-ring"
+from_task = "0-E03-T06"
+
+[[provides]]
+name = "keyring-ablage"
+kind = "file"
+title = "Metadata of the ring under secret://guildwork/oidc-keyring, secret keys under secret://guildwork/oidc-key-<kid>"
+defined_in = "04-effects-audit-credentials.md#233-own-oidc-issuer-and-key-ring"
+from_task = "0-E03-T06"
+
+[[provides]]
+name = "konfig"
+kind = "config"
+title = "installation.yaml: cloud_identity: [{ driver: self-issuer, issuer_url }]"
+defined_in = "04-effects-audit-credentials.md#246-cloudidentity-self-issuer"
+from_task = "0-E03-T06"
+
+[[uses]]
+interface = "contracts/vertrag-cloud-identity"
+from_task = "0-E03-T06"
+purpose = "Implement CloudIdentity"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "0-E03-T06"
+purpose = "Ring and keys in the SecretStore, sign if SIGN"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E03-T06"
+purpose = "DriverManifest with license and contractSuite"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E03-T06"
+purpose = "Result and PluginError"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E03-T06"
+purpose = "Clock for rotation and exp"
+
+[[uses]]
+interface = "contract-harness/treiber-suites"
+from_task = "0-E03-T06"
+purpose = "Suite cloud-identity against self-issuer"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "0-E03-T06"
+purpose = "runContractSuite and attestation"
+
+[[uses]]
+interface = "driver-secret-file/secret-store"
+from_task = "0-E03-T06"
+purpose = "SecretStore with WRITE for ring and rotation in the tests"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E03-T06"
+purpose = "cloud_identity[].driver self-issuer and issuer_url in the schema"

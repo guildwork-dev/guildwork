@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-core"
+title = "Package eval-core: types and schemas for set, case, labels, reference qualification"
+kind = "eval"
+path = "eval/core/"
+package = "@guildwork/eval-core"
+stage = "0"
+purpose = "Pure types, TypeBox schemas and contracts of the eval package without IO (set and case format, label and reference lines, adapter and scorer contract, reference values, eval report, reference qualification), shared by runner, control plane and all sets. Not for statistics, gates and judges (separate components in the same package) and not for run control or database access."
+design = [
+  "07-eval-and-qualification.md#21-directories-and-packages",
+  "07-eval-and-qualification.md#22-set-and-case-format",
+  "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values",
+  "07-eval-and-qualification.md#2164-report",
+  "07-eval-and-qualification.md#212-reference-qualification",
+]
+built_by = ["0-E20-T01", "0-E20-T12", "0-E20-T18", "0-E20-T19"]
+
+[[provides]]
+name = "typen"
+kind = "ts-api"
+title = "Types SetManifest, SourceSpec, PinnedFile, EvalCase, CaseInput, SourceRef, Origin, LicenseClass, ServiceId, JudgeRef, FetchResult, FetchError (FE-744)"
+defined_in = "07-eval-and-qualification.md#22-set-and-case-format"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "eval-run-request"
+kind = "ts-api"
+title = "Types EvalRunRequest (kind, sets, service, arms, profile, repetitions, measurement budget, judges, seed, calibration, repo mode), EvalRunStatus, CaseStatus, EvalRunView"
+defined_in = "07-eval-and-qualification.md#26-eval-service-and-runner"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "schemas"
+kind = "ts-api"
+title = "TypeBox schemas set, case, labels, refs with pin, license and origin rules"
+defined_in = "07-eval-and-qualification.md#22-set-and-case-format"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "satzformat"
+kind = "file"
+title = "Set directory eval/sets/<id>/: set.json (guildwork.eval-set/v1), labels/*.jsonl, refs/*.jsonl, README.md; fixtures under _<name>/"
+defined_in = "07-eval-and-qualification.md#22-set-and-case-format"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "adapter-vertrag"
+kind = "contract"
+title = "EvalAdapter (prepare, collect) with PrepareCtx, RecordedEffect, LabelLine, RefLine"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "bezugswert"
+kind = "ts-api"
+title = "Type ReferenceValue (value, values per case, source, version, read date, classification, third-party measurement)"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "0-E20-T01"
+
+[[provides]]
+name = "scorer-vertrag"
+kind = "contract"
+title = "Scorer (score, labelSchema, references, loadCases, repoCases) with CaseOutput, CaseScore, RepoCaseSource and RepoCase (FE-756)"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "0-E20-T12"
+
+[[provides]]
+name = "referenz-qualifikation-format"
+kind = "file"
+title = "reference-qualification-<release>.json (guildwork.reference-qualification/v1) with schema and .md"
+defined_in = "07-eval-and-qualification.md#212-reference-qualification"
+from_task = "0-E20-T18"
+
+[[provides]]
+name = "bericht"
+kind = "ts-api"
+title = "EvalReport, ReportInput, buildReport, renderMarkdown, publishFilter"
+defined_in = "07-eval-and-qualification.md#2164-report"
+from_task = "0-E20-T19"
+
+[[provides]]
+name = "eval-report-format"
+kind = "file"
+title = "eval-report.json (guildwork.eval-report/v1) and .md, stored at eval/reports/<eval_run_id>"
+defined_in = "07-eval-and-qualification.md#214-eval-report"
+from_task = "0-E20-T19"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E20-T01"
+purpose = "Result in schemas, adapter contract and report"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E20-T01"
+purpose = "Logger in the PrepareCtx of the adapters"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E20-T01"
+purpose = "compileSchema and toJsonSchema for the TypeBox schemas set, case, labels, refs"
+
+[[uses]]
+interface = "eval-statistik/kennzahlen-und-bootstrap"
+from_task = "0-E20-T12"
+purpose = "ClusterInput and MetricId in CaseScore of the scorer contract"
+
+[[uses]]
+interface = "eval-richter/richter-api"
+from_task = "0-E20-T12"
+purpose = "JudgeVerdict as input of Scorer.score"
+
+[[uses]]
+interface = "eval-gates/gate-auswertung"
+from_task = "0-E20-T19"
+purpose = "GateStatus and PartResult in report and reference file"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "0-E20-T19"
+purpose = "QualificationProfile in the header of the report and in the rows of the reference file"

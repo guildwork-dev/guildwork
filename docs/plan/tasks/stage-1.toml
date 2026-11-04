@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Header of stage 1. Epics and tasks are in stage-1.<area>.toml.
+# depends_on_stages must match the edges in docs/architecture/08-roadmap.md section 3 (plan.py checks this).
+stage = "1"
+title = "Reviewer core, GitHub, local Claude Code"
+depends_on_stages = ["0"]

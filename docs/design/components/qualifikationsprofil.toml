@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "qualifikationsprofil"
+title = "Qualification profile and qualification_key"
+kind = "package"
+path = "packages/config/src/qualification/"
+package = "@guildwork/config"
+stage = "0"
+purpose = "Canonical qualification profile of a service (ADR-66) from the effective configuration, the installation and the contribution of the service, from which qualification_key (qk1-) and the variant without credential_kind (qx1-) are derived; one source for resolver, policy, eval and merge gate. Not for the matrix, the gates or storing in the snapshot (resolver)."
+design = ["07-eval-and-qualification.md#210-qualification-profile-and-qualification_key"]
+built_by = ["0-E20-T05"]
+
+[[provides]]
+name = "profil-und-schluessel"
+kind = "ts-api"
+title = "QualificationProfile, buildProfile, qualificationKey, qualificationKeyNoCred (JCS via canonicalJson, SHA-256); inputs EffectiveServiceConfig with RepoFacts, ResolvedInstallation with pools and isolation_min (FE-750, FE-754)"
+defined_in = "07-eval-and-qualification.md#210-qualification-profile-and-qualification_key"
+from_task = "0-E20-T05"
+
+[[provides]]
+name = "profilbeitrag"
+kind = "contract"
+title = "ServiceProfileContribution: prompt_v per stage and effective values of a service (FE-741); ProfileContributions and profileContributions for deps.contributions of the resolver (FE-754)"
+defined_in = "07-eval-and-qualification.md#210-qualification-profile-and-qualification_key"
+from_task = "0-E20-T05"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E20-T05"
+purpose = "canonicalJson (RFC 8785) and sha256Hex for qk1- and qx1-"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E20-T05"
+purpose = "Result with QUAL_MODEL_REF_UNRESOLVED and QUAL_CONTRIBUTION_MISSING"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E20-T05"
+purpose = "models[] and harness_pins of the installation for ResolvedInstallation"

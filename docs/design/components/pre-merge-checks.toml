@@ -1,0 +1,193 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "pre-merge-checks"
+title = "Pre-merge checks with check run ai-pre-merge-checks"
+kind = "service"
+path = "services/reviewer/src/premerge/"
+package = "@guildwork/service-reviewer"
+stage = "6"
+purpose = "Built-in deterministic checks (title, description, linked issue, docstring coverage) and custom checks in natural language with mandatory evidence; result as a separate check run ai-pre-merge-checks without silent green. Not here: the check run ai-review of the findings (08) and the executor check (04)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks",
+  "09-reviewer-companion-features-and-learnings.md#5-failure-and-abort-paths",
+  "09-reviewer-companion-features-and-learnings.md#7-configuration",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E02-T01", "6-E02-T02", "6-E02-T03", "6-E02-T04", "6-E02-T05"]
+
+[[provides]]
+name = "premerge-typen"
+kind = "ts-api"
+title = "CheckMode, BuiltinChecksConfig, CustomCheckConfig, Evidence, PreMergeCheckResult"
+defined_in = "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"
+from_task = "6-E02-T01"
+
+[[provides]]
+name = "konfig-checks"
+kind = "config"
+title = "services.reviewer.builtin_checks.* and services.reviewer.checks (format FE-912, at most 10) with resolver rules"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E02-T01"
+
+[[provides]]
+name = "eingebaute-checks"
+kind = "ts-api"
+title = "Built-in checks title, description, issue_linked (deterministic, FE-911)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"
+from_task = "6-E02-T02"
+
+[[provides]]
+name = "docstring-abdeckung"
+kind = "ts-api"
+title = "Built-in check docstring_coverage via PrepareOutput.symbolsTouched from the parser from 08 (FE-956)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"
+from_task = "6-E02-T03"
+
+[[provides]]
+name = "verify-evidence"
+kind = "ts-api"
+title = "verifyEvidence(e, ctx) and evaluation of custom checks with paths filter"
+defined_in = "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"
+from_task = "6-E02-T04"
+
+[[provides]]
+name = "prompt-eigene-checks"
+kind = "prompt"
+title = "Single call per custom check in the job reviewer.companions with schema { result, reason, evidence[] }"
+defined_in = "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"
+from_task = "6-E02-T04"
+
+[[provides]]
+name = "check-run-ai-pre-merge-checks"
+kind = "contract"
+title = "conclusionOf(results) and check run ai-pre-merge-checks (name and result rules that branch rules can point to)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#24-pre-merge-checks"
+from_task = "6-E02-T05"
+
+[[provides]]
+name = "metrik-premerge"
+kind = "metric"
+title = "guildwork.reviewer.premerge.results"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E02-T05"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "6-E02-T01"
+purpose = "builtin_checks and checks in the section services.reviewer"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "6-E02-T01"
+purpose = "Keys with format FE-912"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "6-E02-T01"
+purpose = "Resolver rules for checks[] (s2/checks-config-invalid)"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "6-E02-T01"
+purpose = "Invalid checks[] fail closed per ADR-65 with the last valid version"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "6-E02-T01"
+purpose = "TypeBox schemas of the types"
+
+[[uses]]
+interface = "reviewer-ausgabe/statuszeile"
+from_task = "6-E02-T01"
+purpose = "Hint on invalid configuration at the PR"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "6-E02-T02"
+purpose = "PR template at the base SHA via getFile"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "6-E02-T02"
+purpose = "links.workItemKeys and links.closes for issue_linked"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/find-references"
+from_task = "6-E02-T02"
+purpose = "References to issues in the PR text"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "6-E02-T02"
+purpose = "Title and text of the PR as untrusted"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "6-E02-T03"
+purpose = "PrepareOutput with symbols including docstring information"
+
+[[uses]]
+interface = "reviewer-kontext-werkzeug/cli-symbols"
+from_task = "6-E02-T03"
+purpose = "Public symbols and docstrings via the parser from 08"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/work-item-companions"
+from_task = "6-E02-T04"
+purpose = "Single call per custom check in the job reviewer.companions"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "6-E02-T04"
+purpose = "generate with schema { result, reason, evidence[] }"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "6-E02-T04"
+purpose = "Prompt of the custom check with prompt_v"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "6-E02-T05"
+purpose = "propose_check ai-pre-merge-checks"
+
+[[uses]]
+interface = "effekt-executoren/check"
+from_task = "6-E02-T05"
+purpose = "Executor check creates the check run"
+
+[[uses]]
+interface = "service-reviewer/manifest"
+from_task = "6-E02-T05"
+purpose = "Check name ai-pre-merge-checks in the manifest"
+
+[[uses]]
+interface = "plugin-rahmen/capability-resolver"
+from_task = "6-E02-T05"
+purpose = "Fallback chain without CHECK_RUN"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/zusammenfassung-begleitabschnitt"
+from_task = "6-E02-T05"
+purpose = "Section Pre-merge checks via preMergeMd when CHECK_RUN is missing"
+
+[[uses]]
+interface = "reviewer-ausgabe/zusammenfassung"
+from_task = "6-E02-T05"
+purpose = "Section Pre-merge checks in the summary"
+
+[[uses]]
+interface = "service-reviewer/run-notes"
+from_task = "6-E02-T05"
+purpose = "premerge.results in the Run Record"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E02-T05"
+purpose = "Add the metric premerge.results"
+
+[[uses]]
+interface = "testkit-e2e-stack/fixture-server"
+from_task = "6-E02-T05"
+purpose = "E2E with two check runs"

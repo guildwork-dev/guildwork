@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "event-schema"
+title = "Event schema, command parser, dedupe and routing keys"
+kind = "package"
+path = "packages/contracts/src/events/"
+package = "@guildwork/contracts"
+stage = "0"
+purpose = "The only definition of the normalized event (TriggerEvent through StoredEvent) together with the pure functions that TriggerSources, ingress and router need in common: command parser, dedupe key, routing name and object key (FE-501). Not here: ingress, inbox and router themselves (detailed design 02) and internal events of the orchestrator such as item.triaged."
+design = [
+  "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501",
+  "05-plugins-and-contracts.md#213-normalized-foundations-that-other-documents-use",
+]
+built_by = ["0-E13-T02"]
+
+[[provides]]
+name = "trigger-event"
+kind = "ts-api"
+title = "TriggerEvent (with where.commit, incident and command.alias, FE-556), ResolvedEvent, StoredEvent with EVENT_SCHEMA_VERSION, Skipped, isSkipped, CommandName (with tests), TriggerMode, TriggerAction, TriggerSubject, Headers, SignatureScheme (TypeBox schema and types)"
+defined_in = "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"
+from_task = "0-E13-T02"
+
+[[provides]]
+name = "parse-command"
+kind = "ts-api"
+title = "parseCommand(text, handle, extraCommands): mention and command, code blocks and quotes ignored (FE-519); COMMAND_ALIASES, tests becomes qa with scope unit (FE-556)"
+defined_in = "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"
+from_task = "0-E13-T02"
+
+[[provides]]
+name = "dedupe-key"
+kind = "ts-api"
+title = "dedupeKey(ev): sha256 over the JCS of the event attributes (02 FE-211, extended by where.commit according to FE-556)"
+defined_in = "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"
+from_task = "0-E13-T02"
+
+[[provides]]
+name = "routing-name"
+kind = "ts-api"
+title = "RoutingName and routingName(ev): mapping onto the vocabulary of routing.on, null means unroutable (02 FE-206, M38)"
+defined_in = "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"
+from_task = "0-E13-T02"
+
+[[provides]]
+name = "object-key"
+kind = "ts-api"
+title = "objectKey(ev, pluginInstanceId): pr:... or item:... (01 FE-111)"
+defined_in = "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"
+from_task = "0-E13-T02"
+
+[[provides]]
+name = "event-fixtures"
+kind = "file"
+title = "Normalization fixtures packages/contracts/test/fixtures/events/ for tests of ingress and router"
+defined_in = "05-plugins-and-contracts.md#2111-event-schema-ruling-fe-501"
+from_task = "0-E13-T02"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E13-T02"
+purpose = "canonicalJson and sha256Hex for dedupeKey (02 FE-211)"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E13-T02"
+purpose = "Actor, RepoRef, ChangeRef, WorkItemRef in the TriggerEvent"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E13-T02"
+purpose = "TriggerEvent.text as Untrusted"

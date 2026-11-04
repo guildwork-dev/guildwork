@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plan-werkzeug"
+title = "Plan tool and translated work plan in the product repo"
+kind = "tool"
+path = "tools/plan/"
+stage = "R"
+purpose = "Checks and generates the work plan in the product repo (English TOML keys) together with the component catalog, so that the team works through the plan there. Not the contents of the plan (produkt-doku) and not the synchronization with issues."
+design = ["00-codebase-and-conventions.md#46-neutralization-and-translation", "00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#24-make-targets", "components/README.md#2-fields"]
+built_by = ["R-E04-T06", "0-E09-T10"]
+
+[[provides]]
+name = "plan-cli"
+kind = "cli"
+title = "tools/plan/plan.py check and generate; gate plan in gates.toml"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E04-T06"
+
+[[provides]]
+name = "plan-format"
+kind = "file"
+title = "Format of the plan files docs/plan/tasks/*.toml with English keys (FE-037)"
+defined_in = "00-codebase-and-conventions.md#46-neutralization-and-translation"
+from_task = "R-E04-T06"
+
+[[provides]]
+name = "katalog-format"
+kind = "file"
+title = "Format of the component sheets (fields, provides, uses) and check rules"
+defined_in = "components/README.md#2-fields"
+from_task = "R-E04-T06"
+
+[[provides]]
+name = "stage-graph"
+kind = "cli"
+title = "plan.py stage-graph --json: stage graph as { \"<stage>\": [\"<predecessor>\", ...] } for the guard test of the effect catalog (04 FE-442)"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "0-E09-T10"
+
+[[uses]]
+interface = "prozess-veroeffentlichung/export-werkzeuge"
+from_task = "R-E04-T06"
+purpose = "Export of the plan into the build repo and glossary for the keys"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E04-T06"
+purpose = "Register the gate plan in gates.toml"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E04-T06"
+purpose = "plan.py under ruff and mypy, tests with unittest"
+
+[[uses]]
+interface = "hooks-und-textpruefung/make-text-rules"
+from_task = "R-E04-T06"
+purpose = "the translated plan must pass make text-rules"

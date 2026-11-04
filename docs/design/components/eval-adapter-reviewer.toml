@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-adapter-reviewer"
+title = "Reviewer part of the adapter reviewbench and bare arm as comparison arm"
+kind = "eval"
+path = "eval/adapters/reviewbench/src/reviewer/"
+package = "@guildwork/eval-adapter-reviewbench"
+stage = "1"
+purpose = "Reviewer part of collect in the adapter reviewbench from 07 (FE-853): reads the ReviewArtifact of the case run via a narrow read view and returns all visible findings (inline and summary, FE-824) as findings.json, plus the prompt eval/bare-prompts/reviewer.md and the mapping of the output of the bare arm (eval-bare) for gate A. No own package, no prepare, no sets and no scoring (adapters, sets and scorers from 07 do that)."
+design = [
+  "08-reviewer.md#84-eval-sets-and-adapters",
+]
+built_by = ["1-E09-T01", "1-E09-T02"]
+
+[[provides]]
+name = "adapter"
+kind = "contract"
+title = "collectReviewer and reviewerFindings: ReviewArtifactView of the case run to ReviewFinding[], all visible findings (FE-824), diagnosis only inline"
+defined_in = "08-reviewer.md#84-eval-sets-and-adapters"
+from_task = "1-E09-T01"
+
+[[provides]]
+name = "findings-json"
+kind = "file"
+title = "findings.json with file, start_line, end_line, message \"[<severity>][<category>] <title>: <trigger scenario>\", diagnosis file only inline"
+defined_in = "08-reviewer.md#84-eval-sets-and-adapters"
+from_task = "1-E09-T01"
+
+[[provides]]
+name = "nackter-harness"
+kind = "contract"
+title = "Bare arm: prompt eval/bare-prompts/reviewer.md and collect-bare.ts for the output of the internal service eval-bare (07 FE-717) with models.finder (FE-825)"
+defined_in = "08-reviewer.md#84-eval-sets-and-adapters"
+from_task = "1-E09-T02"
+
+[[uses]]
+interface = "eval-core/adapter-vertrag"
+from_task = "1-E09-T01"
+purpose = "EvalAdapter prepare and collect"
+
+[[uses]]
+interface = "eval-adapter-reviewbench/adapter"
+from_task = "1-E09-T01"
+purpose = "ReviewBench container contract and ReviewFinding"
+
+[[uses]]
+interface = "eval-adapter-reviewbench/findings-json"
+from_task = "1-E09-T01"
+purpose = "Format findings.json"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "1-E09-T01"
+purpose = "Reviewer run as case run with effect_sink record"
+
+[[uses]]
+interface = "effect-gateway/record-ablage"
+from_task = "1-E09-T01"
+purpose = "0 effects at the provider, effects in mode record"
+
+[[uses]]
+interface = "service-reviewer/schemas"
+from_task = "1-E09-T01"
+purpose = "Field names of ReviewArtifact for the narrow read view (no import, 00 section 2.2)"
+
+[[uses]]
+interface = "reviewer-befunde/review-artefakt"
+from_task = "1-E09-T01"
+purpose = "artifact.json as the source of the output"
+
+[[uses]]
+interface = "eval-dienst/eval-bare"
+from_task = "1-E09-T02"
+purpose = "bare arm as internal service eval-bare (07 FE-717)"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E09-T02"
+purpose = "models.finder as the model of the bare arm (FE-825)"

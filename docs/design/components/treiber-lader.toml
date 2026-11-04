@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "treiber-lader"
+title = "Load drivers, capabilities by probe, health"
+kind = "role"
+path = "apps/control-plane/src/drivers/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Loads from installation.yaml exactly one BlobStore, one SecretStore and the list CloudIdentity, only with a passed contract suite, determines the capabilities by probe and polls health() every 60 s. Not here: the drivers themselves (drivers/*) and the driver suites (packages/testkit/src/contract/drivers/, component contract-harness, built in the same task 0-E03-T01 per FE-545 and FE-438); not the registration of the handler drivers-health in the role orchestrator (0-E05-T10, FE-439)."
+design = [
+  "04-effects-audit-credentials.md#24-drivers",
+  "04-effects-audit-credentials.md#241-loading-and-capabilities",
+  "04-effects-audit-credentials.md#25-metrics",
+  "04-effects-audit-credentials.md#8-tests",
+]
+built_by = [
+  "0-E03-T01",
+  "8-E04-T03",
+  "9-E02-T04",
+]
+
+[[provides]]
+name = "load-drivers"
+kind = "ts-api"
+title = "loadDrivers(cfg, ctx) with LoadedDrivers (blob, secrets, identities including CapabilitySet)"
+defined_in = "04-effects-audit-credentials.md#241-loading-and-capabilities"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "konfig-treiber-auswahl"
+kind = "config"
+title = "installation.yaml: classes blob, secrets (exactly one driver each) and cloud_identity (list) with field driver"
+defined_in = "04-effects-audit-credentials.md#241-loading-and-capabilities"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "health-source"
+kind = "ts-api"
+title = "driverHealth(): latest HealthReports of the drivers (kind driver) from the single poll pollDriverHealth; HealthSource.latest() from 0-E19-T08 (alert rule driver_unhealthy) and the DriverHealthMonitor from 9-E02-T04 read from it, without calling health() themselves (FE-451)"
+defined_in = "04-effects-audit-credentials.md#241-loading-and-capabilities"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "queue-drivers-health"
+kind = "queue"
+title = "Handler pollDriverHealth of the pg-boss schedule drivers-health (every 60 s); registered by the role orchestrator (FE-439)"
+defined_in = "04-effects-audit-credentials.md#3-data"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "metrik-health"
+kind = "metric"
+title = "guildwork.health.ok with component blob, secrets, cloud_identity and id of the driver"
+defined_in = "04-effects-audit-credentials.md#25-metrics"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "driver-schemas"
+kind = "ts-api"
+title = "driverSchemas(): configuration schema per built-in driver under DriverSchemaKey (\"BlobStore:s3\" etc.) for LoadOptions.driverSchemas; type test DriverClass from config equals DriverKind from contracts (00 FE-051)"
+defined_in = "04-effects-audit-credentials.md#241-loading-and-capabilities"
+from_task = "0-E03-T01"
+
+[[provides]]
+name = "driver-issuer-kontext"
+kind = "ts-api"
+title = "DriverContext.issuer (DriverIssuer.mint) from the DriverContextFactory only for drivers with self_issuer; load order SecretStore, self-issuer, then self_issuer drivers; abort without self-issuer (FE-1342)"
+defined_in = "04-effects-audit-credentials.md#241-loading-and-capabilities"
+from_task = "8-E04-T03"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E03-T01"
+purpose = "Classes blob, secrets and cloud_identity from installation.yaml; DriverClass and DriverSchemaKey for driverSchemas and the type test"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "0-E03-T01"
+purpose = "DriverManifest with contractSuite"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E03-T01"
+purpose = "Load BlobStore contract"
+
+[[uses]]
+interface = "contracts/vertrag-secret-store"
+from_task = "0-E03-T01"
+purpose = "Load SecretStore contract"
+
+[[uses]]
+interface = "contracts/vertrag-cloud-identity"
+from_task = "0-E03-T01"
+purpose = "Load CloudIdentity contract"
+
+[[uses]]
+interface = "contracts/faehigkeiten-katalog"
+from_task = "0-E03-T01"
+purpose = "CapabilitySet per driver kind"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E03-T01"
+purpose = "HealthReport and Clock"
+
+[[uses]]
+interface = "plugin-rahmen/attestation-pruefung"
+from_task = "0-E03-T01"
+purpose = "contract-attestation.json of the driver as load condition"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "0-E03-T01"
+purpose = "defineContractSuite for the driver suites"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E03-T01"
+purpose = "guildwork.health.ok with component and id"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E03-T01"
+purpose = "Log of the load and health errors"
+
+[[uses]]
+interface = "alarm-automat/health-source"
+from_task = "9-E02-T04"
+purpose = "Driver health to the notifier message and admin UI"
+
+[[uses]]
+interface = "plugin-notifier-slack/notifier-vertrag"
+from_task = "9-E02-T04"
+purpose = "Notifier kind driver_unhealthy"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.plugin-instances"
+from_task = "9-E02-T04"
+purpose = "Mirror of the driver state in plugin_instances.health for the admin UI page status (14 section 2.2.4)"
+
+[[uses]]
+interface = "credential-broker/driver-issuer"
+from_task = "8-E04-T03"
+purpose = "createDriverIssuer per driver with self_issuer in the DriverContextFactory"

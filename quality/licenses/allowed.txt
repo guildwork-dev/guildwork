@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+#
+# Licenses allowed for every dependency and every component that Guildwork ships.
+# One SPDX identifier per line; `#` starts a comment. This is the allowlist of the
+# architecture (open source and project, section 5.2). The entry "Unicode" of that
+# list is written as its two SPDX identifiers, Unicode-3.0 and Unicode-DFS-2016.
+# BlueOak-1.0.0 (inside the Node.js runtime) and PostgreSQL (the database of the
+# bundle) were added on 2026-11-01 because shipped parts use them and both are
+# permissive, OSI-approved licenses.
+# Development tools outside this list are recorded in dev-exceptions.txt with a
+# reason. GPL, AGPL, SSPL and BUSL are never added here; they need a separate
+# process with a written reason. docs/quality/toolchain.md records the license of
+# each tool with its source.
+
+0BSD
+Apache-2.0
+BSD-2-Clause
+BSD-3-Clause
+BlueOak-1.0.0
+BSL-1.0
+CC0-1.0
+ISC
+MIT
+MIT-0
+MPL-2.0
+PostgreSQL
+PSF-2.0
+Python-2.0
+Unicode-3.0
+Unicode-DFS-2016
+Zlib

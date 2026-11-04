@@ -1,0 +1,11 @@
+{
+  "total_count": 1,
+  "variables": [
+    {
+      "name": "GUILDWORK_VISIBILITY",
+      "value": "public",
+      "created_at": "2019-08-10T14:59:22Z",
+      "updated_at": "2020-01-10T14:59:22Z"
+    }
+  ]
+}

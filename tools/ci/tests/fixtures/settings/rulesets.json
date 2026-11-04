@@ -1,0 +1,17 @@
+[
+  {
+    "id": 7,
+    "name": "main",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "guildwork-dev/guildwork",
+    "enforcement": "active",
+    "node_id": "RRS_lACqUmVwb3NpdG9yec4AAAAH",
+    "_links": {
+      "self": { "href": "https://api.github.com/repos/guildwork-dev/guildwork/rulesets/7" },
+      "html": { "href": "https://github.com/guildwork-dev/guildwork/rules/7" }
+    },
+    "created_at": "2026-11-01T12:00:00Z",
+    "updated_at": "2026-11-01T12:00:00Z"
+  }
+]

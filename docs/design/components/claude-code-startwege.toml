@@ -1,0 +1,171 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "claude-code-startwege"
+title = "Start paths per credential kind (API key via relay, subscription, WIF, Bedrock, Vertex, Foundry)"
+kind = "plugin"
+path = "plugins/claude-code/src/launch/"
+package = "@guildwork/plugin-claude-code"
+stage = "0"
+purpose = "Builds the hardened invocation of claude per credential kind as a pure function: argv, environment only from the allowlist, managed settings, MCP configuration, empty configuration directory, prompt files; plus the host file of the subscription token with expiry warning and from stage 8 the cloud credential kinds (files under src/credentials/). Starts no process itself (run does that) and never holds a real API key (it lives only in the relay)."
+design = [
+  "05-plugins-and-contracts.md#2153-start-path-per-credential-kind",
+  "05-plugins-and-contracts.md#2156-start-path-subscription-and-host-file-adr-57",
+  "05-plugins-and-contracts.md#82-contract-and-suite-cases-with-the-real-system-owner-runs",
+  "13-stage-8-providers-and-bases.md#225-starting-paths-and-harness-environment",
+]
+built_by = [
+  "0-E15-T03",
+  "0-E15-T05",
+  "1-E07-T04",
+  "1-E07-T05",
+  "8-E02-T02",
+  "8-E02-T03",
+  "8-E02-T04",
+  "8-E02-T05",
+  "8-E02-T06",
+]
+
+[[provides]]
+name = "launch-export"
+kind = "ts-api"
+title = "Export @guildwork/plugin-claude-code/launch: buildLaunch(task, cred, opts) returns LaunchPlan (argv, env only runtimeExtra, files, configDir, denyReadPaths), applyLaunchFiles(sb, plan) (FE-547, FE-550)"
+defined_in = "05-plugins-and-contracts.md#2153-start-path-per-credential-kind"
+from_task = "0-E15-T03"
+
+[[provides]]
+name = "sandbox-dateien"
+kind = "file"
+title = "Files in the sandbox: managed settings with deny lists per nativeTools, /run/guildwork/mcp.json only with the platform MCP, system.md, prompt.md with untrusted blocks"
+defined_in = "05-plugins-and-contracts.md#2153-start-path-per-credential-kind"
+from_task = "0-E15-T03"
+
+[[provides]]
+name = "abo-hostdatei"
+kind = "config"
+title = "Named value subscription.token_warn_days and start path subscription without a token in the plugin: the host file (key runtimes.claude_code.subscription_token_file, belongs to worker/worker-yaml) is read only by the worker with readSubscriptionToken (03); conditions in the run (FE-550, FE-553)"
+defined_in = "05-plugins-and-contracts.md#2156-start-path-subscription-and-host-file-adr-57"
+from_task = "0-E15-T05"
+
+[[provides]]
+name = "abo-health"
+kind = "ts-api"
+title = "subscriptionHealth(mtime, now, warnDays) via the export @guildwork/plugin-claude-code/subscription: expiresAt from mtime plus 365 days, reported by the worker in WorkerCaps.harnesses[].health (FE-512, FE-530, FE-550)"
+defined_in = "05-plugins-and-contracts.md#2156-start-path-subscription-and-host-file-adr-57"
+from_task = "0-E15-T05"
+
+[[provides]]
+name = "audit-abo"
+kind = "event"
+title = "Audit actions subscription.token_file_invalid (error code without content) and subscription.run_started (run ID, operator, service); entries in the catalog, written by the work API (FE-550)"
+defined_in = "05-plugins-and-contracts.md#33-audit-actions-of-this-area"
+from_task = "0-E15-T05"
+
+[[provides]]
+name = "ca-variable"
+kind = "config"
+title = "CA variable for operator_test in the environment allowlist and path allowlist of the subscription launch, proven in the contract test behind the inspection proxy (M21)"
+defined_in = "05-plugins-and-contracts.md#220-inspection-proxy-for-operator_test-stage-1-adr-18-ruling-fe-534"
+from_task = "1-E07-T04"
+
+[[provides]]
+name = "cloud-credentials"
+kind = "ts-api"
+title = "CloudCredentialPlan per kind wif, bedrock, vertex, foundry (plugins/claude-code/src/credentials/); RelayCredential is in 13 section 2.2.4"
+defined_in = "13-stage-8-providers-and-bases.md#225-starting-paths-and-harness-environment"
+from_task = "8-E02-T03"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E15-T03"
+purpose = "AgentTask and CredentialRef as the input of buildLaunch"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E15-T03"
+purpose = "renderUntrustedBlock for prompt.md"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E15-T03"
+purpose = "SandboxHandle.copyIn in applyLaunchFiles"
+
+[[uses]]
+interface = "telemetry/harness-env"
+from_task = "0-E15-T03"
+purpose = "OTel variables via harnessOtelEnv in runtimeExtra"
+
+[[uses]]
+interface = "worker-harness-umgebung/build-harness-env"
+from_task = "0-E15-T03"
+purpose = "runtimeExtra without credential variables, pattern like buildHarnessEnv (FE-550)"
+
+[[uses]]
+interface = "worker-harness-umgebung/read-subscription-token"
+from_task = "0-E15-T05"
+purpose = "Only the worker reads the token file (FE-550)"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E15-T05"
+purpose = "Rule sk-ant-oat for transcripts and logs"
+
+[[uses]]
+interface = "pruef-proxy-operator-test/ca-zertifikat"
+from_task = "1-E07-T04"
+purpose = "Define the CA variable for operator_test"
+
+[[uses]]
+interface = "pruef-proxy-operator-test/steuer-api"
+from_task = "1-E07-T04"
+purpose = "Measurement run in mode recordOnly"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "1-E07-T05"
+purpose = "Launch with api_key via the relay"
+
+[[uses]]
+interface = "credential-broker/llm-grants"
+from_task = "1-E07-T05"
+purpose = "Grant api_key with a placeholder for the item"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "1-E07-T05"
+purpose = "Scan of the sandbox without a real key"
+
+[[uses]]
+interface = "credential-relay/credential-tausch"
+from_task = "8-E02-T03"
+purpose = "Exchange the short-lived credential of kind wif in the relay"
+
+[[uses]]
+interface = "credential-broker/keyring"
+from_task = "8-E02-T03"
+purpose = "Broker JWT for the exchange"
+
+[[uses]]
+interface = "driver-identity-aws/cloudidentity"
+from_task = "8-E02-T04"
+purpose = "STS credentials of the item role for bedrock"
+
+[[uses]]
+interface = "credential-relay/sigv4"
+from_task = "8-E02-T04"
+purpose = "Relay signs Bedrock calls"
+
+[[uses]]
+interface = "driver-identity-gcp/cloudidentity"
+from_task = "8-E02-T05"
+purpose = "Access token per item for vertex"
+
+[[uses]]
+interface = "driver-identity-azure-managed-identity/cloudidentity"
+from_task = "8-E02-T06"
+purpose = "Entra token per item for foundry"
+
+[[uses]]
+interface = "worker/worker-yaml"
+from_task = "0-E15-T05"
+purpose = "Key runtimes.claude_code.subscription_token_file only used, not defined (FE-553, 03 FE-333)"

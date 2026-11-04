@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "repo-geruest-und-toolchain"
+title = "Build repo scaffold: required and community files, TypeScript and Python toolchain, binary bootstrap, Makefile with gates.toml"
+kind = "tool"
+path = "./"
+stage = "R"
+purpose = "The scaffold on which every task builds: required and community files, package template, TypeScript and Python toolchain, verified binary download, Makefile with gates.toml as the only gate list and the local dry run of the workflows. Not the individual check tools (own components)."
+design = ["00-codebase-and-conventions.md#21-monorepo-layout", "00-codebase-and-conventions.md#23-toolchain", "00-codebase-and-conventions.md#24-make-targets", "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools", "00-codebase-and-conventions.md#41-contribution-branch-commit-pr", "00-codebase-and-conventions.md#48-stage-r-before-the-first-push"]
+built_by = ["R-E01-T03", "R-E01-T04", "R-E01-T05", "R-E01-T06", "R-E03-T05"]
+
+[[provides]]
+name = "community-dateien"
+kind = "file"
+title = "LICENSE, NOTICE, LICENSES/, README, CONTRIBUTING, GOVERNANCE, SECURITY, SUPPORT, CODE_OF_CONDUCT, CHANGELOG, CODEOWNERS, issue templates, labels.yml"
+defined_in = "00-codebase-and-conventions.md#21-monorepo-layout"
+from_task = "R-E01-T03"
+
+[[provides]]
+name = "pr-vorlage"
+kind = "file"
+title = ".github/PULL_REQUEST_TEMPLATE.md with Plan-Task, evidence, follow-up list and review"
+defined_in = "00-codebase-and-conventions.md#41-contribution-branch-commit-pr"
+from_task = "R-E01-T03"
+
+[[provides]]
+name = "python-toolchain"
+kind = "config"
+title = "pyproject.toml (ruff, mypy strict), .python-version, uv.lock"
+defined_in = "00-codebase-and-conventions.md#23-toolchain"
+from_task = "R-E01-T04"
+
+[[provides]]
+name = "tools-toml"
+kind = "file"
+title = "tools/bootstrap/tools.toml (version, URL template, SHA-256 per platform) and fetch.py into .tools/bin"
+defined_in = "00-codebase-and-conventions.md#23-toolchain"
+from_task = "R-E01-T04"
+
+[[provides]]
+name = "ts-toolchain"
+kind = "config"
+title = "package.json, pnpm-workspace.yaml, .npmrc, tsconfig.base.json, biome.json, eslint.config.js, vitest.config.ts (projects unit, integration, contract, e2e)"
+defined_in = "00-codebase-and-conventions.md#23-toolchain"
+from_task = "R-E01-T05"
+
+[[provides]]
+name = "paket-vorlage"
+kind = "file"
+title = "Structure of a TypeScript package with package.json form, exports and condition @guildwork/source"
+defined_in = "00-codebase-and-conventions.md#21-monorepo-layout"
+from_task = "R-E01-T05"
+
+[[provides]]
+name = "coverage-json"
+kind = "config"
+title = "quality/coverage.json: coverage thresholds per area"
+defined_in = "00-codebase-and-conventions.md#23-toolchain"
+from_task = "R-E01-T05"
+
+[[provides]]
+name = "gates-toml"
+kind = "file"
+title = "quality/gates.toml: the only list of gates; gates.py checks Makefile and ci.yml and generates docs/quality/gates.md"
+defined_in = "00-codebase-and-conventions.md#35-file-formats-of-the-check-tools"
+from_task = "R-E01-T06"
+
+[[provides]]
+name = "make-bootstrap"
+kind = "cli"
+title = "make bootstrap: binaries, pnpm install, uv sync, hooks"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E01-T06"
+
+[[provides]]
+name = "make-check"
+kind = "cli"
+title = "make check as well as check-ts, check-tools, check-security and help"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E01-T06"
+
+[[provides]]
+name = "make-workflows-dry-run"
+kind = "cli"
+title = "make workflows-dry-run: ci_ok.py against fixtures, policy strict, every workflow target with job variables"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E03-T05"
+
+[[uses]]
+interface = "prozess-repo-und-erster-push/beleg-v0"
+from_task = "R-E01-T03"
+purpose = "Build repo only after verified private origin (V0)"
+
+[[uses]]
+interface = "workflow-policy/make-workflows"
+from_task = "R-E03-T05"
+purpose = "Dry run calls make workflows"
+
+[[uses]]
+interface = "ci-workflows/ci-ok"
+from_task = "R-E03-T05"
+purpose = "ci_ok.py against all fixtures"
+
+[[uses]]
+interface = "ci-workflows/ci-yml"
+from_task = "R-E03-T05"
+purpose = "every target that ci.yml calls, with the job variables"
+
+[[uses]]
+interface = "ci-workflows/sicherheits-workflows"
+from_task = "R-E03-T05"
+purpose = "Targets from codeql.yml, scorecard.yml, advisories.yml in the dry run"
+
+[[uses]]
+interface = "ci-workflows/renovate-json"
+from_task = "R-E03-T05"
+purpose = "Schema check of renovate.json in the dry run"
+
+[[uses]]
+interface = "denylist-scanner/deny-jobs"
+from_task = "R-E03-T05"
+purpose = "Deny jobs with DENYLIST_FLAGS in the dry run"

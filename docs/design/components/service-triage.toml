@@ -1,0 +1,366 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-triage"
+title = "Triage service: duplicates, classification, spam, verifier, auto_close"
+kind = "service"
+path = "services/triage/"
+package = "@guildwork/service-triage"
+stage = "7"
+purpose = "Classifies new issues without a shell (duplicates and related items with visibility check, labels, assignees, repo, spam and slop, clarity), checks the result deterministically and publishes per property according to configuration; closing only with auto_close and a green T1 gate of the repo. In stage 7 only a single-service run; as the first stage of ticket-to-pr only from stage 9 (FE-1221). The GitHub methods (setLabels, linkItems, closeAsDuplicate) and the executors do not belong here."
+design = [
+  "12-expansion.md#26-triage-service-7-e04",
+  "12-expansion.md#31-tables-of-stage-7",
+  "12-expansion.md#34-envelopes-and-file-formats",
+  "12-expansion.md#44-triage",
+  "12-expansion.md#5-failure-and-abort-paths",
+  "12-expansion.md#6-security",
+  "12-expansion.md#7-configuration",
+]
+built_by = [
+  "7-E04-T01",
+  "7-E04-T02",
+  "7-E04-T03",
+  "7-E04-T04",
+  "7-E04-T05",
+  "7-E04-T06",
+]
+
+[[provides]]
+name = "manifest-triage"
+kind = "contract"
+title = "Service manifest triage: subscription issue.created and work_item.created, write requests propose_comment, propose_labels, propose_link, job triage.classify without shell"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E04-T01"
+
+[[provides]]
+name = "typen"
+kind = "ts-api"
+title = "TriageRequest, TriageProperty, PropertyMode, TriageArtifact, TriagePublication and TriageController (gate, search, verifier, publication)"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E04-T01"
+
+[[provides]]
+name = "konfig-suche"
+kind = "config"
+title = "services.triage.duplicate.max_candidates and min_similarity"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E04-T02"
+
+[[provides]]
+name = "work-item-classify"
+kind = "queue"
+title = "Work item triage.classify (kind model_call, FE-1264): input TriageRequest with Untrusted text and candidates, output TriageArtifact without verifier fields"
+defined_in = "12-expansion.md#34-envelopes-and-file-formats"
+from_task = "7-E04-T03"
+
+[[provides]]
+name = "classify-prompt"
+kind = "prompt"
+title = "services/triage/prompts/classify.md: labels, assignees, repo, spam and slop, clarity in one call"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E04-T03"
+
+[[provides]]
+name = "labeling-anleitung"
+kind = "file"
+title = "Instructions labeling_instructions (default .agents/rules/labels.md) from the base SHA: one section ## <label> per label"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E04-T03"
+
+[[provides]]
+name = "konfig-einordnung"
+kind = "config"
+title = "services.triage.labeling_instructions"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E04-T03"
+
+[[provides]]
+name = "konfig-spam"
+kind = "config"
+title = "services.triage.spam_action (label or hide_comment, FE-1251)"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E04-T04"
+
+[[provides]]
+name = "metrik-spam"
+kind = "metric"
+title = "guildwork.triage.spam (class)"
+defined_in = "12-expansion.md#51-metrics-alarms-and-audit-actions-of-stage-7"
+from_task = "7-E04-T04"
+
+[[provides]]
+name = "konfig-veroeffentlichung"
+kind = "config"
+title = "services.triage.properties.<property> (auto_apply only for duplicates, labels, spam; the resolver rejects it otherwise, FE-1250) and services.triage.reserved_labels"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E04-T05"
+
+[[provides]]
+name = "artefakt-triage"
+kind = "file"
+title = "TriageArtifact v 1 in artifacts (type TriageArtifact, object_version = itemVersionHash), reuse for the same state"
+defined_in = "12-expansion.md#31-tables-of-stage-7"
+from_task = "7-E04-T05"
+
+[[provides]]
+name = "ereignis-item-triaged"
+kind = "event"
+title = "item.triaged (ItemTriagedEvent: item, itemVersionHash, artifactId, spam, clarity) after the publication"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E04-T05"
+
+[[provides]]
+name = "metrik-verifier"
+kind = "metric"
+title = "guildwork.triage.verifier_dropped (kind) and guildwork.triage.label_dropped (reason)"
+defined_in = "12-expansion.md#51-metrics-alarms-and-audit-actions-of-stage-7"
+from_task = "7-E04-T05"
+
+[[provides]]
+name = "tabelle-repo-eval-gates"
+kind = "table"
+title = "repo_eval_gates with gate triage_t1 per repo and qualification_key (migration 0753)"
+defined_in = "12-expansion.md#31-tables-of-stage-7"
+from_task = "7-E04-T06"
+
+[[provides]]
+name = "policy-regel-triage-close"
+kind = "contract"
+title = "Policy rule triage.close: propose_link with close only with services.triage.auto_close and a green row triage_t1 with current qualification_key (FE-1217)"
+defined_in = "12-expansion.md#26-triage-service-7-e04"
+from_task = "7-E04-T06"
+
+[[provides]]
+name = "konfig-auto-close"
+kind = "config"
+title = "services.triage.auto_close (repo level only, O25)"
+defined_in = "12-expansion.md#7-configuration"
+from_task = "7-E04-T06"
+
+[[provides]]
+name = "metrik-schliessen"
+kind = "metric"
+title = "guildwork.triage.close_rejected (reason)"
+defined_in = "12-expansion.md#51-metrics-alarms-and-audit-actions-of-stage-7"
+from_task = "7-E04-T06"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "7-E04-T01"
+purpose = "Create service triage with defineService"
+
+[[uses]]
+interface = "sdk-service/controller-api"
+from_task = "7-E04-T01"
+purpose = "TriageController with onRun and onStepCompleted"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "7-E04-T01"
+purpose = "Hook in the controller via registerControllers"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "7-E04-T01"
+purpose = "ResolvedEvent for issue.created and work_item.created"
+
+[[uses]]
+interface = "event-schema/routing-name"
+from_task = "7-E04-T01"
+purpose = "Route work_item.created for the automatic triage"
+
+[[uses]]
+interface = "control-plane-router/konfig-routing"
+from_task = "7-E04-T01"
+purpose = "Route and command_permissions triage"
+
+[[uses]]
+interface = "contracts/vertrag-trigger-source"
+from_task = "7-E04-T01"
+purpose = "isSelf for the gate own output"
+
+[[uses]]
+interface = "contracts/skizze-work-item-provider"
+from_task = "7-E04-T01"
+purpose = "WorkItemRef and getItem for title and text"
+
+[[uses]]
+interface = "plugin-github-issues/issues-lesend"
+from_task = "7-E04-T01"
+purpose = "Read issue with title, text and labels"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "7-E04-T01"
+purpose = "Object lock per issue"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "7-E04-T01"
+purpose = "Find and store TriageArtifact with object_version = itemVersionHash"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "7-E04-T01"
+purpose = "itemVersionHash as sha256Hex over canonicalJson of title and text"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "7-E04-T01"
+purpose = "Keys services.triage.* from section 7 with TriageConfigSchema"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "7-E04-T01"
+purpose = "Configuration at the base SHA for the publication per property"
+
+[[uses]]
+interface = "plugin-pg-kb/query-search"
+from_task = "7-E04-T02"
+purpose = "Duplicate candidates from the hybrid search over item chunks"
+
+[[uses]]
+interface = "kb/hybride-suche"
+from_task = "7-E04-T02"
+purpose = "SearchRequest with kinds item and rrf() for the second leg searchRelated"
+
+[[uses]]
+interface = "plugin-model-local-embed/modelprovider-local-embed"
+from_task = "7-E04-T02"
+purpose = "Query vector via the model ID <name>:query"
+
+[[uses]]
+interface = "contracts/vertrag-knowledge-store-learnings"
+from_task = "7-E04-T02"
+purpose = "layerState L3 for the condition qualified indexer"
+
+[[uses]]
+interface = "plugin-github-issues/verknuepfen-duplikate"
+from_task = "7-E04-T02"
+purpose = "searchRelated as second search leg (RELATED_SEARCH)"
+
+[[uses]]
+interface = "sichtbarkeit-und-verweise/is-visible-for"
+from_task = "7-E04-T02"
+purpose = "Filter search space and candidates by visibility of the issue (ADR-63)"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "7-E04-T02"
+purpose = "repoInfo fresh for the visibility; codeowners, getPermission and getFile for the classification"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "7-E04-T02"
+purpose = "Candidates and issue text as Untrusted into the prompt"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "7-E04-T03"
+purpose = "codeowners, getPermission and getFile (labeling_instructions) with GitHub"
+
+[[uses]]
+interface = "clarity/clarity-api-erstbau-triage"
+from_task = "7-E04-T03"
+purpose = "Clarity gate via clarityRequest and interpretClarity (FE-1216)"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "7-E04-T03"
+purpose = "triage.classify as kind model_call with outputSchema (FE-1264)"
+
+[[uses]]
+interface = "work-api/work-item-service"
+from_task = "7-E04-T03"
+purpose = "Create work item triage.classify"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "7-E04-T03"
+purpose = "Envelope with TriageRequest and Untrusted inputs"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "7-E04-T04"
+purpose = "Metrics guildwork.triage.* in the catalog (section 5.1)"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "7-E04-T04"
+purpose = "Audit actions triage.* from section 5.1"
+
+[[uses]]
+interface = "effekt-executoren/comment-hide"
+from_task = "7-E04-T04"
+purpose = "Hide comment with spam_action hide_comment"
+
+[[uses]]
+interface = "work-item-umschlag/proposal-v1"
+from_task = "7-E04-T05"
+purpose = "propose_comment, propose_labels and propose_link from TriagePublication"
+
+[[uses]]
+interface = "effect-gateway/gateway"
+from_task = "7-E04-T05"
+purpose = "Publication via EffectGateway.submit"
+
+[[uses]]
+interface = "effect-gateway/check-citations"
+from_task = "7-E04-T05"
+purpose = "Citations in the triage comment against the visibility of the target"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "7-E04-T05"
+purpose = "one comment with domain key triage:<objectKey>, the follow-up run updates it"
+
+[[uses]]
+interface = "effekt-executoren/labels"
+from_task = "7-E04-T05"
+purpose = "propose_labels on the issue"
+
+[[uses]]
+interface = "effekt-executoren/link"
+from_task = "7-E04-T05"
+purpose = "propose_link with auto_apply for duplicates, with close only under FE-1217"
+
+[[uses]]
+interface = "credential-broker/profil-labels"
+from_task = "7-E04-T05"
+purpose = "Token with profile labels for labels, linking and hiding"
+
+[[uses]]
+interface = "policy-engine/policy"
+from_task = "7-E04-T05"
+purpose = "Route or command triage covers the write requests; policy rule triage.close"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "7-E04-T05"
+purpose = "Resolver rejects auto_apply for assignees and repo (FE-1250)"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "7-E04-T06"
+purpose = "Migration 0753_repo_eval_gates.sql"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "7-E04-T06"
+purpose = "tenant_isolation on repo_eval_gates"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "7-E04-T06"
+purpose = "Gate tests against real Postgres"
+
+[[uses]]
+interface = "config-resolver/snapshot"
+from_task = "7-E04-T06"
+purpose = "qualification_key of the triage from the config snapshot"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "7-E04-T06"
+purpose = "qualificationKey for the comparison with repo_eval_gates"

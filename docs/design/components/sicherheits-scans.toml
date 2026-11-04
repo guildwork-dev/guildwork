@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "sicherheits-scans"
+title = "gitleaks configuration and osv-scanner with PR diff mode"
+kind = "tool"
+path = ".gitleaks.toml"
+stage = "R"
+purpose = "Finds secrets in the history (gitleaks with a rule for Anthropic credentials and exact test values) and known vulnerabilities in the lockfiles, in the PR only newly introduced ones. Not the analyzer plugins for customer repos."
+design = ["00-codebase-and-conventions.md#210-check-tools", "00-codebase-and-conventions.md#24-make-targets", "00-codebase-and-conventions.md#25-package-core"]
+built_by = ["R-E02-T03", "R-E02-T10"]
+
+[[provides]]
+name = "gitleaks-toml"
+kind = "file"
+title = ".gitleaks.toml: default rules plus anthropic-credential-any and github-app-token-stateless, allowlist only exact test values"
+defined_in = "00-codebase-and-conventions.md#210-check-tools"
+from_task = "R-E02-T03"
+
+[[provides]]
+name = "secret-samples"
+kind = "file"
+title = "quality/secrets/samples.txt: synthetic test values for gitleaks and the redaction in core"
+defined_in = "00-codebase-and-conventions.md#25-package-core"
+from_task = "R-E02-T03"
+
+[[provides]]
+name = "make-gitleaks"
+kind = "cli"
+title = "make gitleaks with GITLEAKS_LOG_OPTS (V4: --all)"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E02-T03"
+
+[[provides]]
+name = "make-osv"
+kind = "cli"
+title = "make osv over pnpm-lock.yaml and uv.lock, with OSV_BASE only new findings (osv_diff.py)"
+defined_in = "00-codebase-and-conventions.md#24-make-targets"
+from_task = "R-E02-T10"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/tools-toml"
+from_task = "R-E02-T03"
+purpose = "gitleaks binary with checksum"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/gates-toml"
+from_task = "R-E02-T03"
+purpose = "Register gate gitleaks"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/python-toolchain"
+from_task = "R-E02-T03"
+purpose = "test_gitleaks.py with unittest"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "R-E02-T10"
+purpose = "pnpm-lock.yaml as input of osv-scanner"

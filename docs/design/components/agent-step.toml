@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "agent-step"
+title = "Agent run shell for all agent steps"
+kind = "package"
+path = "packages/agent-step/"
+package = "@guildwork/agent-step"
+stage = "2"
+purpose = "Shared run shell of every agent step of planner, architect and coder: builds the AgentTask with marked untrusted blocks, agent files from the base SHA and the mandatory output schema, reports foreign inputs before the start and holds the types of the step handler context. Not: single model calls (ModelProvider path), sandbox build, credentials or the permission check for foreign (herkunft-foreign-input)."
+design = ["10-planner-architect-coder.md#23-agent-run-shell-guildworkagent-step", "10-planner-architect-coder.md#28-origin-attribute-foreign_input_seen-adr-60"]
+built_by = ["2-E01-T03", "2-E01-T12"]
+
+[[provides]]
+name = "agent-step-runner"
+kind = "ts-api"
+title = "AgentStepRunner.run and resume with AgentStepInput, AgentStage and AgentStepOutcome; no start without a schema, output checked against the schema"
+defined_in = "10-planner-architect-coder.md#23-agent-run-shell-guildworkagent-step"
+from_task = "2-E01-T03"
+
+[[provides]]
+name = "prompt-builder"
+kind = "ts-api"
+title = "Prompt builder: TrackedUntrusted embedded marked and sanitized, agent files only from the base SHA, content edited after the trigger replaced by a note"
+defined_in = "10-planner-architect-coder.md#23-agent-run-shell-guildworkagent-step"
+from_task = "2-E01-T03"
+
+[[provides]]
+name = "job-context"
+kind = "ts-api"
+title = "Types AgentJobContext, PreparedSandbox, EnvError, EnvironmentService, WorkSnapshotService, WorkSnapshot, AnalyzerRunnerService, AnalyzerRunOutcome (implementation in the worker, FE-1066)"
+defined_in = "10-planner-architect-coder.md#23-agent-run-shell-guildworkagent-step"
+from_task = "2-E01-T03"
+
+[[provides]]
+name = "untrusted-reporter"
+kind = "ts-api"
+title = "Type UntrustedReporter: report of the untrusted inputs before the harness start, fail closed"
+defined_in = "10-planner-architect-coder.md#23-agent-run-shell-guildworkagent-step"
+from_task = "2-E01-T03"
+
+[[provides]]
+name = "untrusted-input-record"
+kind = "ts-api"
+title = "Types UntrustedInputRecord and UntrustedSource (origin per input)"
+defined_in = "10-planner-architect-coder.md#28-origin-attribute-foreign_input_seen-adr-60"
+from_task = "2-E01-T03"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "2-E01-T03"
+purpose = "AgentTask, RuntimeEvent and AgentRunResult for run and resume of the wrapper"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "2-E01-T03"
+purpose = "Untrusted, sanitize and renderUntrustedBlock in the prompt builder"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "2-E01-T03"
+purpose = "Result, RepoRef, Actor, PermissionLevel, ServiceId in the types of the wrapper"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T03"
+purpose = "SandboxHandle and RunCtx in AgentJobContext and PreparedSandbox"
+
+[[uses]]
+interface = "contracts/vertrag-analyzer"
+from_task = "2-E01-T03"
+purpose = "AnalyzerReport in the type AnalyzerRunOutcome"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E01-T03"
+purpose = "ResolvedEnvironment in PreparedSandbox and EnvironmentService"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "2-E01-T03"
+purpose = "WorkItemEnvelopeV1 in the AgentJobContext"
+
+[[uses]]
+interface = "work-item-umschlag/grants-v1"
+from_task = "2-E01-T03"
+purpose = "Grants of the claim response (item token, inputs) in the AgentJobContext"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "2-E01-T03"
+purpose = "AgentJobContext extends the JobContext of the step handlers"
+
+[[uses]]
+interface = "testkit/fake-worker-runtime"
+from_task = "2-E01-T03"
+purpose = "fakeRuntime as an AgentRuntime stand-in in the tests of the wrapper"
+
+[[uses]]
+interface = "testkit/logs-secrets"
+from_task = "2-E01-T03"
+purpose = "captureLogs and expectNoSecrets in the tests of the prompt builder"
+
+[[uses]]
+interface = "herkunft-foreign-input/untrusted-inputs-endpunkt"
+from_task = "2-E01-T12"
+purpose = "UntrustedInputRecord matches the report to the endpoint that the worker plugs in as UntrustedReporter"
+
+[[uses]]
+interface = "core/result"
+from_task = "2-E01-T03"
+purpose = "Result, ok and err as the return value of the public functions"
+
+[[uses]]
+interface = "core/logger"
+from_task = "2-E01-T03"
+purpose = "Logs of the wrapper without untrusted content"

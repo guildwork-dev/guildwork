@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "coder-harte-gates"
+title = "Hard gates of the coder and G4 before the push"
+kind = "service"
+path = "services/coder/src/gates/"
+package = "@guildwork/service-coder"
+stage = "2"
+purpose = "The hard gates of the coder as one pure function, called by the worker (with repair) and the Effect Gateway (authoritative), and the approval G4 before the push for protected paths and deleted or skipped tests. Not: the self-check bundle (coder-self-check) and not the push itself (Effect Gateway)."
+design = ["10-planner-architect-coder.md#63-hard-gates-of-the-coder", "10-planner-architect-coder.md#44-coder-run"]
+built_by = ["2-E04-T04", "2-E04-T08"]
+
+[[provides]]
+name = "hard-gates-api"
+kind = "ts-api"
+title = "checkHardGates with HardGateInput, SKIP_MARKERS per language"
+defined_in = "10-planner-architect-coder.md#63-hard-gates-of-the-coder"
+from_task = "2-E04-T04"
+
+[[provides]]
+name = "g4-vor-push"
+kind = "ts-api"
+title = "G4 in the step coder.propose: awaiting_risk_approval, the bundle stays, comment on the ticket with paths and diff only with the same visibility, binding to the bundle hash"
+defined_in = "10-planner-architect-coder.md#44-coder-run"
+from_task = "2-E04-T08"
+
+[[provides]]
+name = "befehl-approve-risk"
+kind = "ui"
+title = "Command @agent approve risk on the ticket (before the push) and on the PR, only CODEOWNER of the paths, label agent-risk (FE-1019)"
+defined_in = "10-planner-architect-coder.md#63-hard-gates-of-the-coder"
+from_task = "2-E04-T08"
+
+[[provides]]
+name = "admin-api-proposal-diff"
+kind = "http"
+title = "GET /admin/api/v1/runs/{runId}/proposal/diff (approver, redacted)"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E04-T08"
+
+[[uses]]
+interface = "service-coder/coder-typen"
+from_task = "2-E04-T04"
+purpose = "HardGateResult and SelfCheckReport"
+
+[[uses]]
+interface = "plugin-analyzer-gitleaks/secret-regeln"
+from_task = "2-E04-T04"
+purpose = "Rules of the gate no_secret"
+
+[[uses]]
+interface = "effect-gateway/effect-check"
+from_task = "2-E04-T04"
+purpose = "Checker for propose_push and propose_change in the gateway"
+
+[[uses]]
+interface = "effect-gateway/pruefer-hard-gates"
+from_task = "2-E04-T04"
+purpose = "Plug in as checker hard_gate.<gate>"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "2-E04-T04"
+purpose = "ci_config_paths, test_globs, protected_paths, forbidden_paths"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "2-E04-T04"
+purpose = "Alarm on disagreement between worker and gateway"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "2-E04-T08"
+purpose = "G4 bound to the bundle hash"
+
+[[uses]]
+interface = "propose-dependency/tabelle-approvals-bound-subject"
+from_task = "2-E04-T08"
+purpose = "bound_subject g4:paths:<hash>"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "2-E04-T08"
+purpose = "codeowners at the base SHA for approve risk"
+
+[[uses]]
+interface = "control-plane-orchestrator/run-automat"
+from_task = "2-E04-T08"
+purpose = "State awaiting_risk_approval"
+
+[[uses]]
+interface = "control-plane-orchestrator/fristen-queues"
+from_task = "2-E04-T08"
+purpose = "Deadline of the G4 approval"
+
+[[uses]]
+interface = "event-schema/parse-command"
+from_task = "2-E04-T08"
+purpose = "Command @agent approve risk"
+
+[[uses]]
+interface = "effekt-executoren/comment"
+from_task = "2-E04-T08"
+purpose = "Comment on the ticket with paths and diff"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "2-E04-T08"
+purpose = "GET /admin/api/v1/runs/{runId}/proposal/diff"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "2-E04-T08"
+purpose = "Redacted diff for G4 on the ticket and via the admin API"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E04-T04"
+purpose = "coder.hard_gate_violated; from 2-E04-T08 coder.risk_approval_requested, coder.risk_approved, coder.risk_denied (10 section 5)"

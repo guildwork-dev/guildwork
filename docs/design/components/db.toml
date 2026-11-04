@@ -1,0 +1,432 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "db"
+title = "Package db: connection, tenant context with RLS, Kysely types, repositories"
+kind = "package"
+path = "packages/db/"
+package = "@guildwork/db"
+stage = "0"
+purpose = "Sole access of the control plane and the eval service to Postgres: connection per role, tenant context with row-level security, installation scope with a fixed list of callers, Kysely types, thin repositories and the maintenance jobs for partitions and retention. Not here: domain logic, state transitions and audit chain (belong to the users or to 04), migrator and migration files 0001 to 0008 (db-migrator, db-schema-kern), queues (db-queue)."
+design = ["01-data-model.md#2-modules-and-responsibility", "01-data-model.md#21-audit-port-locks-and-test-callback", "01-data-model.md#22-maintenance-jobs", "01-data-model.md#23-repository-framework", "01-data-model.md#24-metrics", "01-data-model.md#310-partitioning-and-maintenance-functions-migration-0009", "01-data-model.md#311-retention-and-deletion", "01-data-model.md#43-tenant-context", "01-data-model.md#6-security", "01-data-model.md#7-configuration"]
+built_by = ["0-E02-T01", "0-E02-T08", "0-E02-T09", "0-E02-T10", "0-E02-T11", "8-E01-T07"]
+
+[[provides]]
+name = "connect"
+kind = "ts-api"
+title = "connect, Db, Tx, DbConfig, TenantId: pool and Kysely instance per role with statement timeout"
+defined_in = "01-data-model.md#2-modules-and-responsibility"
+from_task = "0-E02-T01"
+
+[[provides]]
+name = "audit-port"
+kind = "ts-api"
+title = "DbAuditSink, DbAuditEntry, DbDeps (audit, log, metrics): port through which db writes audit entries; the AuditWriter fulfills it (FE-129)"
+defined_in = "01-data-model.md#21-audit-port-locks-and-test-callback"
+from_task = "0-E02-T01"
+
+[[provides]]
+name = "sperren"
+kind = "ts-api"
+title = "Advisory lock constants MIGRATE_LOCK, AUDIT_CHAIN_LOCK, PARTITION_LOCK (FE-120)"
+defined_in = "01-data-model.md#21-audit-port-locks-and-test-callback"
+from_task = "0-E02-T01"
+
+[[provides]]
+name = "mandanten-kontext"
+kind = "ts-api"
+title = "withTenant, withInstallationScope, inInstallationScope with InstallationScopeCaller (FE-102, FE-123)"
+defined_in = "01-data-model.md#2-modules-and-responsibility"
+from_task = "0-E02-T09"
+
+[[provides]]
+name = "ingress-instance"
+kind = "ts-api"
+title = "ingressInstance(db, id): plugin instance and tenant without tenant context via guildwork.ingress_instance (FE-123)"
+defined_in = "01-data-model.md#2-modules-and-responsibility"
+from_task = "0-E02-T09"
+
+[[provides]]
+name = "schema-typen"
+kind = "ts-api"
+title = "Kysely table types DB for all tables of the migrations 0001 to 0009, reconciled by test (FE-114)"
+defined_in = "01-data-model.md#23-repository-framework"
+from_task = "0-E02-T11"
+
+[[provides]]
+name = "repos"
+kind = "ts-api"
+title = "Namespace repos: per table group insert, get, update with optimistic locking, transaction as the first parameter"
+defined_in = "01-data-model.md#23-repository-framework"
+from_task = "0-E02-T11"
+
+[[provides]]
+name = "wartung"
+kind = "ts-api"
+title = "runPartitionMaintenance and runRetention with MaintenanceDeps (incl. retentionHold for ops_locks) and reports: handlers of the jobs db-partition-maintenance and db-retention; a missing object counts as deleted (FE-137); from 8-E01-T07 deletion class identity_link_flow"
+defined_in = "01-data-model.md#22-maintenance-jobs"
+from_task = "0-E02-T10"
+
+[[provides]]
+name = "erase-identity"
+kind = "ts-api"
+title = "eraseIdentity: clear the login of a person, redact events.actor, delete raw payloads immediately on request"
+defined_in = "01-data-model.md#22-maintenance-jobs"
+from_task = "0-E02-T10"
+
+[[provides]]
+name = "alarm-signale"
+kind = "ts-api"
+title = "dbAlertSignals: partition lead time, stuck deletions, audit partitions without anchor for the alert rules partition_missing, retention_stuck, audit_anchor_gap"
+defined_in = "01-data-model.md#22-maintenance-jobs"
+from_task = "0-E02-T10"
+
+[[provides]]
+name = "sql-wartungsfunktionen"
+kind = "contract"
+title = "Migration 0009: SQL functions ensure_partitions, drop_expired_audit_partitions, drop_expired_partitions (SECURITY DEFINER) and initial partitions"
+defined_in = "01-data-model.md#310-partitioning-and-maintenance-functions-migration-0009"
+from_task = "0-E02-T10"
+
+[[provides]]
+name = "konfig.database"
+kind = "config"
+title = "installation.yaml: database.url_ref, database.migrate_url_ref, database.tls, db.pool_max, db.statement_timeout_ms, db.startup_wait_s"
+defined_in = "01-data-model.md#7-configuration"
+from_task = "0-E02-T01"
+
+[[provides]]
+name = "konfig.retention"
+kind = "config"
+title = "installation.yaml: retention.* and db.partition_months_ahead"
+defined_in = "01-data-model.md#7-configuration"
+from_task = "0-E02-T10"
+
+[[provides]]
+name = "metriken.wartung"
+kind = "metric"
+title = "guildwork.db.partition_lead, guildwork.retention.deleted, guildwork.retention.locked"
+defined_in = "01-data-model.md#24-metrics"
+from_task = "0-E02-T10"
+
+[[provides]]
+name = "metriken.append-only"
+kind = "metric"
+title = "guildwork.db.append_only_violation and log db.append_only_violation on violation of the append-only triggers (FE-135)"
+defined_in = "01-data-model.md#24-metrics"
+from_task = "0-E02-T08"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/paket-vorlage"
+from_task = "0-E02-T01"
+purpose = "Package scaffold packages/db with package.json, exports and subpath ./testing"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/ts-toolchain"
+from_task = "0-E02-T01"
+purpose = "tsconfig, Biome, ESLint and Vitest projects unit and integration"
+
+[[uses]]
+interface = "repo-geruest-und-toolchain/make-check"
+from_task = "0-E02-T01"
+purpose = "Done criterion make check green"
+
+[[uses]]
+interface = "schichtenpruefung/new-package"
+from_task = "0-E02-T01"
+purpose = "Create the package and enter it in quality/layers.toml"
+
+[[uses]]
+interface = "schichtenpruefung/layers-toml"
+from_task = "0-E02-T01"
+purpose = "Rule: db imports only core and contracts (00 section 2.2)"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E02-T01"
+purpose = "Logger in DbDeps (tenant_context_missing); from 0-E02-T09 SECRET_PATTERNS for the table scan"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E02-T01"
+purpose = "Metrics in DbDeps; counters and gauges of the section 2.4 metrics"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "0-E02-T08"
+purpose = "Register guildwork.db.append_only_violation, from 0-E02-T10 the maintenance metrics, in the catalog"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E02-T10"
+purpose = "Result of the maintenance functions runPartitionMaintenance, runRetention, eraseIdentity"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "0-E02-T10"
+purpose = "appError transient or internal with event db.maintenance_failed"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E02-T10"
+purpose = "Clock in MaintenanceDeps for deadlines"
+
+[[uses]]
+interface = "contracts/vertrag-blob-store"
+from_task = "0-E02-T10"
+purpose = "BlobStore.delete in the deletion job and in eraseIdentity"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E02-T10"
+purpose = "PluginError with code permission (Object Lock) on deletion"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "0-E02-T01"
+purpose = "Enter keys database.*, db.* (from 0-E02-T10 retention.*, db.partition_months_ahead) in the schema"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "0-E02-T01"
+purpose = "Postgres 17 and 18 in a container for the package tests"
+
+[[uses]]
+interface = "testkit/postgres-rollen"
+from_task = "0-E02-T01"
+purpose = "ownerUrl and appUrl per test database"
+
+[[uses]]
+interface = "testkit/integration-setup"
+from_task = "0-E02-T08"
+purpose = "migrated template gw_template for the tests with tables"
+
+[[uses]]
+interface = "testkit/logs-secrets"
+from_task = "0-E02-T09"
+purpose = "captureLogs with expectEvent for tenant_context_missing and db.installation_scope"
+
+[[uses]]
+interface = "testkit/uhr-zufall"
+from_task = "0-E02-T10"
+purpose = "FakeClock for deadlines of the deletion job and partitions"
+
+[[uses]]
+interface = "db-migrator/test-rueckruf"
+from_task = "0-E02-T08"
+purpose = "migrateForTests for tests against the full schema"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E02-T10"
+purpose = "Header lines of the migration 0009_wartung.sql"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit"
+from_task = "0-E02-T08"
+purpose = "Detect append-only triggers (Kysely plugin, FE-135); from 0-E02-T10 detach partitions"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.merge-gate-decisions"
+from_task = "0-E02-T08"
+purpose = "Detect append-only triggers (FE-135)"
+
+[[uses]]
+interface = "db-schema-kern/sql-mandanten-funktionen"
+from_task = "0-E02-T09"
+purpose = "withTenant and withInstallationScope set guildwork.tenant_id or guildwork.scope for current_tenant() and installation_scope()"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "0-E02-T09"
+purpose = "Policies against which the tenant context is tested"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.plugin-instances"
+from_task = "0-E02-T09"
+purpose = "ingressInstance via guildwork.ingress_instance"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.tenants"
+from_task = "0-E02-T09"
+purpose = "Installation tenant for the audit of the installation scope; from 0-E02-T10 tenant deletion"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.blob-refs"
+from_task = "0-E02-T10"
+purpose = "due blobs, Object Lock, delete_attempts"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.inbox"
+from_task = "0-E02-T10"
+purpose = "Delete raw payload and quarantine rows"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.events"
+from_task = "0-E02-T10"
+purpose = "Create partitions, delete skipped events, redact actor.login"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.event-dedupe"
+from_task = "0-E02-T10"
+purpose = "Delete expired dedupe entries"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.issued-jwts"
+from_task = "0-E02-T10"
+purpose = "Delete expired single-use JWTs"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identities"
+from_task = "0-E02-T10"
+purpose = "eraseIdentity: clear login, set erased_at"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit-anchors"
+from_task = "0-E02-T10"
+purpose = "complete daily anchors before detaching an audit partition, signal audit_anchor_gap"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "0-E02-T10"
+purpose = "Create monthly partitions and detach them after retention.usage_days"
+
+[[uses]]
+interface = "identitaetsverknuepfung/tabelle-identity-link-flows"
+from_task = "8-E01-T07"
+purpose = "Deletion class identity_link_flow: delete rows after expires_at plus 1 day, overwrite the verifier first"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "0-E02-T10"
+purpose = "Deletion with the tenant (repo removal later, section 2.2)"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.schema-migrations"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.schema-state"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.identity-links"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-transitions"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-object-locks"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-followups"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.run-steer-messages"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.steps"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.work-items"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.leases"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.status-comments"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.policy-decisions"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.effects"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.approvals"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.artifacts"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.finding-feedback"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-snapshots"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.config-last-valid"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.repo-overrides"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.buckets"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservations"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservation-lines"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.pools"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.workers"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.backup-runs"
+from_task = "0-E02-T11"
+purpose = "Kysely table type in schema.ts and repository module"

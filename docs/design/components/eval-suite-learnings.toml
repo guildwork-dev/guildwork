@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-suite-learnings"
+title = "Learnings suite and citation validity"
+kind = "eval"
+path = "eval/suites/learnings/"
+package = "@guildwork/eval-suites"
+stage = "7a"
+purpose = "Suite with the Learnings tests from 02 section 7 (secret redaction, expiry, scope auto, PR binding) plus approval delay and voting against real Postgres, and the measurement of citation validity across all output paths. Not here: S1 with injection via Learnings (cross-cutting suites) and the gates of the Reviewer (prozess-abnahme-stufe-7a)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#82-sub-stage-7a-per-module",
+  "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08",
+]
+built_by = ["7a-E03-T01", "7a-E03-T02"]
+
+[[provides]]
+name = "suite-learnings"
+kind = "file"
+title = "Suite learnings with one case each for secret redaction, expiry, scope auto, PR binding, approval delay and voting, suite log"
+defined_in = "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"
+from_task = "7a-E03-T01"
+
+[[provides]]
+name = "zitat-gueltigkeit"
+kind = "metric"
+title = "Suite case learnings/citation-validity: share of outputs with a valid citation (gate 100 %)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"
+from_task = "7a-E03-T02"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "7a-E03-T01"
+purpose = "Suite learnings with defineSuiteCase"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "7a-E03-T01"
+purpose = "Required cases of the suite"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "7a-E03-T01"
+purpose = "real Postgres instance"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "7a-E03-T01"
+purpose = "recorded SCM responses"
+
+[[uses]]
+interface = "learnings-lebenszyklus/lebenszyklus"
+from_task = "7a-E03-T01"
+purpose = "Approval delay"
+
+[[uses]]
+interface = "learnings-lebenszyklus/scope"
+from_task = "7a-E03-T01"
+purpose = "Scope auto"
+
+[[uses]]
+interface = "learnings-lebenszyklus/pr-bindung"
+from_task = "7a-E03-T01"
+purpose = "PR binding"
+
+[[uses]]
+interface = "learnings-lebenszyklus/abstimmung-und-ablauf"
+from_task = "7a-E03-T01"
+purpose = "Expiry and voting"
+
+[[uses]]
+interface = "learnings-lebenszyklus/redaktion-und-zitat"
+from_task = "7a-E03-T01"
+purpose = "Secret redaction"
+
+[[uses]]
+interface = "plugin-pg-kb/query-learnings"
+from_task = "7a-E03-T02"
+purpose = "Outputs in the Reviewer context"
+
+[[uses]]
+interface = "entwickler-mcp/mcp-learnings-get"
+from_task = "7a-E03-T02"
+purpose = "Outputs in the developer MCP"
+
+[[uses]]
+interface = "learnings-lebenszyklus/formate-import-export"
+from_task = "7a-E03-T02"
+purpose = "Export with validity column"

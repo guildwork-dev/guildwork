@@ -1,0 +1,175 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "service-indexer"
+title = "Indexer service: scaffold, L0 and L5 on merge"
+kind = "service"
+path = "services/indexer/"
+package = "@guildwork/service-indexer"
+stage = "7a"
+purpose = "Service indexer as a deterministic controller job in the control plane without sandbox and without model (FE-941): manifest, inputs via the router, layer state L0 with watermark and rebuild rules, L5 increment per merge (harvest, release PR binding, check citations at the default head). Not here: the layers L1 to L3, jobs with LayerDelta and Ask (stages 7, 12) and the domain logic of the Learnings (learnings-lebenszyklus)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#212-indexer-l0-and-l5",
+  "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss",
+  "09-reviewer-companion-features-and-learnings.md#49-l5-on-merge",
+  "09-reviewer-companion-features-and-learnings.md#7-configuration",
+  "09-reviewer-companion-features-and-learnings.md#82-sub-stage-7a-per-module",
+]
+built_by = ["7a-E02-T01", "7a-E02-T02"]
+
+[[provides]]
+name = "service-manifest"
+kind = "contract"
+title = "Service manifest indexer with inputs pushed_default, change.merged and change.closed via the router"
+defined_in = "09-reviewer-companion-features-and-learnings.md#212-indexer-l0-and-l5"
+from_task = "7a-E02-T01"
+
+[[provides]]
+name = "konfig-indexer"
+kind = "config"
+title = "services.indexer.mode and services.indexer.layers ([L0, L5] in 7a)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "7a-E02-T01"
+
+[[provides]]
+name = "schichtzustand-l0"
+kind = "ts-api"
+title = "LayerStateRow and needsRebuild(state, current, reachable) on kb_layer_state"
+defined_in = "09-reviewer-companion-features-and-learnings.md#212-indexer-l0-and-l5"
+from_task = "7a-E02-T01"
+
+[[provides]]
+name = "l5-inkrement"
+kind = "ts-api"
+title = "L5Increment, applyL5(inc), rebuildL5(repoId, at); watermark only after success, idempotency per merge SHA"
+defined_in = "09-reviewer-companion-features-and-learnings.md#212-indexer-l0-and-l5"
+from_task = "7a-E02-T02"
+
+[[provides]]
+name = "queue-indexer-l5"
+kind = "queue"
+title = "Queue indexer-l5 (singletonKey repoKey; applyL5 or onPrClosed)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "7a-E02-T02"
+
+[[provides]]
+name = "metrik-und-alarm-schichten"
+kind = "metric"
+title = "guildwork.indexer.layer_failures and alert rule kb_layer_failed"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "7a-E02-T02"
+
+[[uses]]
+interface = "sdk-service/service-definition"
+from_task = "7a-E02-T01"
+purpose = "Service indexer with defineService"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "7a-E02-T01"
+purpose = "Controller job in the control plane"
+
+[[uses]]
+interface = "event-schema/routing-name"
+from_task = "7a-E02-T01"
+purpose = "Inputs pushed_default, change.merged, change.closed"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "7a-E02-T01"
+purpose = "Merge SHA and PR number from the event"
+
+[[uses]]
+interface = "control-plane-router/route-decision"
+from_task = "7a-E02-T01"
+purpose = "Route to the indexer"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "7a-E02-T01"
+purpose = "Keys services.indexer.mode and layers"
+
+[[uses]]
+interface = "learnings-lebenszyklus/tabellen-lebenszyklus"
+from_task = "7a-E02-T01"
+purpose = "kb_layer_state"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "7a-E02-T01"
+purpose = "Register queue indexer-l5"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "7a-E02-T01"
+purpose = "Queue indexer-l5 with singletonKey"
+
+[[uses]]
+interface = "reviewer-ausgabe/zusammenfassung"
+from_task = "7a-E02-T01"
+purpose = "KB state in the summary (s4/indexer-off-reviewer-runs)"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-rahmen"
+from_task = "7a-E02-T01"
+purpose = "S4 case"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/chat-outcome"
+from_task = "7a-E02-T02"
+purpose = "Harvest of the learningCandidate"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/tabellen-learnings"
+from_task = "7a-E02-T02"
+purpose = "Read candidates with status candidate"
+
+[[uses]]
+interface = "learnings-lebenszyklus/lebenszyklus"
+from_task = "7a-E02-T02"
+purpose = "create for harvested candidates"
+
+[[uses]]
+interface = "learnings-lebenszyklus/pr-bindung"
+from_task = "7a-E02-T02"
+purpose = "onPrMerged and onPrClosed"
+
+[[uses]]
+interface = "learnings-lebenszyklus/redaktion-und-zitat"
+from_task = "7a-E02-T02"
+purpose = "locate at the default head"
+
+[[uses]]
+interface = "plugin-pg-kb/knowledgestore-learnings"
+from_task = "7a-E02-T02"
+purpose = "Writing via the KnowledgeStore"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "7a-E02-T02"
+purpose = "getFile and compare with profile read"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "7a-E02-T02"
+purpose = "getFile and compare of the GitHub plugin"
+
+[[uses]]
+interface = "credential-broker/scm-tokens"
+from_task = "7a-E02-T02"
+purpose = "Token with profile read"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "7a-E02-T02"
+purpose = "Alert rule kb_layer_failed"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "7a-E02-T02"
+purpose = "Audit of the failed increment"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "7a-E02-T02"
+purpose = "Metric indexer.layer_failures"

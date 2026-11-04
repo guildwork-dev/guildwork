@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "work-item-umschlag"
+title = "Work item envelope, result, grants and write request schemas"
+kind = "package"
+path = "packages/contracts/src/work/"
+package = "@guildwork/contracts"
+stage = "0"
+area = "03"
+purpose = "Versioned TypeBox schemas including types for everything that travels between control plane and worker: envelope, grants, result, error and Work API messages. The write request schemas (ProposalV1) are offered by the Effect Gateway (FE-345). No logic, no storage location and no check of rights; the envelope never carries a secret."
+design = [
+  "03-execution.md#23-work-item-envelope-result-and-grants",
+  "03-execution.md#242-endpoints",
+  "03-execution.md#212-inputs-from-the-blobstore-clone-from-a-bundle-remote-work-state-fe-334-fe-335",
+  "13-stage-8-providers-and-bases.md#222-grants-and-broker",
+]
+built_by = ["0-E09-T01", "0-E11-T01", "0-E20-T28", "1-E07-T02", "8-E02-T03", "8-E02-T04", "8-E02-T05", "8-E02-T06", "8-E03-T03"]
+
+[[provides]]
+name = "envelope-v1"
+kind = "ts-api"
+title = "WorkItemEnvelopeV1 (with job, FE-331), WorkItemKind, InlineInputV1, WorkItemRequirementsV1 as schema with size limits, cross rules and validateEnvelope; additively from 2-E01-T05 or 2-E01-T06 the field lookup (EnvelopeInputsStage2V1, provider of the extension worker-umgebungs-snapshot/envelope-hinweis), from 3-E03-T01 requires.browser"
+defined_in = "03-execution.md#23-work-item-envelope-result-and-grants"
+from_task = "0-E11-T01"
+
+[[provides]]
+name = "grants-v1"
+kind = "ts-api"
+title = "GrantsV1 and LlmGrantV1 (only in the claim response, never stored); additively from 2-E01-T05 setupSecrets and inputs from 10 (provider of the extensions worker-sandbox-phasen/setup-secrets-grant and worker-sandbox-phasen/eingabe-grants)"
+defined_in = "03-execution.md#23-work-item-envelope-result-and-grants"
+from_task = "0-E11-T01"
+
+[[provides]]
+name = "step-result-v1"
+kind = "ts-api"
+title = "StepResultV1, StepErrorV1, StepStatus, StepErrorCode, ArtifactRefV1, ArtifactKind, UsageReportV1; from 1-E07-T02 StepDetailV1 (tokenFileError, inspectionRejected, pluginAudit) and codes input_unavailable, inspection_proxy_missing"
+defined_in = "03-execution.md#23-work-item-envelope-result-and-grants"
+from_task = "0-E11-T01"
+
+[[provides]]
+name = "worker-api-schemas"
+kind = "ts-api"
+title = "Request and response schemas of the Work API (ClaimRequest, LeaseInfo, HeartbeatBody, UploadTarget etc.), RevokeReason and error form WorkProblem with reason (FE-330)"
+defined_in = "03-execution.md#242-endpoints"
+from_task = "0-E11-T01"
+
+[[provides]]
+name = "proposal-v1"
+kind = "ts-api"
+title = "EffectType, EffectTarget, ProposalV1 (write request schema as TypeBox in packages/contracts/src/work/proposals.ts); narrows StepResultV1.proposals from unknown[] (0-E11-T01) to ProposalV1[] (FE-345)"
+defined_in = "04-effects-audit-credentials.md#211-effect-catalog"
+from_task = "0-E09-T01"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E11-T01"
+purpose = "Check TypeBox schemas with compileSchema and export them as JSON Schema"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E11-T01"
+purpose = "RepoRef, ChangeRef, WorkItemRef, TenantRef, ServiceId, LimitSnapshot in envelope and result"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "0-E11-T01"
+purpose = "SandboxSpec, Isolation and WorkerCaps in envelope, requirements and claim request"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "0-E11-T01"
+purpose = "CredentialKind and PinnedVersion in runtime and requires.harness"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "0-E11-T01"
+purpose = "GenerateRequest and GenerateResult for kind model_call"
+
+[[uses]]
+interface = "core/problem-json"
+from_task = "0-E11-T01"
+purpose = "Problem as basis of WorkProblem (FE-330)"
+
+[[provides]]
+name = "blob-inputs"
+kind = "ts-api"
+title = "BlobInputV1, envelope fields blobInputs, repoSource and workspace, InputGrantV1 and GrantsV1.inputs (FE-334, FE-335)"
+defined_in = "03-execution.md#23-work-item-envelope-result-and-grants"
+from_task = "0-E20-T28"
+
+[[provides]]
+name = "llm-grant-stufe-8"
+kind = "ts-api"
+title = "Additive LlmGrantV1 variants: wif with exchange (8-E02-T03), bedrock (8-E02-T04), vertex (8-E02-T05), foundry (8-E02-T06), openai (8-E03-T03), FE-1320"
+defined_in = "13-stage-8-providers-and-bases.md#222-grants-and-broker"
+from_task = "8-E02-T03"
+

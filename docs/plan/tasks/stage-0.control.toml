@@ -1,0 +1,1943 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area control of stage 0. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/01-data-model.md, docs/design/02-control-plane.md
+stage = "0"
+
+[[epic]]
+id = "0-E02"
+title = "Data model and migrations"
+goal = "Postgres schema of all core tables of stage 0 with tenant separation via row-level security, partitioning and retention; migrator forward-only (expand/contract) with a lock against parallel runs, backup gate and halt points; schema version and pgvector minimum version checked at start"
+sources = ["08 section 4 stage 0 point 1", "06 section 5"]
+depends_on = ["0-E01"]
+
+[[epic]]
+id = "0-E04"
+title = "Ingress, inbox, dedupe and router"
+goal = "Intake of normalized events with inbox and dedupe; the router assigns events to services and pipelines"
+sources = ["01 section 2, 3", "03 section 1"]
+depends_on = ["0-E02"]
+
+[[epic]]
+id = "0-E05"
+title = "Orchestrator and run state machine"
+goal = "Run state machine as a table of state times event with mandatory events, object lock, steps, pg-boss"
+sources = ["03 section 2", "ADR-67, ADR-68"]
+depends_on = ["0-E02"]   # 0-E04 only for the tasks that need ingress or router (T03, T05, T10); catalog 2026-11-01
+
+[[epic]]
+id = "0-E06"
+title = "Config resolver and policy"
+goal = "Configuration by hierarchy with base SHA and schema, fail closed; policy deny by default, command covers effect"
+sources = ["04", "05 section 2", "ADR-65"]
+depends_on = ["0-E02"]
+
+[[epic]]
+id = "0-E07"
+title = "Limit ledger"
+goal = "Buckets, reservation, consumption, abort on overrun (S3)"
+sources = ["04 section 6", "ADR-27"]
+depends_on = ["0-E02"]
+
+# ---------------------------------------------------------------------------
+# 0-E02 Data model and migrations
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = "0-E02-T01"
+title = "Package @guildwork/db: connection and test Postgres"
+description = """Scaffold of the package packages/db per 01-data-model.md section 2: connect() with DbConfig (pool, statement_timeout, application_name), Kysely instance, exports from src/index.ts. In @guildwork/testkit a helper startPostgres({ version: 17 | 18 }) with image pgvector/pgvector (Testcontainers) that creates the roles guildwork_owner and guildwork_app and returns two connection URLs. No tables in this task."""
+design = ["01-data-model.md#2-modules-and-responsibility", "01-data-model.md#31-conventions"]
+result = "packages/db/package.json, packages/db/src/index.ts, packages/db/src/connection.ts, packages/db/src/audit-port.ts, packages/db/src/locks.ts, packages/testkit/src/postgres.ts, packages/db/test/connection.test.ts"
+done = [
+  "Test 'connection.connects_pg17_and_pg18' green against both versions",
+  "Test 'connection.statement_timeout_applies' green (pg_sleep above the timeout aborts)",
+  "make check green",
+]
+sources = ["06 section 1", "11 section 3", "detailed design README section 2"]
+depends_on = []
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T01-S01"
+  title = "Test: connection to Postgres 17 and 18 with pgvector in the container"
+  done = "Test red because connect() is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T01-S02"
+  title = "Testkit helper startPostgres with roles guildwork_owner and guildwork_app"
+  done = "Helper returns two URLs, roles exist, guildwork_app is NOBYPASSRLS"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T01-S03"
+  title = "connect() with pool, statement_timeout and application_name"
+  done = "both tests green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T02"
+title = "Migrator: file format, checksum, lock, apply"
+description = """Migrator per 01-data-model.md section 4.1: files migrations/NNNN_name.sql with header lines (phase, transactional, min_app_release, haltepunkt) and numbers in blocks per stage, pending files in ascending order also below the highest applied number (01 section 3.1a, FE-126), checksum sha256 over normalized content, session advisory lock MIGRATE_LOCK = 7462001 with wait time migrate.lock_wait_s, apply per file in its own transaction with SET LOCAL guildwork.scope = 'installation', bookkeeping in schema_migrations and schema_state, error codes MigrateErrorCode. Role migrate in apps/control-plane calls apply() and sets exit codes 0, 1, 2. The tables schema_migrations and schema_state are created by migration 0001 (0-E02-T04); for the tests of this task a test migration in the test folder."""
+design = ["01-data-model.md#41-migration", "01-data-model.md#5-failure-and-abort-paths"]
+result = "packages/db/src/migrator/files.ts, lock.ts, apply.ts, packages/db/src/testing.ts, packages/db/migrations/blocks.json, apps/control-plane/src/roles/migrate.ts, packages/db/test/migrator.test.ts"
+done = [
+  "Tests 'migrator.applies_all_on_empty_db', 'migrator.is_idempotent' green",
+  "Test 'migrator.parallel_second_run_times_out' green (two runs, one applies, the other lock_timeout without change)",
+  "Test 'migrator.checksum_mismatch_aborts' green",
+  "Test 'migrator.failed_file_rolls_back_only_itself' green: files 1 and 2 remain, 3 does not, error reported with version",
+  "Exit codes of the role migrate proven by test (0 success, 1 step failed, 2 invalid option)",
+]
+sources = ["11 section 6 rules 1 to 3", "06 section 6", "ADR-41"]
+depends_on = ["0-E02-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T02-S01"
+  title = "Tests applies_all_on_empty_db and is_idempotent with test migrations"
+  done = "Tests red because the migrator is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T02-S02"
+  title = "Load files, parse header lines, compute checksum"
+  done = "Unit tests for header lines and normalization (CRLF, blank lines at the end) green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T02-S03"
+  title = "Advisory lock with wait time, test for parallel runs"
+  done = "Test 'migrator.parallel_second_run_times_out' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T02-S04"
+  title = "Apply per file in a transaction, bookkeeping, rollback of a faulty file"
+  done = "Tests applies_all_on_empty_db, is_idempotent, failed_file_rolls_back_only_itself green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T02-S05"
+  title = "Checksum comparison and unknown applied versions"
+  done = "Test 'migrator.checksum_mismatch_aborts' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T02-S06"
+  title = "Role migrate with exit codes and structured log"
+  done = "Exit code tests green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T03"
+title = "Gates of the migrator and schema check at start"
+description = """Per 01-data-model.md sections 4.1 and 4.2: check server_version_num >= 170000 and vector >= 0.8.2 (never ALTER EXTENSION), backup gate via backup_runs with migrate.recent_backup_max_age (empty DB excluded), halt points, error roles_missing with SQL for creating them. startCheck() with the results ok, schema_too_old, app_too_old, pgvector_too_old, postgres_too_old, unreachable; requiredVersions as a list generated at build time (packages/db/src/generated/required-versions.ts) with test; check of the set, because the numbers lie in blocks per stage (FE-126). Behavior of the roles: a schema that is too old aborts the start, app_too_old lets the process run, but /readyz stays 503."""
+design = ["01-data-model.md#41-migration", "01-data-model.md#42-schema-check-at-startup"]
+result = "packages/db/src/migrator/gates.ts, packages/db/src/startcheck.ts, packages/db/scripts/gen-required-versions.ts, packages/db/test/startcheck.test.ts"
+done = [
+  "Test 'migrator.requires_recent_backup' green (without backup missing_backup, empty DB excluded)",
+  "Test 'migrator.haltepunkt_skipped_aborts' green",
+  "Test 'migrator.never_updates_extension' green (static scan of all migrations)",
+  "Tests 'startcheck.schema_too_old_exits', 'startcheck.app_too_old_runs_not_ready', 'startcheck.pgvector_min_version' green",
+  "Test 'startcheck.unsafe_db_role' green (runtime as superuser, with BYPASSRLS or as owner aborts)",
+  "Done criterion of stage 0 'schema version checked at start' backed by test output",
+]
+sources = ["08 section 4 stage 0 point 1", "11 sections 3, 6 rules 4 to 7", "06 section 1"]
+depends_on = ["0-E02-T02", "0-E02-T08"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Open point from 01-data-model.md section 10: whether every base of the test matrix allows CREATE EXTENSION vector for the migration user; check in the portability test (0-E21)."
+
+  [[task.part]]
+  id = "0-E02-T03-S01"
+  title = "Tests for minimum versions of PostgreSQL and pgvector"
+  done = "Tests red because gates are missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T03-S02"
+  title = "Backup gate via backup_runs and halt points"
+  done = "Tests requires_recent_backup and haltepunkt_skipped_aborts green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T03-S03"
+  title = "Generate the requiredVersions list at build time, equality test"
+  done = "Test 'startcheck.required_schema_matches_migrations' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T03-S04"
+  title = "startCheck() and behavior of the roles (abort or not ready), check of the runtime role"
+  done = "Tests schema_too_old_exits, app_too_old_runs_not_ready, pgvector_min_version, unsafe_db_role green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T03-S05"
+  title = "Error roles_missing with SQL suggestion, creation with CREATEROLE"
+  done = "Test 'migrator.roles_missing_message' green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T04"
+title = "Migration 0001: foundations, tenants, plugin instances, identities"
+description = """File packages/db/migrations/0001_grundlagen.sql per 01-data-model.md section 3.2: schema guildwork, extension vector, grants (tables and sequences), functions current_tenant(), installation_scope() and ingress_instance() (SECURITY DEFINER without SET clause on placeholder parameters, FE-123), tables schema_migrations, schema_state, tenants, plugin_instances, identities, identity_links with all constraints and indexes."""
+design = ["01-data-model.md#32-foundations-tenants-and-identity-migration-0001"]
+result = "packages/db/migrations/0001_grundlagen.sql, packages/db/test/constraints.basis.test.ts"
+done = [
+  "Test 'constraints.identity_link_oauth_only' green",
+  "Test 'migrator.runs_as_non_superuser' green (all migrations as guildwork_owner without superuser rights, on Postgres 17 and 18)",
+  "Test 'constraints.tenants_one_installation' green (a second installation tenant fails)",
+  "Test 'constraints.plugin_instance_secret_ref_only' green (webhook_secret_ref without secret:// fails)",
+  "Migration runs on Postgres 17 and 18",
+]
+sources = ["05 section 7", "01 section 1.1", "ADR-41"]
+depends_on = ["0-E02-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T04-S01"
+  title = "Constraint tests for tenants, plugin_instances, identities, identity_links"
+  done = "Tests red because the migration is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T04-S02"
+  title = "Write migration 0001"
+  done = "Constraint tests green on 17 and 18"
+  status = "open"
+
+[[task]]
+id = "0-E02-T05"
+title = "Migrations 0002 and 0003: intake and flow"
+description = """Files 0002_eingang.sql (inbox with partial index of the delivery ID, events partitioned, event_dedupe) and 0003_ablauf.sql (runs, run_transitions, run_object_locks, run_followups, run_steer_messages, steps, work_items, leases, status_comments) per 01-data-model.md sections 3.3 and 3.4, with check constraints of the states (all 23 run states), unique partial index of the object lock and unique active lease; columns of work_items and leases with the needs from detailed design 03 section 3 (kind, requirements, priority, deadline_at, result, attempt, item_token_jti, state), tenants.drain_since, run_steer_messages with the delivery values from detailed design 10. objectKey() in @guildwork/contracts is built by 0-E13-T02; here only the column."""
+design = ["01-data-model.md#33-intake-migration-0002", "01-data-model.md#34-flow-migration-0003"]
+result = "packages/db/migrations/0002_eingang.sql, packages/db/migrations/0003_ablauf.sql, packages/db/test/constraints.ablauf.test.ts"
+done = [
+  "Test 'constraints.run_end_state_requires_ended_at' green",
+  "Test 'constraints.object_lock_unique_active' green (a second active lock for object and service fails with unique_violation)",
+  "Test 'constraints.one_active_lease_per_item' green",
+  "Test 'constraints.inbox_delivery_unique' green (unique only over non-quarantined rows, FE-124)",
+  "Test 'ingress.redelivery_after_quarantine' green at schema level (same delivery ID insertable after quarantine)",
+  "Test 'constraints.steer_messages_kept' green (run_steer_messages with delivery pending stays until handover)",
+  "Test 'constraints.run_states_match_automaton' green (list of states in the CHECK equal to 03 section 2.1)",
+]
+sources = ["03 sections 2.1, 2.2, 2.3, 2.5", "ADR-67", "ADR-68", "01 section 2"]
+depends_on = ["0-E02-T04"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T05-S01"
+  title = "Constraint tests for intake and flow"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T05-S02"
+  title = "Migration 0002 with partitioned events table and event_dedupe"
+  done = "Tests for inbox and dedupe green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T05-S03"
+  title = "Migration 0003 with runs, locks, steps, work items, leases, status comments"
+  done = "all constraint tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T06"
+title = "Migration 0004: effects, approvals, artifacts, policy decisions, findings"
+description = """File 0004_effekte_befunde.sql per 01-data-model.md section 3.5: policy_decisions, effects with the columns from detailed design 04 section 3 (idempotency key unique per tenant, ordering_key, shadow_reason, pushed_sha for the SHA chain), approvals (one open request per run and gate), artifacts with kind and type (detailed design 03 and 04), findings with the columns from detailed design 08 (identity via repo_key, change and fingerprint), finding_feedback (with actor_is_author for ADR-61 (d))."""
+design = ["01-data-model.md#35-effects-approvals-artifacts-findings-migration-0004"]
+result = "packages/db/migrations/0004_effekte_befunde.sql, packages/db/test/constraints.effekte.test.ts"
+done = [
+  "Test 'constraints.effect_idempotency_unique' green",
+  "Test 'constraints.effect_shadowed_needs_reason' green (shadowed exactly with shadow_reason)",
+  "Test 'constraints.approval_one_open_per_gate' green",
+  "Test 'constraints.finding_identity_unique' green",
+]
+sources = ["03 section 2.2", "ADR-11", "05 section 2", "02 section 4"]
+depends_on = ["0-E02-T05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T06-S01"
+  title = "Constraint tests for effects, approvals, findings"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T06-S02"
+  title = "Write migration 0004"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T07"
+title = "Migration 0005: ledger and configuration"
+description = """File 0005_ledger_konfig.sql per 01-data-model.md section 3.6: config_snapshots (deduplicated over tenant and hash), foreign key runs.config_snapshot_id, config_last_valid (ADR-65), repo_overrides (one active entry per repo and key), buckets, reservations, reservation_lines, usage (partitioned, raw counters separated per FE-122)."""
+design = ["01-data-model.md#36-ledger-and-configuration-migration-0005"]
+result = "packages/db/migrations/0005_ledger_konfig.sql, packages/db/test/constraints.ledger.test.ts"
+done = [
+  "Test 'constraints.bucket_window_consistency' green (fixed windows need window_start, concurrency only without window)",
+  "Test 'constraints.repo_override_one_active' green",
+  "Test 'constraints.snapshot_dedupe_by_hash' green",
+  "Test 'constraints.reservation_rejected_needs_bucket' green",
+]
+sources = ["04 sections 1 rules 4, 5, 7 and 6", "ADR-16", "ADR-65", "ADR-66"]
+depends_on = ["0-E02-T06"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M128: raw counters stored separately (FE-122), the unit of the token limits stays open."
+
+  [[task.part]]
+  id = "0-E02-T07-S01"
+  title = "Constraint tests for ledger and configuration tables"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T07-S02"
+  title = "Write migration 0005"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T08"
+title = "Migrations 0006 and 0007: audit, merge gate, operations"
+description = """Files 0006_audit_gate.sql (audit partitioned without sequence, revocation of rights, append-only trigger for rows and TRUNCATE, functions audit_head and audit_insert as the only write path per FE-125 and FE-127, audit_anchors, merge_gate_decisions with all columns from detailed design 11 and append-only trigger) and 0007_betrieb.sql (pools, workers with pool key per FE-412, foreign key leases.worker_id, backup_runs, blob_refs, issued_jwts) per 01-data-model.md sections 3.7 and 3.8. The eval tables are built by 0-E20-T06 (migration 0010), the alarm tables by 0-E19-T04 (0011), the emergency admin by 0-E17-T03 (0013). 0006 uses the constants from locks.ts (created in 0-E02-T01, FE-120) as numbers; test locks.constants_unique here. Kysely plugin for violations of the append-only triggers (01 FE-135). The chain logic of the audit is built by 0-E08."""
+design = ["01-data-model.md#37-audit-and-merge-gate-migration-0006", "01-data-model.md#38-operations-and-tables-of-further-stage-0-areas-migration-0007"]
+result = "packages/db/migrations/0006_audit_gate.sql, packages/db/migrations/0007_betrieb.sql, packages/db/src/connection.ts (append-only plugin), packages/db/test/constraints.audit_eval.test.ts"
+done = [
+  "Test 'audit.append_only' green (UPDATE, DELETE, TRUNCATE fail via the triggers even for the owner; direct INSERT as guildwork_app fails)",
+  "Test 'audit.append_via_function_as_app' green (audit_head and audit_insert as guildwork_app under tenant A chain correctly to an entry of tenant B, scope empty afterwards)",
+  "Test 'audit.insert_rejects_stale_head' green (wrong head fails, seq gap-free after rollback)",
+  "Test 'constraints.merge_gate_decision_consistent' green (append-only trigger only allows superseded_by)",
+  "Test 'locks.constants_unique' green",
+]
+sources = ["05 section 8", "03 section 1a", "11 sections 2.2, 7", "ADR-29"]
+depends_on = ["0-E02-T07"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T08-S01"
+  title = "Tests audit.append_only, chain functions, merge gate decisions"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T08-S02"
+  title = "Migration 0006 with audit and merge gate"
+  done = "Tests of migration 0006 green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T08-S03"
+  title = "Migration 0007 with operations tables and lock constants"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T09"
+title = "Tenant separation: row-level security, tenant context, secret scan of the tables"
+description = """Migration 0008_rls.sql per 01-data-model.md section 3.9 (policy tenant_isolation with FORCE on every table with tenant_id except partitions, policy for tenants, rights on installation-wide tables). withTenant(), withInstallationScope() and inInstallationScope() (inside a running transaction, restores the previous context) with a fixed caller list and audit via the port AuditWriter (fake until 0-E08) per section 4.3 and FE-123; ingressInstance() via the function guildwork.ingress_instance. Lint test that guildwork.scope is only set in tenant.ts. Test secrets.no_token_in_any_table: write fixture tokens (also the sk-ant-oat01 pattern) through a flow and then scan all text and JSON columns with gitleaks rules plus own rules."""
+design = ["01-data-model.md#39-row-level-security-migration-0008", "01-data-model.md#43-tenant-context", "01-data-model.md#6-security"]
+result = "packages/db/migrations/0008_rls.sql, packages/db/src/tenant.ts, packages/db/test/rls.test.ts, packages/db/test/secrets-scan.test.ts"
+done = [
+  "Tests 'rls.every_tenant_table_has_policy', 'rls.no_context_no_rows', 'rls.tenant_a_cannot_see_tenant_b' green",
+  "Test 'rls.partition_direct_access_denied' green",
+  "Test 'rls.scope_setting_only_in_tenant_module' green",
+  "Tests 'rls.ingress_instance_without_context' and 'rls.nested_scope_restores' green (also in the error case)",
+  "Test 'secrets.no_token_in_any_table' green with 0 hits (part of the done criterion 'secret scan finds the token in no table' of stage 0)",
+  "Failure path: writing without context fails with a WITH CHECK error, test 'rls.insert_without_context_fails' green",
+]
+sources = ["05 sections 5, 6 constraint 4, 7", "08 stage 0 done criterion", "ADR-57"]
+depends_on = ["0-E02-T08"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "Open point: observe the effect of FORCE ROW LEVEL SECURITY on managed bases in the portability test."
+
+  [[task.part]]
+  id = "0-E02-T09-S01"
+  title = "RLS tests over all tables (generated from information_schema)"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T09-S02"
+  title = "Migration 0008 with policies and rights"
+  done = "RLS tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T09-S03"
+  title = "withTenant, withInstallationScope, inInstallationScope, ingressInstance with caller list and audit"
+  done = "Unit tests, lint test, ingress_instance_without_context and nested_scope_restores green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T09-S04"
+  title = "Secret scan of all tables after a flow with fixture tokens"
+  done = "Test 'secrets.no_token_in_any_table' green; counter-check with a deliberately stored token is red"
+  status = "open"
+
+[[task]]
+id = "0-E02-T10"
+title = "Partition maintenance and deletion job for retention periods"
+description = """Migration 0009_wartung.sql with ensure_partitions and drop_expired_audit_partitions (SECURITY DEFINER, at least 365 days, only with complete daily anchors) as well as drop_expired_partitions for usage per 01-data-model.md section 3.10. Job handlers runPartitionMaintenance (alarm partition_missing when the lead time is under 2 months) and runRetention per section 3.11: delete blobs via blob_refs and the BlobStore driver (Object Lock postpones, repeated errors yield alarm retention_stuck), rows of inbox, event_dedupe, skipped events, issued_jwts in batches, tenant deletion after the deadline, deletion of a person (redact login). Audit per batch with numbers, never contents. The registration as pg-boss jobs is done by 0-E05-T05."""
+design = ["01-data-model.md#310-partitioning-and-maintenance-functions-migration-0009", "01-data-model.md#311-retention-and-deletion"]
+result = "packages/db/migrations/0009_wartung.sql, packages/db/src/maintenance/partitions.ts, packages/db/src/maintenance/retention.ts, packages/db/test/maintenance.test.ts"
+done = [
+  "Tests 'partitions.ensure_creates_ahead', 'partitions.missing_partition_alarm' green",
+  "Tests 'retention.deletes_due_blobs_and_rows', 'retention.object_lock_defers' green",
+  "Tests 'retention.audit_partition_needs_anchors', 'retention.audit_min_365' green",
+  "Test 'retention.tenant_purge_keeps_audit' green",
+  "Test 'retention.erase_identity_blanks_login' green",
+]
+sources = ["06 sections 3 (object storage), 5", "05 section 8", "11 section 3 (retention via deletion job)", "ADR-29"]
+depends_on = ["0-E02-T09", "0-E03-T02", "0-E03-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "Open point: encryption of the raw payloads with the driver fs (06 section 5) is a matter for 0-E03 or an operator prerequisite; here only the retention periods."
+
+  [[task.part]]
+  id = "0-E02-T10-S01"
+  title = "Tests for partitions and audit retention"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T10-S02"
+  title = "Migration 0009 with maintenance functions"
+  done = "Partition and audit tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T10-S03"
+  title = "Tests for the deletion job (blobs, rows, Object Lock, tenant, person)"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T10-S04"
+  title = "runRetention and runPartitionMaintenance with alarms and audit"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T11"
+title = "Kysely types, schema alignment test and repository scaffold"
+description = """Table types by hand in packages/db/src/schema.ts (FE-114) for all tables of migrations 0001 to 0009; test schema.types_match_db compares columns, types and nullability with information_schema. Repository scaffold in src/repos/ with one file per table group (only reading and writing single rows, domain logic belongs to the users)."""
+design = ["01-data-model.md#2-modules-and-responsibility", "01-data-model.md#9-rulings"]
+result = "packages/db/src/schema.ts, packages/db/src/repos/*.ts, packages/db/test/schema-types.test.ts"
+done = [
+  "Test 'schema.types_match_db' green",
+  "tsc --noEmit green for sample queries of every table",
+]
+sources = ["detailed design README section 2 (Kysely)"]
+depends_on = ["0-E02-T09"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T11-S01"
+  title = "Test schema.types_match_db"
+  done = "Test red because schema.ts is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T11-S02"
+  title = "schema.ts for all tables"
+  done = "Test green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T11-S03"
+  title = "Repository scaffold per table group"
+  done = "Type check green, one read and one write test per group green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T12"
+title = "Expand/contract: migration linter and probe N-1 against N"
+description = """Check tool tools/migration-lint (part of make check) per 01-data-model.md section 4.1: rejects DROP, RENAME, ALTER ... TYPE and SET NOT NULL in expand files, requires min_app_release in contract files, requires transactional: false for CREATE INDEX CONCURRENTLY. Probe upgrade.n_minus_1_code_on_n_schema: a fixture of the pre-release code (queries from repos/ at state N-1) runs against the schema after an expand migration; serves as a building block of the upgrade test in S8 (0-E21)."""
+design = ["01-data-model.md#41-migration", "01-data-model.md#8-tests"]
+result = "tools/migration-lint/, packages/db/test/upgrade.test.ts, Makefile target check"
+done = [
+  "Test 'migration_lint.expand_rejects_drop' green with one case each for DROP, RENAME, TYPE, SET NOT NULL",
+  "Test 'migration_lint.contract_requires_min_app_release' green",
+  "Test 'upgrade.n_minus_1_code_on_n_schema' green",
+  "make check runs the linter (output shown in the PR)",
+]
+sources = ["11 section 6 rules 1, 2", "07 S8"]
+depends_on = ["0-E02-T03", "0-E02-T11"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T12-S01"
+  title = "Linter tests with sample files"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T12-S02"
+  title = "Linter and inclusion in make check"
+  done = "Linter tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T12-S03"
+  title = "Probe N-1 code against N schema"
+  done = "Test 'upgrade.n_minus_1_code_on_n_schema' green"
+  status = "open"
+
+[[task]]
+id = "0-E02-T13"
+title = "pg-boss foundation: pin the version, start in schema pgboss, send within the transaction"
+description = """Foundation of the queues in packages/db/src/queue/ per 02-control-plane.md section 4.9 (FE-270, FE-271), before ingress and router (0-E04), because these send jobs in the same transaction as their DB change: pin the pg-boss version and check the license at the source; start in schema pgboss; sendInTx(tx, queue, payload, opts) via the transaction object of pg-boss or, if the pinned version does not support that, via an own table job_outbox (expand migration) with a forwarder; spike tests prove the so far unverified assumptions (sending in a foreign transaction, option names for retry, expiry, singletonKey, startAfter, dead letter, naming rules). Queue definitions and registration of the handlers are done by 0-E05-T05. Schema pgboss only via installQueueSchema with the owner connection, called by the migrator after the last migration, including rights for guildwork_app; createQueueRuntime never changes the schema (FE-276)."""
+design = ["02-control-plane.md#49-queues-pg-boss"]
+result = "packages/db/src/queue/boss.ts, packages/db/src/queue/send-in-tx.ts, if needed packages/db/migrations/0017_job_outbox.sql, packages/db/test/queue.test.ts"
+done = [
+  "Test 'queues.send_is_transactional' green (rollback takes the job with it, commit makes it visible)",
+  "Spike result per unverified assumption as test output in the PR description",
+  "pg-boss version and license with reference in the PR description",
+  "Test 'queues.schema_installed_by_migrator_only' green (start with guildwork_app without schema yields schema_missing)",
+]
+sources = ["06 section 3 (queue)", "ADR-03", "ADR-04"]
+depends_on = ["0-E02-T02", "0-E02-T04"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E02-T13-S01"
+  title = "Spike tests against the pinned pg-boss version"
+  done = "Result of the unverified assumptions recorded as test output"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E02-T13-S02"
+  title = "Start in schema pgboss and sendInTx (or job_outbox with forwarder)"
+  done = "Test 'queues.send_is_transactional' green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+# 0-E04 Ingress, inbox, dedupe and router
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = "0-E04-T01"
+title = "Event schema, routing names, object and dedupe keys, JCS"
+description = """TypeBox schema TriggerEvent, ResolvedEvent, CommandName, Skipped and StoredEvent in packages/contracts/src/events/ (fields from 01 section 2, additions per 02-control-plane.md section 4.2). routingName() with the mapping table FE-206, objectKey() (01-data-model FE-111), dedupeKey() (FE-211). Canonicalization per RFC 8785 is canonicalJson in packages/core/src/hash.ts from 0-E01-T02 (detailed design 00 section 2.5); no file jcs.ts is created. Normalization fixtures under packages/contracts/test/fixtures/events/. Dropped (see note)."""
+design = ["02-control-plane.md#42-event-schema-and-normalization", "02-control-plane.md#43-router"]
+result = "none (dropped; event schema in 0-E13-T02, canonicalJson in packages/core/src/hash.ts from 0-E01-T02)"
+done = [
+  "Test 'events.schema_matches_contract' green",
+  "Test 'events.routing_name_table_complete' green",
+  "Test 'events.object_key_stable_on_rename' green",
+  "Test 'core.jcs_rfc8785_vectors' green",
+  "Test 'events.dedupe_key_distinguishes_objects' green",
+]
+sources = ["01 sections 1.2, 2", "04 section 3 (routing)", "ADR-08"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "dropped"
+note = "merged with 0-E13-T02 in the consistency run 2026-11-01: the event schema with routingName, objectKey and dedupeKey is defined only in detailed design 05 section 2.11.1 and is built there; JCS is canonicalJson from 0-E01-T02 (detailed design 00). M38 is done by 0-E13-T02."
+
+  [[task.part]]
+  id = "0-E04-T01-S01"
+  title = "Tests with event fixtures and RFC 8785 test vectors"
+  done = "Tests red"
+  status = "dropped"
+
+  [[task.part]]
+  id = "0-E04-T01-S02"
+  title = "JCS in @guildwork/core"
+  done = "Test 'core.jcs_rfc8785_vectors' green"
+  status = "dropped"
+
+  [[task.part]]
+  id = "0-E04-T01-S03"
+  title = "TypeBox schemas of the events"
+  done = "Test 'events.schema_matches_contract' green"
+  status = "dropped"
+
+  [[task.part]]
+  id = "0-E04-T01-S04"
+  title = "routingName, objectKey, dedupeKey"
+  done = "all tests of the task green"
+  status = "dropped"
+
+[[task]]
+id = "0-E04-T02"
+title = "Ingress endpoint with signature verification before parsing"
+description = """POST /v1/ingress/{instanceId} in the role web per 02-control-plane.md section 4.1 (FE-201 to FE-204): instance from the DB (404 if unknown or inactive), size limit (413) and rate per instance (429) before the check, TriggerSource.verify on the raw body with the secret via webhook_secret_ref; invalid: quarantine (bounded), audit ingress.rejected, counter, 401. Valid: raw body via BlobStorePort into raw/, inbox row and job ingress-process in one transaction, 202; storage error 503. Responses without internal details. Test with a fake TriggerSource from the testkit and the driver fs. In addition the ports PluginLookup (plugins/lookup.ts, FE-214) and BlobStorePort with the blob_refs row before the object (blobs/tracked.ts, FE-215) per 02-control-plane.md section 2.3."""
+design = ["02-control-plane.md#41-ingress", "02-control-plane.md#6-security"]
+result = "apps/control-plane/src/ingress/routes.ts, apps/control-plane/src/ingress/store.ts, apps/control-plane/test/ingress.test.ts"
+done = [
+  "Test 'ingress.verifies_before_parse' green (parse is never called on an invalid signature)",
+  "Tests 'ingress.unknown_instance_404', 'ingress.body_too_large_413', 'ingress.rate_limited_429' green",
+  "Test 'ingress.store_unavailable_503' green (no inbox row on a BlobStore error)",
+  "Response within 10,000 ms under a load of 50 parallel requests (test 'ingress.ack_within_deadline')",
+  "Test 'blobs.ref_before_object' green",
+]
+sources = ["01 sections 2, 3", "03 section 5 (signature invalid)", "05 section 9", "ADR-08"]
+depends_on = ["0-E13", "0-E03-T02", "0-E08-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E04-T02-S01"
+  title = "Tests for signature, response codes and response time"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T02-S02"
+  title = "Route with instance check, size and rate"
+  done = "Tests for 404, 413, 429 green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T02-S03"
+  title = "Signature verification and quarantine with audit and counter"
+  done = "Test 'ingress.verifies_before_parse' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T02-S04"
+  title = "Store raw body, inbox row and job in one transaction"
+  done = "Tests for 202 and 503 green"
+  status = "open"
+
+[[task]]
+id = "0-E04-T03"
+title = "Inbox and dedupe via delivery ID and dedupeKey"
+description = """Dedupe per 02-control-plane.md sections 4.1 and 5: duplicate delivery ID via the unique index of the inbox (response 200, counter ingress_duplicate kind delivery_id), duplicate dedupeKey via event_dedupe with INSERT ON CONFLICT (no second event, hits + 1, counter kind dedupe_key), lifetime ingress.dedupe_window_h. Fulfills the done criterion 'dedupe' of stage 0."""
+design = ["02-control-plane.md#41-ingress", "02-control-plane.md#5-failure-and-abort-paths"]
+result = "apps/control-plane/src/ingress/dedupe.ts, apps/control-plane/test/dedupe.test.ts"
+done = [
+  "Test 'ingress.dedupe.delivery_id' green",
+  "Test 'ingress.dedupe.dedupe_key' green (webhook and reconcile for the same action yield one event)",
+  "Test 'ingress.dedupe.parallel_same_key' green (20 parallel deliveries, one event)",
+  "Test 'ingress.redelivery_after_quarantine' green (redelivery after quarantine creates one event, FE-124)",
+  "Done criterion of stage 0 'dedupe' backed by test output",
+]
+sources = ["08 stage 0 done criterion", "01 section 2", "03 section 5"]
+depends_on = ["0-E04-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E04-T03-S01"
+  title = "Dedupe tests including parallel delivery"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T03-S02"
+  title = "Dedupe via delivery ID and event_dedupe with counters"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E04-T04"
+title = "Ingress processing: parsing, normalizing, identities"
+description = """Job handler ingress-process per 02-control-plane.md section 4.1 (FE-204): inbox to processing, TriggerSource.parse over the raw body from the BlobStore, Skipped with reason, per event storage in events with objectKey, routingName, dedupeKey, text_ref instead of text, without email; identities via upsert, is_self via isSelf; job router-route in the same transaction; parse errors with retry and then dead letter. The queue registration is done by 0-E05-T05; here handler and tests with a direct call."""
+design = ["02-control-plane.md#41-ingress", "02-control-plane.md#42-event-schema-and-normalization"]
+result = "apps/control-plane/src/ingress/process.ts, apps/control-plane/test/ingress-process.test.ts"
+done = [
+  "Test 'ingress.process.normalizes_fixtures' green (fixtures from 0-E13-T02)",
+  "Test 'ingress.process.no_text_in_db' green (foreign text only in the BlobStore)",
+  "Test 'ingress.restart_safe' green",
+  "Test 'ingress.process.parse_error_retried_then_failed' green with audit entry",
+  "Test 'ingress.org_tenant_from_event' green (installation-wide instance: event at the org tenant; unknown org yields skipped(org_not_onboarded) with audit, FE-212)",
+]
+sources = ["01 section 2", "03 section 5 (control plane restarted)", "05 section 4"]
+depends_on = ["0-E04-T03"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E04-T04-S01"
+  title = "Tests with fixtures, restart and parse error"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T04-S02"
+  title = "Handler ingress-process with events and identities"
+  done = "Tests normalizes_fixtures and no_text_in_db green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T04-S03"
+  title = "Failure path parse error and restart"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E04-T05"
+title = "Router: filter stages, repo assignment, TOCTOU, route selection"
+description = """Job handler router-route per 02-control-plane.md section 4.3 steps 1 to 6: cheap filters (unroutable, bot, self, fork_author), repo assignment via repo_mapping (GitHub issue: same; fallback ask per FE-209 as skipped(repo_unresolved) with a clarifying question), fresh re-read and TOCTOU (edited_after_trigger), configuration at the base SHA via the resolver, route selection with on, source, filter, enabled and deny by default for commands, service off. Every abort with skip_reason, counter, audit per table 4.3 and a visible reply as platform effect comment via EffectGateway.submitPlatform (detailed design 04, fake until 0-E09). The result is a RouteDecision to orchestrator-intake (permissions in 0-E04-T06)."""
+design = ["02-control-plane.md#43-router"]
+result = "apps/control-plane/src/router/route.ts, apps/control-plane/src/router/match.ts, apps/control-plane/src/router/repo-mapping.ts, apps/control-plane/test/router.test.ts"
+done = [
+  "Test 'router.cheap_filters_before_permission' green",
+  "Test 'router.command_without_route_denied' green with a visible reply",
+  "Test 'router.filter_expr' green with the filters from 04 section 3",
+  "Test 'router.toctou_edited' green",
+  "Test 'router.repo_unresolved_asks' green",
+  "Test 'router.service_off_skipped_visible' green",
+  "Test 'router.skip_reply_once_per_event' green",
+]
+sources = ["01 section 2 (rules on the event)", "03 sections 1, 4, 5", "04 section 3 (routing, repo_mapping)", "05 section 4 point 3"]
+depends_on = ["0-E04-T04", "0-E06-T05", "0-E09-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "FE-209 applies: a repo that cannot be assigned yields skipped(repo_unresolved) with a clarifying question; 03 section 5 of the architecture was aligned in the consistency run 2026-11-01."
+
+  [[task.part]]
+  id = "0-E04-T05-S01"
+  title = "Router tests per filter stage and skip reason"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T05-S02"
+  title = "Cheap filters and repo assignment"
+  done = "Tests cheap_filters_before_permission and repo_unresolved_asks green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T05-S03"
+  title = "Fresh re-read and TOCTOU"
+  done = "Test 'router.toctou_edited' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T05-S04"
+  title = "Route selection with filters, deny by default, service off, visible replies"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E04-T06"
+title = "Permission check G0 with command_permissions"
+description = """Step 7 of the router per 02-control-plane.md section 4.3 (permissions G0): minimum permission from command_permissions, otherwise min_permission of the route; forms scm, work_item, AND, any_of, role budget_owner (run_trigger and codeowner_of are passed on by the router as a requirement to the orchestrator); ticket commands with a code consequence need ticket and repo permission via identity_links (only an active OAuth link); auto triggers check the ticket author; cache router.permission_cache_s; provider errors never count as a permission and lead to a retry."""
+design = ["02-control-plane.md#43-router", "02-control-plane.md#9-rulings"]
+result = "apps/control-plane/src/router/permissions.ts, apps/control-plane/test/permissions.test.ts"
+done = [
+  "Test 'router.permission_ticket_and_repo' green",
+  "Test 'router.permission_from_provider_not_payload' green",
+  "Test 'router.permission_lookup_failure_never_grants' green",
+  "Test 'router.auto_trigger_checks_item_author' green",
+  "Test 'router.permission_cache_ttl' green",
+]
+sources = ["03 sections 3 (G0), 4", "04 section 3 (command_permissions)", "05 section 7 (identity_links)"]
+depends_on = ["0-E04-T05"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M90 (reserved labels agent:*, label command only with a human setter) changes 03 section 1a and stays open; here G0 applies to the ticket author as in the architecture."
+
+  [[task.part]]
+  id = "0-E04-T06-S01"
+  title = "Tests per permission form and failure path"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T06-S02"
+  title = "Evaluation of command_permissions and min_permission"
+  done = "Tests for forms and auto triggers green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T06-S03"
+  title = "Provider query with identity_links, cache and error handling"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E04-T07"
+title = "Reconcile and poll into the same inbox"
+description = """Job handlers trigger-reconcile and trigger-poll per 02-control-plane.md section 4.1 (FE-205): call of TriggerSource.reconcile(since) or poll(cursor), raw data into the BlobStore, delivery_id reconcile:<dedupeKey>, cursor in plugin_instances.health; dedupe against events that already arrived via webhook. Operating mode private: an instance without the capability POLL is not loaded (check here, report to doctor via the plugin status)."""
+design = ["02-control-plane.md#41-ingress"]
+result = "apps/control-plane/src/ingress/reconcile.ts, apps/control-plane/test/reconcile.test.ts"
+done = [
+  "Test 'ingress.reconcile_no_duplicates' green",
+  "Test 'ingress.poll_private_mode' green",
+  "Test 'ingress.private_mode_requires_poll_capability' green",
+]
+sources = ["01 section 3", "11 section 1.1", "ADR-08"]
+depends_on = ["0-E04-T04"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E04-T07-S01"
+  title = "Tests for reconcile and poll"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T07-S02"
+  title = "Handler with cursor and inbox path"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E04-T08"
+title = "Suite cases and metrics for ingress and router (S2, S6)"
+description = """Cross-cutting cases per 02-control-plane.md sections 5 and 8 in the suite scaffold (0-E22 provides the scaffold; the cases live here): S6.ingress.signature_invalid, S6.ingress.duplicate, S6 rows 'permissions missing', 'service off', 'text edited after the trigger'; S2.router.foreign_trigger_fork_bot. Every case checks stored, audited, logged and visible. Metrics ingress_rejected, ingress_duplicate, ingress_unavailable, router_skipped, router_permission_lookup_failed as OTel counters via the logging facade from 0-E01."""
+design = ["02-control-plane.md#5-failure-and-abort-paths", "02-control-plane.md#8-tests"]
+result = "eval/suites/s6/ingress.test.ts, eval/suites/s2/router.test.ts, apps/control-plane/src/ingress/metrics.ts"
+done = [
+  "Tests 'S6.ingress.signature_invalid', 'S6.ingress.duplicate' green",
+  "S6 cases for permissions missing, service off and TOCTOU green",
+  "Test 'S2.router.foreign_trigger_fork_bot' green with 0 runs",
+  "Counters queried per case in the test (before and after)",
+]
+sources = ["03 section 5", "07 section 5 (S2, S6)", "06 section 4"]
+depends_on = ["0-E04-T06", "0-E04-T07", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E04-T08-S01"
+  title = "S6 cases ingress and router"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T08-S02"
+  title = "S2 case foreign trigger, fork, bot, expired permissions"
+  done = "Case green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E04-T08-S03"
+  title = "Metrics and counter check in the cases"
+  done = "Counters checked before and after in every case"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+# 0-E05 Orchestrator and run state machine
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = "0-E05-T01"
+title = "Run state machine as a file with schema, generator and completeness test"
+description = """run-automaton.v1.json with all 23 states, table A (mandatory events, 72 cells) and table B (domain events with guards and effects) from 02-control-plane.md section 4.4, schema of the file (TypeBox), loading with validation, generator of the TypeScript types at build time (FE-220). Completeness tests: every cell non-end state times mandatory event has an entry or na with reason, every target exists, every non-end state reaches an end state; alignment of the state list with the CHECK constraint in runs."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/automaton/run-automaton.v1.json, schema.ts, load.ts, generated.ts, apps/control-plane/test/automaton.test.ts"
+done = [
+  "Test 'automaton.completeness.every_mandatory_cell' green (S6 'completeness of the run automaton', table part)",
+  "Tests 'automaton.completeness.targets_exist', 'automaton.completeness.end_reachable' green",
+  "Test 'automaton.generated_types_current' green",
+  "Test 'automaton.states_match_db_check' green",
+]
+sources = ["03 section 2.1", "ADR-67", "07 S6"]
+depends_on = []
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T01-S01"
+  title = "Completeness tests against an empty file"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T01-S02"
+  title = "Schema of the automaton file and loading with validation"
+  done = "Schema tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T01-S03"
+  title = "Table A (mandatory events) into the file"
+  done = "Test every_mandatory_cell green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T01-S04"
+  title = "Table B (domain events, guards, effects) into the file"
+  done = "Tests targets_exist and end_reachable green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T01-S05"
+  title = "Type generator and alignment with the DB"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T02"
+title = "Transition engine in one transaction"
+description = """engine.ts per 02-control-plane.md section 4.4 (FE-222, FE-223): SELECT FOR UPDATE on the run, idempotency via run_transitions (run_id, event_key), target from table A before table B, guards via the expression language from 0-E06-T02, update of state, resume_state, version, deadline_at, ended_at, end_reason, effects as DB steps and follow-up jobs in the same transaction, audit via the port AuditWriter. Discarded events with rejected_not_in_table or rejected_guard, audit and a visible reply only for a human command (bounded per object)."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/engine.ts, apps/control-plane/test/engine.test.ts"
+done = [
+  "Test 'engine.duplicate_event_ignored' green",
+  "Test 'engine.unknown_event_rejected_visible' green",
+  "Test 'engine.commit_or_nothing' green",
+  "Test 'engine.mandatory_before_domain' green",
+  "Test 'engine.resume_state_set_and_cleared' green",
+  "Test 'engine.rejected_reply_rate_limited' green",
+]
+sources = ["03 sections 2.1, 2.2", "ADR-04", "ADR-67"]
+depends_on = ["0-E05-T01", "0-E05-T05", "0-E06-T02", "0-E08-T02", "0-E09-T02"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T02-S01"
+  title = "Engine tests for idempotency, discarding, commit or nothing"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T02-S02"
+  title = "Transition with lock, target selection and guards"
+  done = "Tests duplicate_event_ignored, mandatory_before_domain green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T02-S03"
+  title = "Effects and follow-up jobs in the same transaction, audit"
+  done = "Test 'engine.commit_or_nothing' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T02-S04"
+  title = "Discarded events with audit and bounded reply"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T03"
+title = "Intake: run creation, object lock, delivery, follow-up job"
+description = """intake.ts per 02-control-plane.md sections 4.4 and 4.5 (FE-225, FE-226): run in received, resolver and snapshot, policy evaluateRunStart and evaluateServiceMode, reservation in the ledger, transition to queued with object locks in the same transaction; on unique_violation object_locked and delivery to the pipeline or upsert into run_followups; start of the follow-up job at the end of the blocking run on the current SHA. Rejections: rejected (skipped with reason), reservation rejected (paused_budget with resume_state queued). Order of the steps, decideMode before evaluateServiceMode (FE-255), hint fail closed per file SHA and createRun for runs without an event (eval service, probe run; FE-241) per section 4.5."""
+design = ["02-control-plane.md#45-run-start-intake", "02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/intake.ts, apps/control-plane/test/intake.test.ts, eval/suites/s6/object-lock.test.ts"
+done = [
+  "Test 'S6.object_lock.parallel_events_one_run' green (20 simultaneous events, exactly one active run per service): done criterion S6 'object lock' of stage 0",
+  "Test 'S6.object_lock.pipeline_holds_all_services' green",
+  "Test 'S6.object_lock.followup_single' green",
+  "Test 'S6.object_lock.parallel_events_one_run_empty_budget' green (lock before the reservation, a paused run holds it, after continue still one active run)",
+  "Test 'S5.ci_failed_delivered_to_pipeline' green",
+  "Test 'intake.reservation_rejected_paused_budget' green",
+  "Tests 'intake.create_run_eval_record' and 'intake.config_hint_once_per_sha' green",
+]
+sources = ["03 sections 2.1 (received), 2.5", "04 section 3 (routes with services)", "ADR-68", "ADR-27"]
+depends_on = ["0-E05-T02", "0-E06-T07", "0-E06-T09", "0-E07-T02", "0-E04-T06", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T03-S01"
+  title = "Tests object lock in parallel, pipeline lock, follow-up job"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T03-S02"
+  title = "Run creation with snapshot, policy and reservation"
+  done = "Test 'intake.reservation_rejected_paused_budget' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T03-S03"
+  title = "Object locks in the transition to queued"
+  done = "Test parallel_events_one_run green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T03-S04"
+  title = "Delivery to pipelines and follow-up job"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T04"
+title = "Assign control commands to the matching run"
+description = """commands.ts per 02-control-plane.md section 4.4 table control commands (FE-227): approve plan, approve risk, continue, resume, say, handoff, hold, stop, answer to a clarifying question, run=<run_id>; ambiguity leads to a clarifying question with the list from the status comment; no matching runs yield 'no running run' or 'nothing to approve'; check run_trigger and codeowner_of at the head SHA; commands in end states."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/commands.ts, eval/suites/s5/commands.test.ts"
+done = [
+  "Test 'S5.commands.ambiguous_asks_for_run_id' green",
+  "Test 'S5.commands.stop_ends_all' green",
+  "Test 'commands.no_active_run_answer' green",
+  "Test 'commands.run_trigger_checked' green",
+  "Test 'commands.approve_plan_hash_bound' green (changed plan hash: no approval)",
+  "Test 'S6.automaton.say_never_dropped' green (say stored in every non-end state and handed over to the next work item)",
+]
+sources = ["03 sections 2.5, 3, 4", "04 section 3 (control commands)", "ADR-68"]
+depends_on = ["0-E05-T03", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T04-S01"
+  title = "S5 tests for control commands"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T04-S02"
+  title = "Assignment and clarifying question on ambiguity"
+  done = "Tests ambiguous_asks_for_run_id and stop_ends_all green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T04-S03"
+  title = "run_trigger, codeowner_of and binding to the plan hash"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T05"
+title = "Queues: definitions, schedules, dead letter, registration of the handlers"
+description = """queues/names.ts, queues/payloads.ts and queues/register.ts per 02-control-plane.md sections 4.9 and 4.9.2 (FE-270, FE-275, FE-277) on the foundation from 0-E02-T13: QueueDef with retry, expiry, singletonKey, startAfter and dead letter for the queues whose handlers exist (orchestrator-*, ingress-process, router-route, trigger-*, db-partition-maintenance, db-retention); PENDING_QUEUES with the task per still missing handler; schedules (trigger-reconcile and trigger-poll per instance, orchestrator-sweep, ledger-expire, db-partition-maintenance, db-retention); handler of the queue dead-letter (audit job.dead_lettered, error_after_retries to the run for payloads with runId, counter guildwork.queue.dead_lettered). QueueDef.role (orchestrator or ops, FE-278); every role registers only its queues. The alarm rule job_dead_letter is built by 0-E05-T13."""
+design = ["02-control-plane.md#49-queues-pg-boss", "02-control-plane.md#492-queue-definitions-and-handlers"]
+result = "apps/control-plane/src/queues/names.ts, apps/control-plane/src/queues/payloads.ts, apps/control-plane/src/queues/register.ts, apps/control-plane/test/queues.test.ts"
+done = [
+  "Test 'queues.names_valid' green (every name from [a-z0-9-] and in table 4.9)",
+  "Test 'queues.table_complete' green (every queue of the table registered or in PENDING_QUEUES with a task)",
+  "Test 'queues.every_queue_has_handler' green",
+  "Test 'queues.dead_letter_recorded' green (audit job.dead_lettered, counter, error_after_retries on the run)",
+  "Test 'queues.schedules_registered' green",
+]
+sources = ["06 section 3 (queue)", "ADR-03", "ADR-04"]
+depends_on = ["0-E04-T04", "0-E04-T05", "0-E04-T07"]
+owner = "agent"
+estimate_h = 5
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T05-S01"
+  title = "Tests for names, schedules and dead letter"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T05-S02"
+  title = "Queue definitions with options"
+  done = "Test 'queues.names_valid' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T05-S03"
+  title = "Schedules"
+  done = "Test 'queues.schedules_registered' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T05-S04"
+  title = "Dead letter handler and registration of the handlers"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T06"
+title = "Deadlines, sweeper, stop with lease revocation, budget_exhausted"
+description = """deadlines.ts per 02-control-plane.md section 4.4 (FE-224): deadline_at per state from the configuration (wall_min, ask_timeout_h, plan_expiry_days, waiting windows, deadline queued), delayed job orchestrator-deadline with version check, sweeper orchestrator-sweep every minute. stop: WorkItemService.revoke with RevokeReason stop (detailed design 03), reservation released, locks released. budget_exhausted from the ledger and heartbeat cancel. queued past the deadline: status neutral without a state change."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/deadlines.ts, apps/control-plane/test/deadlines.test.ts"
+done = [
+  "Test 'deadlines.lost_job_caught_by_sweeper' green",
+  "Test 'deadlines.stale_job_no_effect' green",
+  "Test 'stop.revokes_leases_and_releases' green",
+  "Test 'queued.neutral_after_deadline' green",
+]
+sources = ["03 sections 2.1, 3 (G1b, G5), 5", "04 section 3 (approvals, ask_timeout_h)"]
+depends_on = ["0-E05-T02", "0-E07-T04", "0-E11-T02"]   # 0-E11-T02 added: stop and revoke_leases call WorkItemService.revoke (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T06-S01"
+  title = "Tests deadlines, sweeper, stop"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T06-S02"
+  title = "deadline_at, delayed job and sweeper"
+  done = "Deadline tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T06-S03"
+  title = "stop and budget_exhausted with lease revocation and releases"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T07"
+title = "Status comment with compare-and-swap"
+description = """status-comment.ts per 02-control-plane.md section 4.4 and 01-data-model FE-116: job status-comment-render with singletonKey per object and debouncing, rendering of all active runs (state, next commands, costs, link into the admin UI, 'standard not proven' with service names), hidden marker guildwork:status v1, CAS on status_comments.version, platform effect status_comment via EffectGateway.submitPlatform (detailed design 04) with idempotency key status:<objectKey>:<version>."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine", "01-data-model.md#34-flow-migration-0003"]
+result = "apps/control-plane/src/orchestrator/status-comment.ts, apps/control-plane/test/status-comment.test.ts"
+done = [
+  "Test 'S6.status_comment.parallel_updates_keep_all_runs' green",
+  "Test 'status_comment.marker_roundtrip' green",
+  "Test 'status_comment.unproven_marked' green",
+  "Test 'status_comment.cas_conflict_rerenders' green",
+]
+sources = ["03 section 2.3", "ADR-11", "ADR-47", "ADR-68"]
+depends_on = ["0-E05-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T07-S01"
+  title = "Tests parallel updates, marker, labeling"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T07-S02"
+  title = "Rendering and marker"
+  done = "Tests marker_roundtrip and unproven_marked green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T07-S03"
+  title = "CAS, debouncing and platform effect"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T08"
+title = "Lifting open runs on upgrade"
+description = """upgrade-lift.ts per 02-control-plane.md section 4.4 (FE-229): section upgradeFrom in the automaton file, build test for a complete mapping, job orchestrator-upgrade-lift in the installation scope, one transaction per run with a run_transitions row upgrade_lift and audit, idempotent via event_key lift:<N>; maintain schema_state.automaton_versions; output for doctor. For the test an artificial version 2 with mapping in the test folder."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/upgrade-lift.ts, apps/control-plane/test/upgrade-lift.test.ts"
+done = [
+  "Test 'upgrade.lift_open_runs' green with one case per waiting state (also awaiting_human_review and paused_budget)",
+  "Test 'automaton.upgrade_map_complete' green (a missing mapping makes the build fail)",
+  "Test 'upgrade.lift_idempotent' green",
+]
+sources = ["03 section 6 point 1", "ADR-67", "11 section 6"]
+depends_on = ["0-E05-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M137: this build follows ADR-67 (lifting); 11 section 6 rule 10 and 06 section 6 were aligned in the consistency run 2026-11-01."
+
+  [[task.part]]
+  id = "0-E05-T08-S01"
+  title = "Tests with artificial version 2"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T08-S02"
+  title = "Mapping, lifting job and audit"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T09"
+title = "Pipelines, single-service runs, steps and work items"
+description = """pipelines.ts and steps.ts per 02-control-plane.md section 4.4: pipeline definition from the snapshot (stages, parallel, on_disabled skip, fail, human, when, until), mapping of a single-service run to a state (FE-221) including guildwork/dummy for 0-E16, create_step with step and work item via WorkItemService.enqueue (detailed design 03 section 2.4.1; pool and required capabilities from policy evaluateWorkItem), acceptance of step results only with a matching lease ID, translation into domain events, error_after_retries after orchestrator.step_max_attempts, reuse of the plan and triage artifact of the same ticket version (FE-228). Translation of the StepEvents, adaptServiceController and ControllerHost for services from @guildwork/sdk-service per section 4.4 (FE-242)."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine"]
+result = "apps/control-plane/src/orchestrator/pipelines.ts, apps/control-plane/src/orchestrator/steps.ts, apps/control-plane/test/pipelines.test.ts"
+done = [
+  "Test 'S6.automaton.single_service_ends_done' green",
+  "Test 'steps.result_only_from_current_lease' green",
+  "Test 'steps.error_after_retries' green",
+  "Test 'pipelines.on_disabled_variants' green (skip, fail, human with a note in the status comment)",
+  "Test 'pipelines.plan_reused_same_ticket_version' green",
+  "Tests 'controllers.decision_mapping' and 'controllers.host_propose_origin_step_result' green",
+]
+sources = ["03 sections 1, 1a, 2.1, 2.2", "04 section 3 (pipelines)", "02 section 0"]
+depends_on = ["0-E05-T03", "0-E11-T01", "0-E11-T02", "0-E13-T11"]   # 0-E11-T01, 0-E11-T02 and 0-E13-T11 added: envelope, WorkItemService, types from sdk-service (catalog reconciliation)
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T09-S01"
+  title = "Tests single service, lease binding, retries, on_disabled"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T09-S02"
+  title = "Pipeline definition and single-service mapping"
+  done = "Tests single_service_ends_done and on_disabled_variants green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T09-S03"
+  title = "Steps and work items via WorkItemService, result acceptance"
+  done = "Tests result_only_from_current_lease and error_after_retries green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T09-S04"
+  title = "Reuse of artifacts of the same ticket version"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T10"
+title = "Roles web and orchestrator: start, readiness, shutdown"
+description = """main.ts and roles/ per 02-control-plane.md section 2.4 (FE-200): roles as the first argument (one role, comma-separated list, all; migrate and ops alone, otherwise exit code 2), start sequence per role (startCheck, configuration, plugin registry, HTTP or pg-boss), /healthz and /readyz with reason, behavior on app_too_old, reload of installation.yaml via SIGHUP, orderly shutdown with orchestrator.shutdown_grace_s. Wiring of the ingress route and the handlers; room for the work API, platform MCP (0-E11) and admin API (0-E17) as Fastify plugins. In addition per 02 section 2.4: MigrateRoleInput from database.migrate_url_ref and database.url_ref via the SecretStore of the loaded drivers; table COMMANDS for standalone commands (audit-verify is entered by 0-E08-T03); handler drivers-health with pollDriverHealth in the role orchestrator (04 FE-439); LoaderDeps.makeContext and InstanceDecl in plugins/context.ts (FE-216)."""
+design = ["02-control-plane.md#24-roles-and-processes"]
+result = "apps/control-plane/src/main.ts, apps/control-plane/src/roles/web.ts, apps/control-plane/src/roles/orchestrator.ts, apps/control-plane/src/http/health.ts, apps/control-plane/test/roles.test.ts"
+done = [
+  "Test 'roles.combined_process_starts_both' green",
+  "Test 'roles.readyz_reports_reason' green (app_too_old, configuration invalid)",
+  "Test 'roles.sigterm_finishes_jobs' green",
+  "Test 'roles.invalid_installation_yaml_aborts_start' green",
+  "Tests 'roles.argument_forms' and 'roles.mount_prefix_unique' green",
+]
+sources = ["06 section 1", "11 sections 2.1, 2.4, 6 rule 6"]
+depends_on = ["0-E05-T05", "0-E02-T03", "0-E04-T02", "0-E19-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T10-S01"
+  title = "Tests for start, readiness, shutdown"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T10-S02"
+  title = "Role selection and start sequence"
+  done = "Tests combined_process_starts_both and invalid_installation_yaml_aborts_start green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T10-S03"
+  title = "Health, readiness and orderly shutdown"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T11"
+title = "S6 cases per cell of the run state machine"
+description = """Per cell of table A (state times mandatory event, 72 cells, with 'not applicable' as the case 'discarded with audit') one case S6.automaton.cell.<state>.<event> that checks exactly the stored (runs, run_transitions, reservations, run_object_locks), audited and visible behavior (status comment or reply); in addition the special cases continue into the origin, 409 on merge, single-service runs end in done. The cases run via the engine with injected events, without real services. Together with 0-E05-T01 fulfills the done criterion S6 'completeness of the run automaton' of stage 0."""
+design = ["02-control-plane.md#44-orchestrator-and-run-state-machine", "02-control-plane.md#8-tests"]
+result = "eval/suites/s6/automaton-cells.test.ts"
+done = [
+  "All cases 'S6.automaton.cell.*' green; the test aborts if a cell of the file has no case",
+  "Cases 'S6.automaton.cell.merging.stop' (guard !merge.call_sent) and 'S6.automaton.cell.merge_gate.deadline' (recheck_merge_gate) explicitly green",
+  "Tests 'S6.automaton.continue_restores_origin', 'S6.automaton.merge_409_to_merge_gate' green",
+  "Test 'engine.side_effects_complete' green (every effect of stage 0 implemented)",
+  "Done criterion of stage 0 S6 'completeness of the run automaton' backed by test output",
+]
+sources = ["03 section 2.1 test (S6)", "07 section 5 S6", "ADR-67"]
+depends_on = ["0-E05-T04", "0-E05-T06", "0-E05-T07", "0-E05-T09", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E05-T11-S01"
+  title = "Case generator from the automaton file with abort on a missing cell"
+  done = "Generator reports all cells without a case"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T11-S02"
+  title = "Cases for intake, waiting and final states"
+  done = "Cases of these states green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T11-S03"
+  title = "Cases for active states"
+  done = "Cases of these states green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T11-S04"
+  title = "Special cases continue, 409, single service"
+  done = "all cases of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E05-T12"
+title = "Check the DBOS license and the comparison with the own engine"
+description = """Open point from 09 section 4 (DBOS license, stage 0) and backlog M114: read the license file of DBOS Transact for TypeScript at the source (reference with date) and compare the requirements from 03 sections 2 and 6 (waiting over days, stop, budget pause with origin, lifting on upgrade, own work API with lease) against DBOS, as a short report in the section open points of 02-control-plane.md with a proposal for 09. ADR-04 is not decided anew here; a switch would be an architecture decision with its own ruling."""
+design = ["02-control-plane.md#10-open-points"]
+result = "Section 10 of docs/design/02-control-plane.md (report with references)"
+done = [
+  "License with reference and retrieval date in the report",
+  "every requirement from 03 sections 2 and 6 with a result (met, not met, unverified) in the report",
+  "Proposal for the row 'DBOS license' in 09 section 4 formulated",
+]
+sources = ["09 section 4", "ADR-04", "06 section 3 (flows)"]
+depends_on = []
+owner = "agent"
+estimate_h = 3
+status = "open"
+note = "M114 (spike DBOS against own engine)."
+
+  [[task.part]]
+  id = "0-E05-T12-S01"
+  title = "Read the license at the source"
+  done = "Reference with date noted"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T12-S02"
+  title = "Requirements comparison and report"
+  done = "Report in the detailed design"
+  status = "open"
+
+[[task]]
+id = "0-E05-T13"
+title = "Alarm rules of the control plane"
+description = """Alarm rules per 02-control-plane.md section 5.2 (FE-274) as AlertRule of the alert state machine (detailed design 00 section 2.9) in apps/control-plane/src/alerts/rules/: job_dead_letter (audit job.dead_lettered from 0-E05-T05), ingress_rejected_burst (audit ingress.rejected per instance above ingress.reject_alarm_per_min), router_permission_lookup_failed (events skipped with this reason), settlement_retried (runs with end_reason settlement_retried); per rule an entry in ALERT_RULE_IDS and ALERT_RULES and a row in the table of 00 section 2.9 (follow-up list)."""
+design = ["02-control-plane.md#52-alert-rules-of-this-area"]
+result = "apps/control-plane/src/alerts/rules/job-dead-letter.ts, ingress-rejected-burst.ts, router-permission-lookup-failed.ts, settlement-retried.ts, apps/control-plane/test/alert-rules-control.test.ts"
+done = [
+  "Test 'alerts.job_dead_letter_fires_and_resolves' green",
+  "Test 'alerts.ingress_rejected_burst_threshold' green (threshold ingress.reject_alarm_per_min per instance)",
+  "Test 'alerts.router_permission_lookup_failed_fires' green",
+  "Test 'alerts.settlement_retried_fires' green",
+  "Rows of the four rules entered in 00 section 2.9",
+]
+sources = ["06 section 4 (alarms)", "03 section 5"]
+depends_on = ["0-E19-T04", "0-E05-T05", "0-E04-T06", "0-E07-T04"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+note = "A separate task because the alert state machine (0-E19-T04) only comes into existence after 0-E05-T05 and 0-E05-T10 (FE-274)."
+
+  [[task.part]]
+  id = "0-E05-T13-S01"
+  title = "Tests per rule with stored facts"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E05-T13-S02"
+  title = "Rules, registration and table rows in 00"
+  done = "all tests of the task green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+# 0-E06 Config resolver and policy
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = "0-E06-T01"
+title = "JSON Schemas installation, org, repo with x-qualification and x-merge"
+description = """TypeBox schemas in packages/config/src/schema/ for installation.yaml, org.yaml (including repo group files per FE-232) and .agents/config.yaml per 04 sections 1 to 7 and 02-control-plane.md section 4.6: version required, additionalProperties false, annotations x-qualification (true or false for every key under services.*) and x-merge (every leaf), default values with source. Export as installation.schema.json, org.schema.json, repo.schema.json (draft 2020-12). Keys services.<id> as modules in packages/contracts/src/services/<id>-config.ts, re-exported under packages/config/src/schema/services/ (FE-248). The examples from 04 sections 3, 3a, 4, 7 as test fixtures with neutral placeholders."""
+design = ["02-control-plane.md#46-config-resolver"]
+result = "packages/config/src/schema/*.ts, packages/config/schemas/*.schema.json, packages/config/test/schema.test.ts"
+done = [
+  "Test 'schema.every_service_key_marked' green",
+  "Test 'schema.every_key_has_merge' green",
+  "Test 'schema.examples_validate' green",
+  "Test 'schema.export_current' green (exported files equal to the build)",
+]
+sources = ["04 sections 1, 3, 3a, 4, 7", "07 section 2", "ADR-66"]
+depends_on = []
+owner = "agent"
+estimate_h = 14
+status = "open"
+note = "Also complete M39 (all keys from 02 and the research into the schema) and M65 (default and source per key) here."
+
+  [[task.part]]
+  id = "0-E06-T01-S01"
+  title = "Schema tests and example fixtures"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T01-S02"
+  title = "installation schema"
+  done = "Example from 04 section 7 validated"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T01-S03"
+  title = "org and repo group schema"
+  done = "Examples from 04 sections 3 and 3a validate"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T01-S04"
+  title = "repo schema"
+  done = "Example from 04 section 4 validated"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T01-S05"
+  title = "Annotations x-qualification and x-merge complete, export"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T02"
+title = "Expression language for filter, required_if, auto_if, until, when"
+description = """packages/config/src/expr/ per FE-207: lexer, parser, evaluator without eval, operators and functions from 02-control-plane.md section 4.3, path schemas per expression location (contexts.ts), unknown path as a load error with line; function change.is_agent_pr as an available path (backlog M91)."""
+design = ["02-control-plane.md#43-router"]
+result = "packages/config/src/expr/lexer.ts, parser.ts, eval.ts, contexts.ts, packages/config/test/expr.test.ts"
+done = [
+  "Test 'config.expr.no_eval_and_unknown_path_rejected' green",
+  "Test 'config.expr.examples_from_04' green (all expressions from 04 parse and evaluate as expected)",
+  "Fuzz test 'config.expr.fuzz_no_crash' with 10,000 random inputs without a crash",
+]
+sources = ["04 sections 3, 3a", "03 section 1a (auto_if)"]
+depends_on = []
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M91: change.is_agent_pr is available; whether the route pipeline.ci_failed in 04 is switched over is decided by the architecture."
+
+  [[task.part]]
+  id = "0-E06-T02-S01"
+  title = "Tests with the expressions from 04 and fuzz test"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T02-S02"
+  title = "Lexer, parser, evaluator, path schemas"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T03"
+title = "Loader: read and check files at the base SHA"
+description = """load.ts per 02-control-plane.md section 4.6 (FE-230, FE-232, FE-235, FE-236): locations per layer, reading via SCMProvider.getFile at the pinned SHA (repo: base SHA, org and groups: HEAD of the default branch at run start), YAML with line information, schema check, unknown keys as errors with line and column, secrets in plain text as error secret_inline, cache per (source_key, sha). validateFile() for CLI and doctor."""
+design = ["02-control-plane.md#46-config-resolver"]
+result = "packages/config/src/load.ts, packages/config/test/load.test.ts"
+done = [
+  "Test 'config.unknown_key_is_error_with_line' green",
+  "Test 'config.reads_base_sha_not_head' green",
+  "Test 'config.secret_inline_rejected' green",
+  "Test 'config.group_membership_property_then_topic' green",
+]
+sources = ["04 sections 1 rule 4, 2", "ADR-17"]
+depends_on = ["0-E06-T01", "0-E06-T02", "0-E13-T03", "0-E13-T08", "0-E08-T01"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T03-S01"
+  title = "Loader tests with fake SCMProvider"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T03-S02"
+  title = "Locations, SHA rule, cache"
+  done = "Test 'config.reads_base_sha_not_head' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T03-S03"
+  title = "YAML with lines, schema check, secret check"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T04"
+title = "Merging the hierarchy, tightening only, repo_overrides last"
+description = """merge.ts per 02-control-plane.md section 4.6 (FE-231, FE-233): order platform, installation, org, repo group, repo, path, service, user, overrides; strategy per key from x-merge (override, min, max, ordered_min, union, intersect, choose_within, installation_only); lock of the org; loosening ignored with a warning in the result; repo_overrides last and tightening only."""
+design = ["02-control-plane.md#46-config-resolver"]
+result = "packages/config/src/merge.ts, packages/config/test/merge.test.ts"
+done = [
+  "Test 'config.merge.tighten_only' green with one case per x-merge kind",
+  "Test 'config.overrides_last_and_tightening_only' green",
+  "Test 'config.org_lock_respected' green",
+  "Test 'config.allow_unproven_live_only_installation' green (org can only shorten)",
+]
+sources = ["04 section 1 rules 1, 2, 3, 6, 7"]
+depends_on = ["0-E06-T03"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T04-S01"
+  title = "Tests per merge kind, lock, overrides"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T04-S02"
+  title = "Merge per x-merge with warnings"
+  done = "Test 'config.merge.tighten_only' green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T04-S03"
+  title = "lock, user layer, repo_overrides"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T05"
+title = "Fail closed on an invalid config file (ADR-65)"
+description = """failclosed.ts per 02-control-plane.md section 4.6: maintain config_last_valid per file, on an invalid org, group or repo file use the last valid version, otherwise the strictest level (all services at most shadow, merge.mode human, autonomy low), note in the result (fallback_used, sources[].status), visible hint once per file SHA as platform effect comment and an error for the admin UI. Resolver facade resolve() with all steps except consistency and profile. Port ConfigStore with implementation KyselyConfigStore in apps/control-plane/src/config/store.ts (audit config.invalid only on a new error_sha), behavior on an unreadable source (onUnreadable) per section 4.6 (FE-239). The visible hint is sent by the intake (0-E05-T03), not by the package."""
+design = ["02-control-plane.md#46-config-resolver", "02-control-plane.md#5-failure-and-abort-paths"]
+result = "packages/config/src/failclosed.ts, packages/config/src/resolver.ts, eval/suites/s2/config-failclosed.test.ts"
+done = [
+  "Test 'S2.config.broken_file_with_previous_valid' green: done criterion S2 'faulty config file' of stage 0",
+  "Test 'S2.config.broken_file_without_previous' green",
+  "Test 'S2.config.unknown_key_after_upgrade' green",
+  "Test 'config.hint_once_per_sha' green (newErrorSha exactly once per file SHA, audit config.invalid)",
+  "Test 'config.source_unreadable_retries_then_fallback' green",
+]
+sources = ["04 section 1 rule 4", "03 section 5 (config file invalid)", "ADR-65", "07 S2"]
+depends_on = ["0-E06-T04", "0-E08-T02", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T05-S01"
+  title = "S2 cases faulty config file"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T05-S02"
+  title = "Maintain config_last_valid, fallback and strictest level"
+  done = "S2 cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T05-S03"
+  title = "Hint per file SHA and audit"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T06"
+title = "Consistency checks at load time"
+description = """consistency/ per the table in 02-control-plane.md section 4.6: per rule one file and one S2 case: data path, personal credential kinds with acknowledge_terms and nativeTools limit, operator_test with all constraints, verifier.build, ModelProvider reachability (ADR-58), merge.mode auto not for external_code (class via SCMProvider.repoInfo), security.agent_ci for coder, QA, PR fixer, analyzer allowlist and bundled_licenses, docs pipelines with merge.mode human, auto_close and auto_approve without effect with a hint, audit_anchor sink blob with OBJECT_LOCK."""
+design = ["02-control-plane.md#46-config-resolver"]
+result = "packages/config/src/consistency/*.ts, eval/suites/s2/config-consistency.test.ts"
+done = [
+  "per rule one case 'S2.config.consistency.<rule>' green with rejection at load time",
+  "Test 'config.consistency.example_04_section3_valid' green (example from 04 section 3 passes all rules)",
+]
+sources = ["04 sections 3, 3a, 5, 7", "05 section 6", "ADR-50, ADR-51, ADR-58, ADR-59, ADR-60", "07 S2"]
+depends_on = ["0-E06-T04", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T06-S01"
+  title = "S2 cases per rule"
+  done = "Cases red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T06-S02"
+  title = "Rules data path, credential kinds, operator_test"
+  done = "Cases of these rules green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T06-S03"
+  title = "Rules reviewer, ModelProvider, external_code, agent_ci"
+  done = "Cases of these rules green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T06-S04"
+  title = "Rules analyzer, docs, auto_close, auto_approve, audit_anchor"
+  done = "all cases of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T07"
+title = "Snapshot and qualification_key"
+description = """Resolver.snapshot() per 02-control-plane.md section 4.6 (FE-234): per service of the run, profile and qualification_key via buildProfile and qualificationKey from packages/config/src/qualification (built in 0-E20-T05, detailed design 07 section 2.10; no second implementation here), snapshot hash via canonicalJson from @guildwork/core (0-E01-T02), config_snapshots deduplicated via the hash, immutability for running runs. Fill the inputs EffectiveServiceConfig and ResolvedInstallation and pass the contribution of the service from ResolverServiceInfo (02 section 4.6, FE-247); until the service loader (0-E16-T01) the test supplies the ResolverServiceInfo."""
+design = ["02-control-plane.md#46-config-resolver"]
+result = "packages/config/src/resolver.ts (snapshot), packages/config/test/snapshot.test.ts"
+done = [
+  "Test 'qualification_key.from_resolver' green (snapshot carries profile and key from qualificationKey per service)",
+  "Test 'snapshot.immutable_for_running_run' green",
+  "Test 'snapshot.dedupe_by_hash' green",
+]
+sources = ["04 section 1 rule 5", "07 section 2", "ADR-66"]
+depends_on = ["0-E06-T04", "0-E20-T05"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T07-S01"
+  title = "Tests profile, key, snapshot"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T07-S02"
+  title = "Wire in profile and qualification_key from 0-E20-T05"
+  done = "Test qualification_key.from_resolver green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T07-S03"
+  title = "Store and deduplicate the snapshot"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T08"
+title = "Policy engine: deny by default, command covers effect, decision log"
+description = """policy/ per 02-control-plane.md section 4.7 (FE-250 to FE-252): pure functions evaluateRunStart, evaluateEffect, evaluateWorkItem with rules POL-001 to POL-070, table command covers effect, table of the platform effects (POL-012), write requests per service from 02 section 0 or from the service manifest, record() writes policy_decisions with rule ID, input hash (JCS) and POLICY_VERSION. The Effect Gateway (0-E09) calls evaluateEffect; the citation check itself (ADR-63) is built by 0-E09."""
+design = ["02-control-plane.md#47-policy"]
+result = "apps/control-plane/src/policy/engine.ts, policy/rules/*.ts, policy/effects-table.ts, apps/control-plane/test/policy.test.ts"
+done = [
+  "Test 'policy.deny_by_default' green",
+  "Test 'policy.command_covers_effect' green (review job with propose_push rejected with POL-011)",
+  "Test 'policy.platform_effect_only_from_table' green",
+  "Test 'policy.forbidden_and_protected_paths' green (POL-020 deny, POL-021 G4)",
+  "Test 'policy.version_from_rules' green",
+  "Test 'policy.decisions_recorded' green",
+]
+sources = ["05 section 2 points 1 to 4", "02 section 0", "03 section 4", "ADR-06", "ADR-27"]
+depends_on = ["0-E06-T07", "0-E05-T01", "0-E09-T01", "0-E13-T11"]   # 0-E09-T01 and 0-E13-T11 added: effect catalog, ServiceDefinition for POL-010 (catalog reconciliation)
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M113 (platform effects without a policy rule) done for stage 0 with FE-251, the revert executor stays in stage 5. M110 part 1 (@agent ask needs propose_comment for the indexer) has been in 02 section 0 of the architecture since the consistency run 2026-11-01."
+
+  [[task.part]]
+  id = "0-E06-T08-S01"
+  title = "Policy tests per rule"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T08-S02"
+  title = "Rules for effects, commands, paths, platform effects"
+  done = "Tests deny_by_default, command_covers_effect, platform_effect_only_from_table, forbidden_and_protected_paths green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T08-S03"
+  title = "Rules for run start and work item"
+  done = "Tests for POL-050, POL-051, POL-060, POL-061 green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T08-S04"
+  title = "Decision log policy_decisions"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T09"
+title = "Service mode with qualification check"
+description = """policy/service-mode.ts per 02-control-plane.md section 4.7 (FE-253): evaluateServiceMode from the snapshot with POL-031 (off) and POL-040 (live only if decideMode of the qualification matrix from 0-E20-T17 returns live for the qualification_key, otherwise shadow; a deviation from allow_unproven_live yields live with unproven = true), result in the snapshot and Run Record; fallback to shadow on a changed profile."""
+design = ["02-control-plane.md#47-policy"]
+result = "apps/control-plane/src/policy/service-mode.ts, eval/suites/s2/qualification.test.ts"
+done = [
+  "Test 'policy.live_requires_qualified_key' green",
+  "Test 'policy.unproven_live_marked' green",
+  "Test 'S2.qualification_key.verifier_model_changed' green (service at most shadow, 0 effects live)",
+]
+sources = ["02 section 0 (on, off, shadow)", "07 section 2", "10 section 1.2", "ADR-47", "ADR-66"]
+depends_on = ["0-E06-T08", "0-E20-T17", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T09-S01"
+  title = "Tests mode, deviation, changed profile"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T09-S02"
+  title = "evaluateServiceMode with decideMode of the matrix"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E06-T10"
+title = "Service for repo_overrides"
+description = """Service functions setOverride, liftOverride, listOverrides per 04 section 1 rule 7 and 01-data-model.md section 3.6: only tightening values (check against x-merge), writers orchestrator (only defined fallback rules) and admin, audit per change. The HTTP endpoints of the admin API are built by 0-E17 on top of these functions."""
+design = ["02-control-plane.md#46-config-resolver", "01-data-model.md#36-ledger-and-configuration-migration-0005"]
+result = "packages/config/src/overrides.ts, packages/config/test/overrides.test.ts"
+done = [
+  "Test 'overrides.loosening_rejected' green",
+  "Test 'overrides.orchestrator_only_fixed_rules' green",
+  "Test 'overrides.audited' green",
+]
+sources = ["04 section 1 rule 7", "03 section 1a (follow-up phase)"]
+depends_on = ["0-E06-T04"]
+owner = "agent"
+estimate_h = 4
+status = "open"
+
+  [[task.part]]
+  id = "0-E06-T10-S01"
+  title = "Tests for overrides"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E06-T10-S02"
+  title = "Service functions with check and audit"
+  done = "Tests green"
+  status = "open"
+
+# ---------------------------------------------------------------------------
+# 0-E07 Limit ledger
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = "0-E07-T01"
+title = "Key chain and buckets from the snapshot"
+description = """ledger/keys.ts per 02-control-plane.md section 4.8 (FE-260): key chain org, repo_group, repo, user, service, provider, pool from snapshot and run, mapping of the limits from 04 section 6 to buckets (table in the detailed design), ensureBuckets creates missing ones and updates limit_value and source_snapshot_hash; limits per run (usd_run, turns, wall_min) only for reservation and run budget."""
+design = ["02-control-plane.md#48-limit-ledger"]
+result = "apps/control-plane/src/ledger/keys.ts, apps/control-plane/test/ledger-keys.test.ts"
+done = [
+  "Test 'ledger.keys_from_snapshot' green (example from 04 section 3)",
+  "Test 'ledger.ensure_buckets_idempotent' green",
+  "Test 'ledger.no_limit_no_bucket' green",
+]
+sources = ["04 section 6 (keys, kinds)", "ADR-16"]
+depends_on = ["0-E06-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+note = "M89 (own key for triggers without write permission) changes 04 section 6 and stays open; key_kind is text with a CHECK, a new key is an expand migration."
+
+  [[task.part]]
+  id = "0-E07-T01-S01"
+  title = "Tests key chain and buckets"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T01-S02"
+  title = "Key chain and ensureBuckets"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E07-T02"
+title = "Reservation atomically over all keys"
+description = """ledger/reserve.ts per 02-control-plane.md section 4.8 (FE-261, FE-263): one transaction in the installation scope (inInstallationScope "ledger", pool buckets at the installation tenant), buckets FOR UPDATE in a fixed order, lazy window changes, check per bucket (fixed windows from used, rolling_5h from usage, concurrency only via reserved without double counting), on success increase reserved and write reservations plus reservation_lines, on rejection only one row rejected with bucket and metric; estimate from usd_run and turns times ledger.estimate.tokens_per_turn. Fulfills the done criterion 'reservation' of stage 0."""
+design = ["02-control-plane.md#48-limit-ledger"]
+result = "apps/control-plane/src/ledger/reserve.ts, apps/control-plane/test/ledger-reserve.test.ts"
+done = [
+  "Test 'ledger.reserve_atomic_all_keys' green",
+  "Test 'ledger.reserve_parallel_no_overbooking' green (50 in parallel, exactly 10 successful)",
+  "Test 'ledger.reserve_no_deadlock' green",
+  "Test 'ledger.reserve_rejection_reports_key' green",
+  "Test 'ledger.concurrency_counts_once' green (limit 4, two held runs: the third and fourth get a reservation, the fifth does not)",
+  "Test 'ledger.pool_bucket_across_tenants' green (ledger in the installation scope, pool bucket at the installation tenant)",
+  "Done criterion of stage 0 'reservation' backed by test output",
+]
+sources = ["04 section 6 mechanics point 1", "08 stage 0 done criterion", "ADR-16", "ADR-27"]
+depends_on = ["0-E07-T01", "0-E07-T05"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+note = "M40: measure ledger.estimate.tokens_per_turn and the starting values of the limits after the first real runs and update them."
+
+  [[task.part]]
+  id = "0-E07-T02-S01"
+  title = "Tests atomicity, parallelism, deadlock"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T02-S02"
+  title = "Locks in a fixed order and check per bucket"
+  done = "Tests reserve_atomic_all_keys and reserve_no_deadlock green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T02-S03"
+  title = "Writing on success, rejection with key, estimate"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E07-T03"
+title = "Consumption during the run: book heartbeat and relay, abort"
+description = """ledger/usage.ts per 02-control-plane.md section 4.8 (FE-262): recordUsage with cumulative reports per lease, delta against leases.usage_reported, usage rows with raw counters and cost source, increase consumed and used, cancel on overrun of the reservation or of a bucket, RunEvent budget_exhausted with key budget:<reservationId> via sendInTx to orchestrator-event (FE-265), warned_at once per window at warn_at_percent with log event ledger.warn_threshold (the alarm is the rule budget_threshold from 00 section 2.9). Interface for the work API (heartbeat, 0-E11) and the relay (0-E12)."""
+design = ["02-control-plane.md#48-limit-ledger"]
+result = "apps/control-plane/src/ledger/usage.ts, apps/control-plane/test/ledger-usage.test.ts"
+done = [
+  "Test 'ledger.heartbeat_cumulative_to_delta' green",
+  "Test 'ledger.cancel_on_exceed' green with event budget_exhausted",
+  "Test 'ledger.relay_usage_counted' green (a call bypassing the harness is booked)",
+  "Test 'ledger.warn_once_per_window' green",
+]
+sources = ["04 section 6 mechanics point 2", "05 section 3 (limiting the relay)"]
+depends_on = ["0-E07-T02", "0-E05-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E07-T03-S01"
+  title = "Tests delta, abort, relay, warning"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T03-S02"
+  title = "recordUsage with delta and booking"
+  done = "Tests heartbeat_cumulative_to_delta and relay_usage_counted green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T03-S03"
+  title = "cancel, budget_exhausted and warning"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E07-T04"
+title = "Settlement and release after the run"
+description = """ledger/settle.ts per 02-control-plane.md section 4.8: settle closes the reservation, releases reserved, books deviations as settlement, sets runs.cost_usd (NULL without a USD source); release on cancelled, expired, failed and paused_budget; sweeper ledger-expire for held reservations after expires_at with audit; job ledger-settle with retry and error_after_retries to the run in merged. Cost sources provider, client_estimate, price_table, subscription_utilization; subscription without USD."""
+design = ["02-control-plane.md#48-limit-ledger"]
+result = "apps/control-plane/src/ledger/settle.ts, apps/control-plane/test/ledger-settle.test.ts"
+done = [
+  "Test 'ledger.settle_sources_and_null_usd' green",
+  "Test 'ledger.release_keeps_reported_usage' green",
+  "Test 'ledger.expire_sweeper_audited' green",
+  "Test 'ledger.settle_retry_then_done_with_note' green",
+]
+sources = ["04 section 6 mechanics points 3, 4", "03 section 2.1 (merged)"]
+depends_on = ["0-E07-T03", "0-E08-T02"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+note = "M128: raw counters separated (FE-122); clarify the unit of the token limits after measurement in stage 0."
+
+  [[task.part]]
+  id = "0-E07-T04-S01"
+  title = "Tests settlement, release, expiry"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T04-S02"
+  title = "settle and release"
+  done = "Tests settle_sources_and_null_usd and release_keeps_reported_usage green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T04-S03"
+  title = "Sweeper and retry of the settlement"
+  done = "all tests of the task green"
+  status = "open"
+
+[[task]]
+id = "0-E07-T05"
+title = "Time windows: hour, day, month, rolling 5 hours"
+description = """ledger/windows.ts per 02-control-plane.md section 4.8 (FE-264): window start per kind in UTC, lazy change on access (used to 0, warned_at empty, window_start new), rolling 5-hour window via usage with index bucket_keys, clock via the Clock port for tests."""
+design = ["02-control-plane.md#48-limit-ledger"]
+result = "apps/control-plane/src/ledger/windows.ts, apps/control-plane/test/ledger-windows.test.ts"
+done = [
+  "Test 'ledger.windows_reset_lazily' green",
+  "Test 'ledger.rolling_5h' green",
+  "Test 'ledger.month_boundary_utc' green",
+]
+sources = ["04 section 6 (kinds: per hour, day, rolling 5-hour window)"]
+depends_on = ["0-E07-T01"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "0-E07-T05-S01"
+  title = "Tests window change and rolling window"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T05-S02"
+  title = "Window calculation and lazy change"
+  done = "Tests green"
+  status = "open"
+
+[[task]]
+id = "0-E07-T06"
+title = "Suite S3: hard abort at every layer"
+description = """Cases S3.limit.<layer> per 02-control-plane.md section 8 for org, repo_group, repo, user, service, provider, pool, each before the run (reservation rejected, paused_budget) and during the run (cancel in the heartbeat, budget_exhausted); counters measured before and after; result status neutral with reason and a hint to @agent continue; continue reserves anew and resumes at the origin. Fulfills the done criterion 'limit abort (S3)' of stage 0."""
+design = ["02-control-plane.md#48-limit-ledger", "02-control-plane.md#8-tests"]
+result = "eval/suites/s3/limits.test.ts"
+done = [
+  "All cases 'S3.limit.*' green with counter values before and after in the test output",
+  "Test 'S3.limit.continue_new_reservation' green",
+  "Test 'S3.limit.warn_at_percent_once' green",
+  "Done criterion of stage 0 'limit abort (S3)' backed by test output",
+]
+sources = ["04 section 6 mechanics points 6, 7", "07 section 5 S3", "08 stage 0 done criterion", "03 section 3 (G5)"]
+depends_on = ["0-E07-T04", "0-E05-T04", "0-E05-T06", "0-E20-T29"]   # 0-E20-T29 added: suite cases with defineSuiteCase and catalog (catalog reconciliation)
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "0-E07-T06-S01"
+  title = "Cases before the run per layer"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T06-S02"
+  title = "Cases during the run per layer"
+  done = "Cases green"
+  status = "open"
+
+  [[task.part]]
+  id = "0-E07-T06-S03"
+  title = "continue and warning"
+  done = "all cases of the task green"
+  status = "open"

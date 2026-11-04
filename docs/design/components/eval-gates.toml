@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-gates"
+title = "Gate definitions as data and gate evaluation"
+kind = "eval"
+path = "eval/core/src/gates/"
+package = "@guildwork/eval-core"
+stage = "0"
+purpose = "Gate A and gate B per service as a data file with source anchor in 10, load check, status combination across judges and parts and rules_hash; plus the first gate file of the reviewer. Not for the statistics per part (eval-statistik) and not for the matrix or the mode decision (eval-qualifikation)."
+design = [
+  "07-eval-and-qualification.md#29-gate-definitions-and-gate-evaluation",
+  "07-eval-and-qualification.md#2162-statistics-and-gates",
+]
+built_by = ["0-E20-T04", "6-E07-T06"]
+
+[[provides]]
+name = "gate-auswertung"
+kind = "ts-api"
+title = "loadGateFile, partSpec, worstOverJudges, combineGate (per scope, FE-757), rulesHash (without parts stage); types GateFile, GatePart (gate A, B, stage), GateStatus, PartResult, GateFileError"
+defined_in = "07-eval-and-qualification.md#2162-statistics-and-gates"
+from_task = "0-E20-T04"
+
+[[provides]]
+name = "gate-datei"
+kind = "file"
+title = "Format eval/gates/<service>.gates.json (guildwork.gates/v1) with source anchor per part"
+defined_in = "07-eval-and-qualification.md#29-gate-definitions-and-gate-evaluation"
+from_task = "0-E20-T04"
+
+[[provides]]
+name = "gates-reviewer"
+kind = "file"
+title = "eval/gates/reviewer.gates.json: gate A (R1, R5, R3) and B1 to B5 with consistency test against 10"
+defined_in = "07-eval-and-qualification.md#29-gate-definitions-and-gate-evaluation"
+from_task = "0-E20-T04"
+
+[[provides]]
+name = "gates-reviewer-r6"
+kind = "file"
+title = "Parts R6a to R6d (kind stage, set R6) in eval/gates/reviewer.gates.json with source anchor to 09 section 8.3; consistency test against this location (FE-755)"
+defined_in = "07-eval-and-qualification.md#29-gate-definitions-and-gate-evaluation"
+from_task = "6-E07-T06"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "0-E20-T04"
+purpose = "PartSpec and Decision for partSpec, worstOverJudges and PartResult"
+
+[[uses]]
+interface = "eval-core/typen"
+from_task = "0-E20-T04"
+purpose = "SetManifest and ServiceId in loadGateFile"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "0-E20-T04"
+purpose = "canonicalJson and sha256Hex for rulesHash"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E20-T04"
+purpose = "Result with GateFileError"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E20-T04"
+purpose = "Compile the schema guildwork.gates/v1"

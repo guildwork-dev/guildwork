@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "guidelines"
+title = "Guideline loader (stage 1 inside the Reviewer, from stage 7 its own package)"
+kind = "package"
+path = "packages/guidelines/"
+package = "@guildwork/guidelines"
+stage = "1"
+purpose = "Loads guidelines and rule files only at the base SHA and selects them per path with a budget and a stable rule ID; in stage 1 as the export ./guidelines of @guildwork/service-reviewer under services/reviewer/src/guidelines/, from stage 7 as the package @guildwork/guidelines with all formats. Does not evaluate rules (that is done by the finder standards and the standards service)."
+design = [
+  "08-reviewer.md#211-guideline-loader-of-stage-1",
+  "08-reviewer.md#46-context-building-and-token-budget",
+  "12-expansion.md#24-guideline-loader-7-e02",
+]
+built_by = ["1-E02-T05", "7-E02-T03", "7-E02-T04"]
+
+[[provides]]
+name = "lader-stufe-1"
+kind = "ts-api"
+title = "Export @guildwork/service-reviewer/guidelines: loadGuidelines, selectGuidelines, GuidelineSourceV1, GuidelineV1 with ruleSourceId"
+defined_in = "08-reviewer.md#211-guideline-loader-of-stage-1"
+from_task = "1-E02-T05"
+
+[[provides]]
+name = "lader"
+kind = "ts-api"
+title = "Package @guildwork/guidelines: GuidelineLoader.load and select, GuidelineFormat with all formats, scope per directory"
+defined_in = "12-expansion.md#24-guideline-loader-7-e02"
+from_task = "7-E02-T03"
+
+[[provides]]
+name = "auswahl-und-budget"
+kind = "ts-api"
+title = "Rule IDs according to FE-1212, disabled_ids only tightening, budget per run and source, report guidelines.excluded"
+defined_in = "12-expansion.md#24-guideline-loader-7-e02"
+from_task = "7-E02-T04"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E02-T05"
+purpose = "path_instructions and context.guidelines_max_tokens"
+
+[[uses]]
+interface = "core/result"
+from_task = "7-E02-T03"
+purpose = "Result type in the extracted package"
+
+[[uses]]
+interface = "schichtenpruefung/new-package"
+from_task = "7-E02-T03"
+purpose = "Package @guildwork/guidelines with an entry in layers.toml"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "7-E02-T04"
+purpose = "knowledge.guidelines.disabled_ids only tightening across the layers"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/befehle-im-pr"
+from_task = "7-E02-T04"
+purpose = "@agent review verbose names used and truncated sources"
+
+[[uses]]
+interface = "reviewer-ausgabe/zusammenfassung"
+from_task = "7-E02-T04"
+purpose = "truncated guidelines in the summary"

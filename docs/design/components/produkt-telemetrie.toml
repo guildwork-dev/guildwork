@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "produkt-telemetrie"
+title = "Product telemetry (off by default), preview and update notice"
+kind = "role"
+path = "apps/control-plane/src/telemetry/"
+package = "@guildwork/control-plane"
+stage = "0"
+purpose = "Product telemetry with opt-in (endpoints and page /admin/telemetry), preview according to a fixed schema and sending only to telemetry.endpoint, update notice via the Releases API (the capture sink for tests is provided by the testkit); not the version age (ui-betrieb); no receiver run by the project (FE-617) and not the operational telemetry (OpenTelemetry, area 00)."
+design = ["06-installation-operations-ui.md#29-telemetry-update-notice-air-gap", "06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#261-pages-of-the-admin-ui", "06-installation-operations-ui.md#7-configuration", "06-installation-operations-ui.md#217-test-building-blocks-in-the-testkit"]
+built_by = ["0-E18-T16", "0-E18-T21"]
+
+[[provides]]
+name = "telemetry-report"
+kind = "ts-api"
+title = "Generate TelemetryReport (schema guildwork-telemetry/1, additionalProperties false) for preview and sending"
+defined_in = "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"
+from_task = "0-E18-T16"
+
+[[provides]]
+name = "update-check"
+kind = "ts-api"
+title = "Update notice: UpdateCheckResult, daily fetch only for channel stable, no effect in air gap"
+defined_in = "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"
+from_task = "0-E18-T16"
+
+[[provides]]
+name = "telemetrie-api"
+kind = "http"
+title = "PUT /admin/api/v1/setup/telemetry (409 locked_by_file, 409 with air_gap) and GET /admin/api/v1/telemetry/preview"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E18-T16"
+
+[[provides]]
+name = "seite-telemetrie"
+kind = "ui"
+title = "Page /admin/telemetry with preview and opt-ins (both preselected off)"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "0-E18-T16"
+
+[[provides]]
+name = "update-checks"
+kind = "table"
+title = "Table update_checks (migration 0016)"
+defined_in = "06-installation-operations-ui.md#31-tables-of-this-area"
+from_task = "0-E18-T16"
+
+[[provides]]
+name = "telemetrie-konfig"
+kind = "config"
+title = "telemetry.product, telemetry.update_check, telemetry.endpoint"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E18-T16"
+
+[[uses]]
+interface = "config-resolver/schema-module"
+from_task = "0-E18-T16"
+purpose = "Keys telemetry.* in the schema"
+
+[[uses]]
+interface = "config-resolver/resolver"
+from_task = "0-E18-T16"
+purpose = "air_gap forces telemetry.* off"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "0-E18-T16"
+purpose = "Migration 0016 update_checks"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "0-E18-T16"
+purpose = "Runs per service and mode over the last 7 days"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "0-E18-T16"
+purpose = "IDs of the bundled plugins"
+
+[[uses]]
+interface = "ui-setup-assistent/settings-overlay"
+from_task = "0-E18-T16"
+purpose = "Opt-ins and installation_id in the overlay"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "0-E18-T16"
+purpose = "Register PUT /setup/telemetry and GET /telemetry/preview"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "0-E18-T16"
+purpose = "Page /admin/telemetry"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "0-E18-T16"
+purpose = "Calls of the telemetry endpoints from the SPA"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "0-E18-T16"
+purpose = "EgressHttp with host allowlist for the update notice"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "0-E18-T16"
+purpose = "daily schedule update-check"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "0-E18-T16"
+purpose = "Register queue update-check"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E18-T16"
+purpose = "Time range and random installation_id"
+
+[[uses]]
+interface = "testkit/telemetry-sink"
+from_task = "0-E18-T16"
+purpose = "Test telemetry.zero-requests-default with DNS redirection of all names"

@@ -1,0 +1,281 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "entwickler-mcp"
+title = "Developer MCP with dev token, read tools and mark-as-fixed"
+kind = "role"
+path = "apps/control-plane/src/devmcp/"
+package = "@guildwork/control-plane"
+stage = "6"
+purpose = "Developer identity via the device flow with dev token (apps/control-plane/src/devauth/, CLI guildwork login) and the own MCP endpoint /mcp/dev with read tools and findings.mark_fixed, permissions fresh from the provider on each call. Not here: the platform MCP of the work items (03) and verification in the incremental run beyond the pipeline from 08."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#27-developer-mcp",
+  "09-reviewer-companion-features-and-learnings.md#31-new-tables",
+  "09-reviewer-companion-features-and-learnings.md#32-extensions-of-existing-tables-expand-migration-in-block-0600",
+  "09-reviewer-companion-features-and-learnings.md#34-endpoints",
+  "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss",
+  "09-reviewer-companion-features-and-learnings.md#45-mark-as-fixed",
+  "09-reviewer-companion-features-and-learnings.md#6-security",
+  "09-reviewer-companion-features-and-learnings.md#81-stage-6-per-module",
+]
+built_by = ["6-E04-T04", "6-E04-T05", "6-E04-T06", "7a-E02-T04"]
+
+[[provides]]
+name = "dev-token-pruefung"
+kind = "ts-api"
+title = "DevToken, authenticate(bearer), requirePermission(token, repo, min) with cache 60 seconds"
+defined_in = "09-reviewer-companion-features-and-learnings.md#27-developer-mcp"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "http-dev-auth"
+kind = "http"
+title = "POST /api/v1/dev-auth/device and POST /api/v1/dev-auth/token (device flow, FE-921)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "http-dev-tokens"
+kind = "http"
+title = "GET /admin/api/v1/dev-tokens and DELETE /admin/api/v1/dev-tokens/:id with admin session, DELETE /api/v1/dev-tokens/:id for one's own token (list without hash, revocation, FE-964)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "cli-login"
+kind = "cli"
+title = "guildwork login and guildwork logout with storage in credentials.json or GUILDWORK_SERVER and GUILDWORK_TOKEN (FE-949)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#27-developer-mcp"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "tabellen-dev-auth"
+kind = "table"
+title = "Tables dev_tokens and dev_auth_sessions (migration block 0600)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#31-new-tables"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "konfig-dev-access"
+kind = "config"
+title = "dev_access in installation.yaml (enabled, token_ttl_days, remote_review)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#7-configuration"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "queue-dev-auth-cleanup"
+kind = "queue"
+title = "Queue dev-auth-cleanup (delete expired dev_auth_sessions after 24 hours)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#35-queues-pg-boss"
+from_task = "6-E04-T04"
+
+[[provides]]
+name = "http-mcp-dev"
+kind = "http"
+title = "POST /mcp/dev (MCP Streamable HTTP with dev token, JSON-RPC errors with data.code, FE-922)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#34-endpoints"
+from_task = "6-E04-T05"
+
+[[provides]]
+name = "mcp-lese-tools"
+kind = "mcp-tool"
+title = "findings.list_open, findings.get, findings.fix_prompt, rules.get with DevFinding and UntrustedText"
+defined_in = "09-reviewer-companion-features-and-learnings.md#27-developer-mcp"
+from_task = "6-E04-T05"
+
+[[provides]]
+name = "audit-devmcp"
+kind = "event"
+title = "Audit entries devmcp.call and devmcp.auth_failed (without contents, without token)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#27-developer-mcp"
+from_task = "6-E04-T05"
+
+[[provides]]
+name = "metrik-und-alarm-devmcp"
+kind = "metric"
+title = "guildwork.devmcp.calls and alert rule devmcp_auth_failures"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E04-T05"
+
+[[provides]]
+name = "mcp-mark-fixed"
+kind = "mcp-tool"
+title = "findings.mark_fixed (minimum permission write, sets dev_claim_state claimed, FE-923)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#27-developer-mcp"
+from_task = "6-E04-T06"
+
+[[provides]]
+name = "findings-dev-claim"
+kind = "table"
+title = "Expand migration findings: dev_claim_state, dev_claim_by, dev_claim_sha, dev_claim_at"
+defined_in = "09-reviewer-companion-features-and-learnings.md#32-extensions-of-existing-tables-expand-migration-in-block-0600"
+from_task = "6-E04-T06"
+
+[[provides]]
+name = "metrik-claims"
+kind = "metric"
+title = "guildwork.devmcp.claims"
+defined_in = "09-reviewer-companion-features-and-learnings.md#51-metrics-and-alarms"
+from_task = "6-E04-T06"
+
+[[provides]]
+name = "mcp-learnings-get"
+kind = "mcp-tool"
+title = "learnings.get with DevLearning hits (before 7a-E02-T04 it answers with unavailable)"
+defined_in = "09-reviewer-companion-features-and-learnings.md#27-developer-mcp"
+from_task = "7a-E02-T04"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "6-E04-T04"
+purpose = "Tables dev_tokens and dev_auth_sessions in block 0600"
+
+[[uses]]
+interface = "db-schema-kern/rls"
+from_task = "6-E04-T04"
+purpose = "RLS pattern of the new tables"
+
+[[uses]]
+interface = "db/mandanten-kontext"
+from_task = "6-E04-T04"
+purpose = "withTenant for token check"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "6-E04-T04"
+purpose = "getPermission fresh on each call"
+
+[[uses]]
+interface = "plugin-github-scm/scm-lesend"
+from_task = "6-E04-T04"
+purpose = "getPermission of the GitHub plugin"
+
+[[uses]]
+interface = "plugin-github/instanz-konfiguration"
+from_task = "6-E04-T04"
+purpose = "SCM instance for the device flow"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "6-E04-T04"
+purpose = "Resolve the plugin instance for scm"
+
+[[uses]]
+interface = "config-installation/installation-yaml"
+from_task = "6-E04-T04"
+purpose = "Section dev_access in installation.yaml"
+
+[[uses]]
+interface = "control-plane/web-mount"
+from_task = "6-E04-T04"
+purpose = "Endpoints /api/v1/dev-auth/* and /mcp/dev in the role web"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "6-E04-T04"
+purpose = "GET and DELETE /admin/api/v1/dev-tokens with admin session"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "6-E04-T04"
+purpose = "Problem and AdminRole"
+
+[[uses]]
+interface = "core/fehler"
+from_task = "6-E04-T04"
+purpose = "toProblem for error responses"
+
+[[uses]]
+interface = "core/ids-hash"
+from_task = "6-E04-T04"
+purpose = "SHA-256 of the tokens and device codes"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "6-E04-T04"
+purpose = "cryptoRandom for token and user_code"
+
+[[uses]]
+interface = "control-plane-orchestrator/queue-registry"
+from_task = "6-E04-T04"
+purpose = "Register the queue dev-auth-cleanup"
+
+[[uses]]
+interface = "db-queue/queue-runtime"
+from_task = "6-E04-T04"
+purpose = "Schedule dev-auth-cleanup"
+
+[[uses]]
+interface = "cli/cli-geruest"
+from_task = "6-E04-T04"
+purpose = "Commands login and logout"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "6-E04-T04"
+purpose = "Audit dev_token.issued, revoked and devmcp.*"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "6-E04-T04"
+purpose = "real Postgres instance"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "6-E04-T04"
+purpose = "recorded responses of the device flow"
+
+[[uses]]
+interface = "reviewer-befunde/befund-repositories"
+from_task = "6-E04-T05"
+purpose = "Read open findings"
+
+[[uses]]
+interface = "guidelines/lader-stufe-1"
+from_task = "6-E04-T05"
+purpose = "rules.get at the base SHA"
+
+[[uses]]
+interface = "lokaler-review/agent-prompt"
+from_task = "6-E04-T05"
+purpose = "findings.fix_prompt from renderAgentPrompt"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "6-E04-T05"
+purpose = "foreign content as UntrustedText"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "6-E04-T05"
+purpose = "Alert rule devmcp_auth_failures"
+
+[[uses]]
+interface = "config-installation/installation-yaml.alerts"
+from_task = "6-E04-T05"
+purpose = "Threshold alerts.rules.devmcp_auth_failures.max"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "6-E04-T05"
+purpose = "Metrics devmcp.calls and devmcp.claims"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.findings"
+from_task = "6-E04-T06"
+purpose = "Expand migration dev_claim_*"
+
+[[uses]]
+interface = "reviewer-chat-und-befehle/finding-feedback-actor-role"
+from_task = "6-E04-T06"
+purpose = "Feedback marked_fixed_dev"
+
+[[uses]]
+interface = "reviewer-inkrement-und-feedback/verifikation-dev-claim"
+from_task = "6-E04-T06"
+purpose = "Verification in the next incremental run"
+
+[[uses]]
+interface = "plugin-pg-kb/query-learnings"
+from_task = "7a-E02-T04"
+purpose = "learnings.get returns hits with a valid citation"

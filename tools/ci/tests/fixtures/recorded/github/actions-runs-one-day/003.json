@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.github.com/repos/actions/checkout/actions/runs/39024106819/jobs?per_page=100&page=1",
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8"
+    },
+    "body": {
+      "total_count": 1,
+      "jobs": [
+        {
+          "id": 117371580375,
+          "run_id": 39024106819,
+          "name": "Analyze (javascript)",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-17T10:13:57Z",
+          "started_at": "2026-10-17T10:14:00Z",
+          "completed_at": "2026-10-17T10:15:26Z",
+          "labels": ["ubuntu-latest"]
+        }
+      ]
+    }
+  },
+  "recordedAt": "2026-11-01T20:37:56.000Z"
+}

@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "worker-umgebungs-snapshot"
+title = "Environment snapshot per repo"
+kind = "role"
+path = "apps/worker/src/env-snapshot/"
+package = "@guildwork/worker"
+stage = "2"
+purpose = "Builds and reuses the environment snapshot per repo, snapshotKey and pool: post_build, baseline list of red tests, secret scan before storing. Not: phase switch (worker-sandbox-phasen) and not the work state of a run (arbeitsstand-snapshot)."
+design = ["10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache", "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"]
+built_by = ["2-E01-T06"]
+
+[[provides]]
+name = "env-snapshot-dienst"
+kind = "ts-api"
+title = "Implementation of EnvironmentService.resolve and acquire: restore or build via ExecutionBackend.buildSnapshot, post_build, baselineFailingTests, secret scan"
+defined_in = "10-planner-architect-coder.md#26-environment-snapshot-and-registry-cache"
+from_task = "2-E01-T06"
+
+[[provides]]
+name = "tabelle-env-snapshots"
+kind = "table"
+title = "env_snapshots (migration 0204) with states building to retired"
+defined_in = "10-planner-architect-coder.md#32-new-tables-migrations-0200-to-0299-fe-1049"
+from_task = "2-E01-T06"
+
+[[provides]]
+name = "env-snapshots-endpunkt"
+kind = "http"
+title = "POST /work/v1/leases/{leaseId}/env-snapshots with EnvSnapshotReport"
+defined_in = "10-planner-architect-coder.md#219-endpoints"
+from_task = "2-E01-T06"
+
+[[provides]]
+name = "envelope-hinweis"
+kind = "ts-api"
+title = "EnvSnapshotHint in envelope.inputs.envSnapshots (up to five ready rows per repo and pool) and lookup function for controllers"
+defined_in = "10-planner-architect-coder.md#221-docking-points-of-the-worker-to-the-control-plane-stage-2"
+from_task = "2-E01-T06"
+
+[[uses]]
+interface = "agent-step/job-context"
+from_task = "2-E01-T06"
+purpose = "Implement EnvironmentService.resolve and acquire"
+
+[[uses]]
+interface = "blueprint/blueprint-parser"
+from_task = "2-E01-T06"
+purpose = "ResolvedEnvironment and snapshotKey"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "2-E01-T06"
+purpose = "buildSnapshot and restore of the environment snapshot"
+
+[[uses]]
+interface = "plugin-exec-docker/execution-backend"
+from_task = "2-E01-T06"
+purpose = "Snapshot build in the Docker backend"
+
+[[uses]]
+interface = "plugin-analyzer-gitleaks/secret-regeln"
+from_task = "2-E01-T06"
+purpose = "Rules of the secret scan before storing"
+
+[[uses]]
+interface = "db-migrator/migrationsdatei"
+from_task = "2-E01-T06"
+purpose = "Migration 0204 env_snapshots"
+
+[[uses]]
+interface = "db/repos"
+from_task = "2-E01-T06"
+purpose = "Repository env_snapshots for reporting and lookup in Z0"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "2-E01-T06"
+purpose = "Hint to the ready snapshot in the envelope (FE-1070)"
+
+[[uses]]
+interface = "worker/work-api-client"
+from_task = "2-E01-T06"
+purpose = "Report env-snapshots to the own lease"
+
+[[uses]]
+interface = "audit-kette/audit-writer"
+from_task = "2-E01-T06"
+purpose = "Audit env_snapshot.ready and env_snapshot.discarded"
+
+[[uses]]
+interface = "alarm-automat/alert-rule"
+from_task = "2-E01-T06"
+purpose = "Alert on a secret in the snapshot"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "2-E01-T06"
+purpose = "scanForSecrets in snapshot.secret_found_discarded"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "2-E01-T06"
+purpose = "new counters of stage 2 in the metrics catalog"
+
+[[uses]]
+interface = "testkit/postgres"
+from_task = "2-E01-T06"
+purpose = "real Postgres per test file for the migrations and repositories"

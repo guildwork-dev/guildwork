@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "reviewer-finder"
+title = "Finder passes bugs_diff, bugs_introduced, security, standards, ticket, plan_conformance"
+kind = "service"
+path = "services/reviewer/src/jobs/find.handler.ts"
+package = "@guildwork/service-reviewer"
+stage = "1"
+purpose = "Runs per finder and shard a work item reviewer.find with AgentRuntime, read-only tools and schema output, and delivers candidates, never findings or effects (FE-801). Checking and filtering the candidates belongs to the verifier and the findings component."
+design = [
+  "08-reviewer.md#47-finder-passes",
+  "08-reviewer.md#48-security-finder",
+  "08-reviewer.md#36-severities-and-categories",
+  "08-reviewer.md#33-output-schemas-of-the-models",
+  "10-planner-architect-coder.md#43-architect",
+]
+built_by = ["1-E03-T01", "1-E03-T02", "1-E03-T03", "1-E03-T04", "2-E03-T08"]
+
+[[provides]]
+name = "reviewer.find"
+kind = "queue"
+title = "Handler of the work item reviewer.find: FindInput to FindOutput with FinderOutputSchema, second attempt on schema_invalid"
+defined_in = "08-reviewer.md#25-steps-and-work-item-envelopes"
+from_task = "1-E03-T01"
+
+[[provides]]
+name = "metrik-finder-fehler"
+kind = "metric"
+title = "reviewer_finder_failures_total{finder,code}"
+defined_in = "08-reviewer.md#5-failure-and-abort-paths"
+from_task = "1-E03-T01"
+
+[[provides]]
+name = "prompt-finder-bugs"
+kind = "prompt"
+title = "finder.bugs_diff.md and finder.bugs_introduced.md"
+defined_in = "08-reviewer.md#47-finder-passes"
+from_task = "1-E03-T02"
+
+[[provides]]
+name = "prompt-finder-standards-ticket"
+kind = "prompt"
+title = "finder.standards.md (rule_id, verbatim rule_quote) and finder.ticket.md (ticket_gap)"
+defined_in = "08-reviewer.md#47-finder-passes"
+from_task = "1-E03-T03"
+
+[[provides]]
+name = "prompt-finder-security"
+kind = "prompt"
+title = "finder.security.md with focus, exclusion list (FE-842), cwe, reachability, exploitability"
+defined_in = "08-reviewer.md#48-security-finder"
+from_task = "1-E03-T04"
+
+[[provides]]
+name = "finder-plan-conformance"
+kind = "ts-api"
+title = "Finder plan_conformance: single call with @guildwork/method-check/conformance, approved plan and design version via ControllerHost.approvedDesignInputs, findings plan_deviation"
+defined_in = "10-planner-architect-coder.md#43-architect"
+from_task = "2-E03-T08"
+
+[[uses]]
+interface = "service-reviewer/umschlaege"
+from_task = "1-E03-T01"
+purpose = "FindInput and FindOutput"
+
+[[uses]]
+interface = "service-reviewer/modell-ausgabeschemas"
+from_task = "1-E03-T01"
+purpose = "FinderOutputSchema as --json-schema"
+
+[[uses]]
+interface = "service-reviewer/job-arten"
+from_task = "1-E03-T01"
+purpose = "Handler of the kind reviewer.find replaces the fake"
+
+[[uses]]
+interface = "service-reviewer/konfig"
+from_task = "1-E03-T01"
+purpose = "runtime and models.finder"
+
+[[uses]]
+interface = "reviewer-router-und-budget/kontextpaket"
+from_task = "1-E03-T01"
+purpose = "Context package per shard via contextRef"
+
+[[uses]]
+interface = "reviewer-router-und-budget/budgetaufteilung"
+from_task = "1-E03-T01"
+purpose = "Item budget of the finder"
+
+[[uses]]
+interface = "sdk-service/job-api"
+from_task = "1-E03-T01"
+purpose = "JobContext with runtime and sandbox"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "1-E03-T01"
+purpose = "AgentTask with nativeTools read, schema output and budget"
+
+[[uses]]
+interface = "plugin-claude-code/run"
+from_task = "1-E03-T01"
+purpose = "AgentRuntime claude-code with budget and abort"
+
+[[uses]]
+interface = "claude-code-startwege/sandbox-dateien"
+from_task = "1-E03-T01"
+purpose = "Managed settings with deny list for nativeTools read, without platform MCP"
+
+[[uses]]
+interface = "plugin-claude-code/transkript"
+from_task = "1-E03-T01"
+purpose = "Transcript per finder item in the BlobStore"
+
+[[uses]]
+interface = "core/metrik-katalog"
+from_task = "1-E03-T01"
+purpose = "Counter reviewer_finder_failures_total{finder,code}"
+
+[[uses]]
+interface = "testkit/fake-anthropic"
+from_task = "1-E03-T01"
+purpose = "recorded model responses for job.find_schema_output_parsed in CI"
+
+[[uses]]
+interface = "service-reviewer/prompt-lader"
+from_task = "1-E03-T02"
+purpose = "Prompt structure 1 to 7 and prompt_v per finder"
+
+[[uses]]
+interface = "lizenz-gate/spdx-kopf"
+from_task = "1-E03-T02"
+purpose = "Header of the finder prompts"
+
+[[uses]]
+interface = "guidelines/lader-stufe-1"
+from_task = "1-E03-T03"
+purpose = "ruleSourceId as rule_id of the finder standards"
+
+[[uses]]
+interface = "reviewer-kontextquellen/quelle-ticket-und-ci"
+from_task = "1-E03-T03"
+purpose = "Acceptance criteria for the finder ticket"
+
+[[uses]]
+interface = "reviewer-router-und-budget/router"
+from_task = "1-E03-T03"
+purpose = "Start conditions of the finders standards and ticket"
+
+[[uses]]
+interface = "method-check/conformance-api"
+from_task = "2-E03-T08"
+purpose = "conformanceRequest and interpretConformance in the single call reviewer.find with finderId plan_conformance (FE-1077)"
+
+[[uses]]
+interface = "qualifikationsprofil/profilbeitrag"
+from_task = "2-E03-T08"
+purpose = "Models and prompt_v of the library in the profile of the reviewer"

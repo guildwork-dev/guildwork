@@ -1,0 +1,180 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "sdk-service"
+title = "Package sdk-service: step API, envelope, platform MCP client for services (types of the controller side in 0-E13-T11, the rest with the first users)"
+kind = "package"
+path = "packages/sdk-service/"
+package = "@guildwork/sdk-service"
+stage = "0"
+purpose = "The only interface of the services to the platform: service definition, controller contract with the host of the control plane, job handler with context in the worker, reading of the envelope inputs and platform MCP client. Only types, ports and helpers; the ports are implemented by the control plane and the worker."
+design = ["00-codebase-and-conventions.md#213-package-sdk-service", "03-execution.md#25-platform-mcp"]
+built_by = ["0-E13-T11", "0-E16-T01", "0-E16-T02", "1-E01-T02", "1-E05-T02", "1-E06-T02", "1-E06-T03"]
+
+[[provides]]
+name = "service-definition"
+kind = "ts-api"
+title = "ServiceDefinition, JobKind, defineService"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "0-E13-T11"
+
+[[provides]]
+name = "controller-api"
+kind = "ts-api"
+title = "ServiceController (enter, onStepEvent, onRunEvent, onCancel), ControllerHost, ServiceRun, StepRequest, ControllerDecision (steps, event, wait), translation in the service loader (FE-050)"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "0-E13-T11"
+
+[[provides]]
+name = "testhilfen"
+kind = "ts-api"
+title = "inMemoryHost and runJob for unit tests of the services"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "0-E16-T01"
+
+[[provides]]
+name = "plattform-mcp-client"
+kind = "ts-api"
+title = "PlatformMcpClient and createPlatformMcpClient (item token, Streamable HTTP)"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "0-E16-T02"
+
+[[provides]]
+name = "job-api"
+kind = "ts-api"
+title = "JobHandler, JobContext, readInputs"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "1-E01-T02"
+
+[[provides]]
+name = "controller-effekt-ergebnis"
+kind = "ts-api"
+title = "ServiceController.onEffectSettled with EffectSettled (effectId, proposalKey, state, result) from EffectEvent (FE-057)"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "1-E05-T02"
+
+[[provides]]
+name = "controller-weckruf"
+kind = "ts-api"
+title = "ControllerDecision wait with wakeAt and ServiceController.onWake (FE-057)"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "1-E06-T02"
+
+[[provides]]
+name = "readonly-scm-ci-artefakt"
+kind = "ts-api"
+title = "ReadonlySCM.ciArtifact (optional, 05 section 2.11.3)"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "1-E06-T02"
+
+[[provides]]
+name = "readonly-scm-sarif"
+kind = "ts-api"
+title = "ReadonlySCM.codeScanningSarif (optional, 05 section 2.11.3)"
+defined_in = "00-codebase-and-conventions.md#213-package-sdk-service"
+from_task = "1-E06-T03"
+
+[[uses]]
+interface = "core/result"
+from_task = "0-E13-T11"
+purpose = "Return values of the controllers and handlers as Result"
+
+[[uses]]
+interface = "core/logger"
+from_task = "0-E13-T11"
+purpose = "Logger in the ControllerHost and JobContext"
+
+[[uses]]
+interface = "core/zeit-zufall"
+from_task = "0-E13-T11"
+purpose = "Clock in the ControllerHost and JobContext"
+
+[[uses]]
+interface = "core/telemetrie-fassade"
+from_task = "0-E13-T11"
+purpose = "Metrics and Tracer in the ControllerHost and JobContext"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "0-E13-T11"
+purpose = "RepoRef, ChangeRef, WorkItemRef, ServiceId in ServiceRun"
+
+[[uses]]
+interface = "contracts/schema-fabrik"
+from_task = "0-E13-T11"
+purpose = "Check the input and output schemas of the handlers"
+
+[[uses]]
+interface = "event-schema/trigger-event"
+from_task = "0-E13-T11"
+purpose = "ResolvedEvent as trigger in ServiceRun"
+
+[[uses]]
+interface = "work-item-umschlag/envelope-v1"
+from_task = "0-E13-T11"
+purpose = "WorkItemKind in StepRequest"
+
+[[uses]]
+interface = "work-item-umschlag/step-result-v1"
+from_task = "0-E13-T11"
+purpose = "UsageReportV1, ArtifactRefV1, StepErrorV1 in CompletedStep and FailedStep"
+
+[[uses]]
+interface = "contracts/vertrag-scm-provider"
+from_task = "0-E13-T11"
+purpose = "ReadonlySCM as a pick of the read methods"
+
+[[uses]]
+interface = "control-plane-orchestrator/service-controller"
+from_task = "0-E16-T01"
+purpose = "the service loader converts ServiceController to ServiceControllerModule (FE-050)"
+
+[[uses]]
+interface = "core/secret-value"
+from_task = "0-E16-T02"
+purpose = "Item token as SecretValue in the platform MCP client"
+
+[[uses]]
+interface = "contracts/untrusted"
+from_task = "0-E16-T02"
+purpose = "readFile and readInputs return Untrusted"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "0-E16-T02"
+purpose = "Client speaks POST /mcp/v1 with item token"
+
+[[uses]]
+interface = "plattform-mcp/repo"
+from_task = "0-E16-T02"
+purpose = "readFile calls repo.read_file"
+
+[[uses]]
+interface = "plattform-mcp/run.context"
+from_task = "0-E16-T02"
+purpose = "context calls run.context"
+
+[[uses]]
+interface = "plattform-mcp/propose"
+from_task = "0-E16-T02"
+purpose = "propose calls propose_<type>"
+
+[[uses]]
+interface = "testkit/fake-platform-mcp"
+from_task = "0-E16-T02"
+purpose = "Tests of the client against the fake"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "1-E01-T02"
+purpose = "AgentRuntime in the JobContext"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "1-E01-T02"
+purpose = "SandboxHandle in the JobContext"
+
+[[uses]]
+interface = "contracts/vertrag-model-provider"
+from_task = "1-E01-T02"
+purpose = "GenerateRequest and GenerateResult in the JobContext"

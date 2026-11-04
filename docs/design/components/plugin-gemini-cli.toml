@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "plugin-gemini-cli"
+title = "Harness gemini-cli"
+kind = "plugin"
+path = "plugins/gemini-cli/"
+package = "@guildwork/plugin-gemini-cli"
+stage = "9"
+purpose = "AgentRuntime for Gemini CLI only with api_key via the relay or vertex via CloudIdentity, with turn limit and abort. Not: login via a personal account in platform code (FE-1419)."
+design = [
+  "14-stage-9-breadth-and-hardening.md#231-spike-and-common-harness-framework",
+  "14-stage-9-breadth-and-hardening.md#234-harness-gemini-cli",
+  "14-stage-9-breadth-and-hardening.md#83-harnesses-9-e03",
+]
+built_by = ["9-E03-T01", "9-E03-T04"]
+
+[[provides]]
+name = "agent-runtime"
+kind = "contract"
+title = "AgentRuntime gemini-cli: supports() only api_key and vertex, turn limit (exit 53) as budget_exceeded, check of the final text against outputSchema"
+defined_in = "14-stage-9-breadth-and-hardening.md#234-harness-gemini-cli"
+from_task = "9-E03-T04"
+
+[[provides]]
+name = "konfig-harness"
+kind = "config"
+title = "runtimes[].harness = gemini-cli; configuration with personal login is rejected at load time"
+defined_in = "14-stage-9-breadth-and-hardening.md#7-configuration"
+from_task = "9-E03-T04"
+
+[[uses]]
+interface = "contracts/vertrag-agent-runtime"
+from_task = "9-E03-T04"
+purpose = "Implement AgentRuntime"
+
+[[uses]]
+interface = "contracts/vertrag-execution-backend"
+from_task = "9-E03-T04"
+purpose = "sb.spawn and copyIn in the sandbox"
+
+[[uses]]
+interface = "contracts/grundtypen"
+from_task = "9-E03-T04"
+purpose = "Result, PluginError"
+
+[[uses]]
+interface = "contracts/plugin-basis"
+from_task = "9-E03-T04"
+purpose = "PluginBase and PluginContext"
+
+[[uses]]
+interface = "contracts/manifest"
+from_task = "9-E03-T04"
+purpose = "Manifest with distribution and license"
+
+[[uses]]
+interface = "config-resolver-regeln/harness-pins"
+from_task = "9-E03-T04"
+purpose = "install only with PinnedVersion from harness_pins"
+
+[[uses]]
+interface = "worker-harness-umgebung/build-harness-env"
+from_task = "9-E03-T04"
+purpose = "Empty environment plus allowlist of the credential kind"
+
+[[uses]]
+interface = "worker-harness-umgebung/harness-cache"
+from_task = "9-E03-T04"
+purpose = "Harness cache of the worker host, copied in via copyIn to /opt/guildwork/harness/<id>/<version>/, no mount (03 FE-333, FE-1452)"
+
+[[uses]]
+interface = "credential-relay/relay-endpunkt"
+from_task = "9-E03-T04"
+purpose = "Real key only in the relay, placeholder in the sandbox"
+
+[[uses]]
+interface = "credential-broker/llm-grants"
+from_task = "9-E03-T04"
+purpose = "Grant api_key in the claim response"
+
+[[uses]]
+interface = "plattform-mcp/http-mcp"
+from_task = "9-E03-T04"
+purpose = "Platform MCP as the only MCP server"
+
+[[uses]]
+interface = "pricing/price-lookup"
+from_task = "9-E03-T04"
+purpose = "Cost from the price table if the harness does not deliver any"
+
+[[uses]]
+interface = "plugin-rahmen/plugin-registry"
+from_task = "9-E03-T04"
+purpose = "Register as a built-in package"
+
+[[uses]]
+interface = "contract-harness/harness-api"
+from_task = "9-E03-T04"
+purpose = "Contract suite with recorded transcripts"
+
+[[uses]]
+interface = "contract-harness/plugin-suites"
+from_task = "9-E03-T04"
+purpose = "Abstract AgentRuntime suite"
+
+[[uses]]
+interface = "contract-harness/attestation"
+from_task = "9-E03-T04"
+purpose = "contract-attestation.json"
+
+[[uses]]
+interface = "testkit/secret-scan"
+from_task = "9-E03-T04"
+purpose = "No real credential in the sandbox"
+
+[[uses]]
+interface = "testkit-e2e-stack/e2e-stack"
+from_task = "9-E03-T04"
+purpose = "E2E review run on the test repo"
+
+[[uses]]
+interface = "lizenz-gate/lizenz-listen"
+from_task = "9-E03-T04"
+purpose = "distribution bundled only with a license on the list"
+
+[[uses]]
+interface = "plugin-openhands-sdk/spike-bericht-harnesses"
+from_task = "9-E03-T04"
+purpose = "Output path and credential kinds according to the spike"
+
+[[uses]]
+interface = "driver-identity-gcp/cloudidentity"
+from_task = "9-E03-T04"
+purpose = "Credential kind vertex via CloudIdentity gcp"
+
+[[uses]]
+interface = "config-resolver/consistency-rule"
+from_task = "9-E03-T04"
+purpose = "Reject a runtime with personal login at load time"
+
+[[uses]]
+interface = "eval-querschnitts-suites/suite-katalog"
+from_task = "9-E03-T04"
+purpose = "S2 case S2-gemini-cli-personal-login-rejected"

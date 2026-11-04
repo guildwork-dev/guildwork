@@ -1,0 +1,164 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-saetze-reviewer"
+title = "Sets R1, R2, R4, R5 with scorers, labels and reference values"
+kind = "eval"
+path = "eval/sets/"
+stage = "0"
+purpose = "The eval sets of the reviewer as declarative pins with checksums (R2, R4, R5), own references and human labels (R1), the scorers per set, the judge prompt review-match and the read-off reference values; stage 0 builds pins, the scorers martian, reviewbench, swe-prbench, aacr, label schema and the first labeling round, stage 1 the scorer own-review, the calibration and the first real runs. Not for adapters, statistics or gate files and never for copies of third-party data (FE-728)."
+design = [
+  "07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas",
+  "07-eval-and-qualification.md#22-set-and-case-format",
+  "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values",
+  "07-eval-and-qualification.md#27-judges",
+  "08-reviewer.md#84-eval-sets-and-adapters",
+  "08-reviewer.md#85-gate-a-gate-b-qualification",
+  "07-eval-and-qualification.md#2176-label-tool-and-calibration"
+]
+built_by = [
+  "0-E20-T12", "0-E20-T13", "0-E20-T14", "0-E20-T24", "0-E20-T25", "0-E20-T27",
+  "1-E09-T03", "1-E09-T04", "1-E09-T05", "1-E09-T06", "1-E09-T07", "1-E09-T08",
+]
+
+[[provides]]
+name = "satz-r2"
+kind = "file"
+title = "eval/sets/R2/set.json: git pin of the Martian benchmark with checksums (golden comments, benchmark_dashboard.json)"
+defined_in = "07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas"
+from_task = "0-E20-T12"
+
+[[provides]]
+name = "scorer-martian"
+kind = "contract"
+title = "Scorer martian: F2 core micro under three benchmark judges, reference per judge recomputed per run"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "0-E20-T12"
+
+[[provides]]
+name = "satz-r4"
+kind = "file"
+title = "eval/sets/R4/set.json: git pin ReviewBench, repetitions 3"
+defined_in = "07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas"
+from_task = "0-E20-T13"
+
+[[provides]]
+name = "scorer-reviewbench"
+kind = "contract"
+title = "Scorer reviewbench: grounded recall and F1 with leaderboard judge, leave-producer-out as diagnosis"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "0-E20-T13"
+
+[[provides]]
+name = "satz-r5"
+kind = "file"
+title = "eval/sets/R5-swe-prbench/set.json (hf_dataset) and eval/sets/R5-aacr/set.json (git) with checksums"
+defined_in = "07-eval-and-qualification.md#215-set-catalog-reference-for-the-service-areas"
+from_task = "0-E20-T14"
+
+[[provides]]
+name = "scorer-swe-prbench-und-aacr"
+kind = "contract"
+title = "Scorers swe-prbench and aacr: recall against human feedback with own judge"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "0-E20-T14"
+
+[[provides]]
+name = "richter-review-match"
+kind = "prompt"
+title = "Own judge eval/judges/review-match/1/ (judge.json, prompt.md, schema.json)"
+defined_in = "07-eval-and-qualification.md#2163-judges"
+from_task = "0-E20-T14"
+
+[[provides]]
+name = "satz-r1-verweise"
+kind = "file"
+title = "eval/sets/R1/set.json and refs/*.jsonl: PRs of the R1 source repo without comments from third-party products"
+defined_in = "07-eval-and-qualification.md#22-set-and-case-format"
+from_task = "0-E20-T24"
+
+[[provides]]
+name = "satz-r1-labels"
+kind = "file"
+title = "eval/sets/R1/labels/*.jsonl: first labeling round with labeler human:<pseudonym>"
+defined_in = "07-eval-and-qualification.md#22-set-and-case-format"
+from_task = "0-E20-T25"
+
+[[provides]]
+name = "scorer-own-review"
+kind = "contract"
+title = "Scorer own-review for R1 and R3: labelSchema OwnReviewLabel (FE-826), recall and precision per PR via the judge review-match"
+defined_in = "08-reviewer.md#84-eval-sets-and-adapters"
+from_task = "1-E09-T06"
+
+[[provides]]
+name = "bezugswerte-reviewer"
+kind = "file"
+title = "eval/references/reviewer.json: read-off reference values (leaderboard, Martian per judge) with date, source, classification"
+defined_in = "07-eval-and-qualification.md#2161-adapters-scorers-labels-and-reference-values"
+from_task = "1-E09-T08"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "0-E20-T12"
+purpose = "set.json, refs and labels of the reviewer sets"
+
+[[uses]]
+interface = "eval-core/bezugswert"
+from_task = "0-E20-T12"
+purpose = "ReferenceValue for references per judge"
+
+[[uses]]
+interface = "eval-statistik/kennzahlen-und-bootstrap"
+from_task = "0-E20-T12"
+purpose = "Metrics fbeta_micro, recall_micro in CaseScore"
+
+[[uses]]
+interface = "eval-runner/cli-validate-set"
+from_task = "0-E20-T12"
+purpose = "validate-set for every set"
+
+[[uses]]
+interface = "eval-runner/cli-fetch"
+from_task = "0-E20-T12"
+purpose = "Load pins and check checksums"
+
+[[uses]]
+interface = "eval-runner/fetcher"
+from_task = "0-E20-T12"
+purpose = "Fetcher in the scorer tests with fixtures in the benchmark format"
+
+[[uses]]
+interface = "eval-richter/richter-ablage"
+from_task = "0-E20-T12"
+purpose = "Benchmark judges of R2 under eval/judges/"
+
+[[uses]]
+interface = "eval-adapter-reviewbench/adapter"
+from_task = "0-E20-T12"
+purpose = "Prepare review cases of the sets R2, R4, R5"
+
+[[uses]]
+interface = "eval-gates/gates-reviewer"
+from_task = "0-E20-T14"
+purpose = "Part A-R5 in reviewer.gates.json on both R5 sets"
+
+[[uses]]
+interface = "eval-dienst/eval-api"
+from_task = "1-E09-T03"
+purpose = "first real runs via guildwork-eval run"
+
+[[uses]]
+interface = "prozess-eval-konten-und-lizenzen/eval-credentials-projekt"
+from_task = "1-E09-T08"
+purpose = "Trial call of the judges with the eval credentials"
+
+[[uses]]
+interface = "eval-runner/cli-calibrate"
+from_task = "1-E09-T05"
+purpose = "Calibration of the judge review-match against humans on 50 pairs"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "1-E09-T06"
+purpose = "Scorer own-review with labelSchema"

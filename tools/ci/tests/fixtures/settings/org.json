@@ -1,0 +1,19 @@
+{
+  "login": "guildwork-dev",
+  "id": 1,
+  "node_id": "MDEyOk9yZ2FuaXphdGlvbjE=",
+  "url": "https://api.github.com/orgs/guildwork-dev",
+  "type": "Organization",
+  "two_factor_requirement_enabled": true,
+  "default_repository_permission": "read",
+  "members_can_create_repositories": false,
+  "members_can_create_public_repositories": false,
+  "members_can_create_private_repositories": false,
+  "plan": {
+    "name": "free",
+    "space": 976562499,
+    "private_repos": 10000,
+    "filled_seats": 1,
+    "seats": 1
+  }
+}

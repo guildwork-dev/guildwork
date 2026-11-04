@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "eval-suite-r6"
+title = "R6 suite of the companion outputs and pre-merge checks"
+kind = "eval"
+path = "eval/suites/r6-companions/"
+package = "@guildwork/eval-suites"
+stage = "6"
+purpose = "Set R6 (own_public, only references and own labels) with runner cases for walkthrough, diagram, pre-merge verdicts and fingerprint equality locally and in the PR, plus the real R6 measurement including the regression run Gate A and Gate B of the Reviewer. Not here: S1, S2, S4, S6 and the permissions test (cross-cutting suites) as well as the eval building blocks themselves (07)."
+design = [
+  "09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases",
+  "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08",
+]
+built_by = ["6-E02-T06", "6-E07-T05", "6-E07-T06"]
+
+[[provides]]
+name = "faelle-premerge"
+kind = "file"
+title = "Cases eval/suites/r6-companions/premerge/ with case metadata and runner case r6/premerge-verdicts"
+defined_in = "09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"
+from_task = "6-E02-T06"
+
+[[provides]]
+name = "satz-r6"
+kind = "file"
+title = "Set R6 with case metadata and runner cases r6/walkthrough-files-in-diff, r6/diagram-parse-and-participants, r6/local-pr-fingerprint-parity"
+defined_in = "09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"
+from_task = "6-E07-T05"
+
+[[provides]]
+name = "eval-bericht-stufe-6"
+kind = "file"
+title = "Eval report stage 6 with R6 values, Gate A and Gate B of the Reviewer and qualification row"
+defined_in = "09-reviewer-companion-features-and-learnings.md#84-mapping-of-the-done-criteria-from-08"
+from_task = "6-E07-T06"
+
+[[provides]]
+name = "r6-gates"
+kind = "metric"
+title = "R6 gates: files in the diff, diagram parsable without invented participants, wrong verdicts of the pre-merge checks, fingerprint equality P0/P1"
+defined_in = "09-reviewer-companion-features-and-learnings.md#83-suites-and-contract-cases"
+from_task = "6-E07-T06"
+
+[[uses]]
+interface = "eval-core/satzformat"
+from_task = "6-E02-T06"
+purpose = "Set directory with set.json and labels"
+
+[[uses]]
+interface = "eval-core/schemas"
+from_task = "6-E02-T06"
+purpose = "Case metadata with origin and license"
+
+[[uses]]
+interface = "eval-core/scorer-vertrag"
+from_task = "6-E02-T06"
+purpose = "Scorer r6 with label schema"
+
+[[uses]]
+interface = "eval-runner/cli-validate-set"
+from_task = "6-E02-T06"
+purpose = "Validate the set"
+
+[[uses]]
+interface = "pre-merge-checks/check-run-ai-pre-merge-checks"
+from_task = "6-E02-T06"
+purpose = "Verdicts of the pre-merge checks"
+
+[[uses]]
+interface = "testkit/http-wiedergabe"
+from_task = "6-E02-T06"
+purpose = "recorded model responses"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/walkthrough"
+from_task = "6-E07-T05"
+purpose = "Case r6/walkthrough-files-in-diff"
+
+[[uses]]
+interface = "reviewer-begleitausgaben/diagramm"
+from_task = "6-E07-T05"
+purpose = "Case r6/diagram-parse-and-participants"
+
+[[uses]]
+interface = "lokaler-review/lokaler-eingang"
+from_task = "6-E07-T05"
+purpose = "Case r6/local-pr-fingerprint-parity"
+
+[[uses]]
+interface = "eval-runner/cli-run-status-report"
+from_task = "6-E07-T05"
+purpose = "Start runner cases"
+
+[[uses]]
+interface = "eval-gates/gate-datei"
+from_task = "6-E07-T06"
+purpose = "R6 parts in eval/gates/reviewer.gates.json"
+
+[[uses]]
+interface = "eval-gates/gates-reviewer"
+from_task = "6-E07-T06"
+purpose = "Gate A and B of the Reviewer"
+
+[[uses]]
+interface = "eval-dienst/eval-run-service"
+from_task = "6-E07-T06"
+purpose = "real runs"
+
+[[uses]]
+interface = "eval-core/bericht"
+from_task = "6-E07-T06"
+purpose = "Eval report"
+
+[[uses]]
+interface = "eval-statistik/entscheidung"
+from_task = "6-E07-T06"
+purpose = "Decision per gate part"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r1-labels"
+from_task = "6-E07-T06"
+purpose = "R1 in the regression run Gate A"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r5"
+from_task = "6-E07-T06"
+purpose = "R5 in the regression run Gate A"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r2"
+from_task = "6-E07-T06"
+purpose = "R2 for Gate B"
+
+[[uses]]
+interface = "eval-saetze-reviewer/satz-r4"
+from_task = "6-E07-T06"
+purpose = "R4 for Gate B"
+
+[[uses]]
+interface = "qualifikationsprofil/profil-und-schluessel"
+from_task = "6-E07-T06"
+purpose = "Qualification profile with the new keys"

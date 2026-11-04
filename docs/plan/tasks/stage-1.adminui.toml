@@ -1,0 +1,226 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+# Area adminui of stage 1. Rules: docs/plan/README.md. Check: python3 tools/plan/plan.py check
+# Detailed design: docs/design/06-installation-operations-ui.md (section 2.16)
+stage = "1"
+
+[[epic]]
+id = "1-E08"
+title = "Admin UI: Run Record, costs, kill switch"
+goal = "Run Record per run, costs from the ledger, kill switch per service, repo, org and global"
+sources = ["06 section 1", "06 section 6", "05 section 8", "08 stage 1"]
+depends_on = ["0-E17", "0-E07"]
+
+[[task]]
+id = "1-E08-T01"
+title = "Run Record read model and API"
+description = """RunRecordView per detailed design 06 sections 2.16 and 3.3: assembled from runs, steps, work_items, effects, approvals, usage, reservations, config_snapshots, audit and artifacts (serviceNotes from artifacts whose type ends in RunNotes, such as ReviewerRunNotes from 08 FE-846, FE-655); every field from 05 section 8 with its source, redaction per 05 section 3 item 4 before output. Endpoints GET /admin/api/v1/runs (filters, cursor), GET /admin/api/v1/runs/{runId}, GET /admin/api/v1/runs/{runId}/export (approver). Link target for the run ID in status comments (05 section 8: 'run ID with a link into the admin UI')."""
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1", "06-installation-operations-ui.md#33-origin-of-the-run-record-fields"]
+result = "apps/control-plane/src/admin/api/runs.ts, api/run-record.ts, apps/control-plane/test/admin/run-record.test.ts"
+done = [
+  "Test 'run-record.all-fields-from-05' green (dummy run: every field filled or explicitly n/a)",
+  "Test 'run-record.redacted' green (placeholders and sk-ant patterns redacted)",
+  "Test 'runs list filters and cursor' green",
+  "Test 'run export requires approver' green (viewer 403)",
+  "Test 'run-record.service-notes-from-artifacts' green",
+]
+sources = ["05 section 8", "06 section 1", "ADR-47", "ADR-60"]
+depends_on = ["0-E17", "0-E05", "0-E09", "0-E16"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E08-T01-S01"
+  title = "Test: all fields from 05 section 8 for a dummy run"
+  done = "Test red because the read model is missing"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T01-S02"
+  title = "Read model with field sources"
+  done = "Test all-fields-from-05 green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T01-S03"
+  title = "Redaction and endpoints list, detail, export"
+  done = "remaining tests green"
+  status = "open"
+
+[[task]]
+id = "1-E08-T02"
+title = "Pages Runs and Run Record"
+description = """Pages Runs (list with filters service, repo, state, time range) and RunRecord (header with state and state machine version, trigger, permissions, config hash and qualification_key, marker 'standard not proven', versions, isolation and repo class at claim, foreign_input_seen, steps with leases, tool calls, policy decisions with rule ID, approvals, effects with provider response ID and fallback levels, costs with source, trace ID). Deep link /admin/runs/{runId}."""
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"]
+result = "apps/admin-ui/src/pages/Runs.tsx, apps/admin-ui/src/pages/RunRecord.tsx"
+done = [
+  "Playwright test 'admin-ui.e2e.run-record-and-kill-switch' Run Record part green (deep link from a status comment fixture opens the run)",
+  "Test 'admin-ui.standard-not-proven-marker' green for the Run Record page",
+]
+sources = ["05 section 8", "ADR-47"]
+depends_on = ["1-E08-T01"]
+owner = "agent"
+estimate_h = 10
+status = "open"
+
+  [[task.part]]
+  id = "1-E08-T02-S01"
+  title = "Playwright test Run Record"
+  done = "Test red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T02-S02"
+  title = "Runs page with filters"
+  done = "List reachable in the test"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T02-S03"
+  title = "Run Record page with all sections and deep link"
+  done = "Playwright test and marker test green"
+  status = "open"
+
+[[task]]
+id = "1-E08-T03"
+title = "Costs from the ledger"
+description = """GET /admin/api/v1/costs and /costs.csv with group_by day, service, provider, repo and time range; CostRow with runs, USD per cost source (provider, client_estimate, price_table, subscription_utilization), tokens split into input, output, cacheRead, cacheWrite, and open reservations; subscription runs without USD (05 section 6 condition 6). One SQL source (06 section 4: 'costs and runs come from the ledger'). Costs page with table and totals."""
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"]
+result = "apps/control-plane/src/admin/api/costs.ts, apps/admin-ui/src/pages/Costs.tsx"
+done = [
+  "Test 'costs.matches-ledger' green (API total equals SQL total over usage)",
+  "Test 'costs.subscription-without-usd' green",
+  "Test 'costs.group-by-validation' green (400 for an unknown group_by)",
+  "Test 'costs csv equals json' green",
+]
+sources = ["06 section 4", "04 section 6", "05 section 6 condition 6"]
+depends_on = ["0-E17", "0-E07"]
+owner = "agent"
+estimate_h = 8
+status = "open"
+
+  [[task.part]]
+  id = "1-E08-T03-S01"
+  title = "Ledger reconciliation tests"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T03-S02"
+  title = "Query and endpoints JSON and CSV"
+  done = "Tests green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T03-S03"
+  title = "Costs page"
+  done = "Page reachable in the Playwright test, totals visible"
+  status = "open"
+
+[[task]]
+id = "1-E08-T04"
+title = "Kill switch: table, API and effect"
+description = """Kill switch per detailed design 06 section 2.16 (FE-625): table kill_switches (migration 0102 with the columns from detailed design 06 section 3.1, 01 section 3.1a), scopes global, org, repo, service, service_repo; POST /admin/api/v1/kill-switches (approver, admin), DELETE (admin only), GET. Effect: triggering sends stop to all active runs in the scope (actor killswitch:<id>) and revokes their leases (next heartbeat cancel); while active, the router ends new events with Skipped(kill_switch) and a visible reply, and the work API grants no lease for items in the scope; lifting resumes nothing. Audit per action and mandatory notification via the notifier."""
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1", "06-installation-operations-ui.md#46-states"]
+result = "apps/control-plane/src/killswitch/, apps/control-plane/src/admin/api/kill-switches.ts, changes in the router and the work API claim"
+done = [
+  "Test 'killswitch.stops-active-runs' green",
+  "Test 'killswitch.router-skips-new-events' green (Skipped with reason, reply visible)",
+  "Test 'killswitch.claim-withheld' green",
+  "Test 'killswitch.lift-does-not-resume' green",
+  "Test 'killswitch.approver-can-activate-admin-lifts' green",
+  "Test 'killswitch.audit-and-alarm' green",
+]
+sources = ["06 section 6", "03 sections 4 and 5", "08 stage 1"]
+depends_on = ["0-E17", "0-E04", "0-E05", "0-E11", "0-E19"]
+owner = "agent"
+estimate_h = 12
+status = "open"
+
+  [[task.part]]
+  id = "1-E08-T04-S01"
+  title = "Tests for the effect of the kill switch"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T04-S02"
+  title = "Table, scope check, API with roles"
+  done = "Test approver-can-activate-admin-lifts green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T04-S03"
+  title = "stop to active runs and lease revocation"
+  done = "Test stops-active-runs green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T04-S04"
+  title = "Router and claim block, lifting without resuming"
+  done = "Tests router-skips, claim-withheld, lift-does-not-resume green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T04-S05"
+  title = "Audit and mandatory notification"
+  done = "Test audit-and-alarm green"
+  status = "open"
+
+[[task]]
+id = "1-E08-T05"
+title = "Kill switch in the UI and end to end with the dummy"
+description = """KillSwitches page (active and past ones, triggering with scope and reason, lifting for admin only) and a banner on all pages while a kill switch is active. End to end: a dummy run with fail hang is running, kill switch service dummy is triggered, run cancelled, sandbox torn down, a new command '@agent dummy' yields Skipped(kill_switch); after lifting, a new command runs normally."""
+design = ["06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"]
+result = "apps/admin-ui/src/pages/KillSwitches.tsx, services/dummy/test/e2e.killswitch.test.ts"
+done = [
+  "Playwright test 'admin-ui.e2e.run-record-and-kill-switch' kill switch part green",
+  "Test 'e2e.dummy.kill-switch' green (run cancelled, no containers of the item, follow-up command Skipped, after lifting a new run done)",
+]
+sources = ["06 section 6", "08 stage 1"]
+depends_on = ["1-E08-T04", "1-E08-T02"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E08-T05-S01"
+  title = "End-to-end test with dummy"
+  done = "Test red, then green"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T05-S02"
+  title = "Page and banner"
+  done = "Playwright test kill switch green"
+  status = "open"
+
+[[task]]
+id = "1-E08-T06"
+title = "Markers per ADR-47 and condition 8 in the admin UI"
+description = """Visible markers in the service list, Run Record and status page: 'standard not proven' for every row that runs only via qualification.allow_unproven_live (ADR-47), with the justification from the configuration; for an enabled credential kind subscription the notice 'operator risk, not for multi-user operation' with the version from acknowledge_terms and the open risk 'intermediate' (05 section 6 condition 8, ADR-57). The data comes from 1-E07 or the resolver; this task displays it and tests the display."""
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui"]
+result = "apps/admin-ui/src/components/Markers.tsx, changes to Services.tsx, RunRecord.tsx, Status.tsx"
+done = [
+  "Test 'admin-ui.standard-not-proven-marker' green for the service list and status",
+  "Test 'admin-ui subscription risk marker shows acknowledged terms' green",
+]
+sources = ["ADR-47", "ADR-51", "ADR-57", "05 section 6 condition 8"]
+depends_on = ["1-E08-T02", "1-E07"]
+owner = "agent"
+estimate_h = 6
+status = "open"
+
+  [[task.part]]
+  id = "1-E08-T06-S01"
+  title = "Tests for the markers"
+  done = "Tests red"
+  status = "open"
+
+  [[task.part]]
+  id = "1-E08-T06-S02"
+  title = "Components and integration into three pages"
+  done = "Tests green"
+  status = "open"

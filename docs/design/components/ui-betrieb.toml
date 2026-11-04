@@ -1,0 +1,175 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: The Guildwork Authors
+
+id = "ui-betrieb"
+title = "Operations pages of the admin UI: status, telemetry, pools, services, audit, costs, alerts"
+kind = "ui"
+path = "apps/admin-ui/src/pages/"
+package = "@guildwork/admin-ui"
+stage = "0"
+purpose = "Read-only operations views with their admin endpoints: status with version age and audit anchor, pools with checked capabilities, services with qualification, audit with chain status, costs from the ledger and the alerts page; not the alert API itself (alarm-automat, area 00), not the telemetry opt-ins (produkt-telemetrie) and not Run Record or kill switch."
+design = ["06-installation-operations-ui.md#26-admin-api-and-admin-ui", "06-installation-operations-ui.md#261-pages-of-the-admin-ui", "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1", "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"]
+built_by = ["0-E17-T08", "0-E17-T09", "0-E19-T09", "1-E08-T03", "6-E06-T08", "8-E05-T05"]
+
+[[provides]]
+name = "status-api"
+kind = "http"
+title = "GET /admin/api/v1/status with StatusView (version, version age, operating mode, audit anchor, last doctor report, drain, telemetry)"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T08"
+
+[[provides]]
+name = "versionsalter"
+kind = "ts-api"
+title = "versionAge(release, now, warnDays) in apps/control-plane/src/telemetry/version-age.ts: version age offline from /etc/guildwork/release.json (FE-618)"
+defined_in = "06-installation-operations-ui.md#29-telemetry-update-notice-air-gap"
+from_task = "0-E17-T08"
+
+[[provides]]
+name = "konfig-version-age"
+kind = "config"
+title = "support.version_age_warn_days (default 120, estimate)"
+defined_in = "06-installation-operations-ui.md#7-configuration"
+from_task = "0-E17-T08"
+
+[[provides]]
+name = "seite-status"
+kind = "ui"
+title = "Page /admin/ (status) with version age, audit anchor, doctor state and drain"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "0-E17-T08"
+
+[[provides]]
+name = "pools-services-audit-api"
+kind = "http"
+title = "GET /admin/api/v1/pools (PoolView, from 8-E05-T05 additively health and unhealthySince), /services (ServiceView, from 6-E06-T08 additively autoApproveIneffective per repo), /audit (AuditItem with chain status, approver)"
+defined_in = "06-installation-operations-ui.md#26-admin-api-and-admin-ui"
+from_task = "0-E17-T09"
+
+[[provides]]
+name = "seiten-pools-services-audit"
+kind = "ui"
+title = "Pages /admin/pools, /admin/services, /admin/audit"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "0-E17-T09"
+
+[[provides]]
+name = "seite-alarme"
+kind = "ui"
+title = "Page /admin/alerts with open and resolved alerts, rule status and acknowledge button"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "0-E19-T09"
+
+[[provides]]
+name = "kosten-api"
+kind = "http"
+title = "GET /admin/api/v1/costs and /costs.csv with CostRow per group_by day, service, provider, repo"
+defined_in = "06-installation-operations-ui.md#216-run-record-costs-and-kill-switch-stage-1"
+from_task = "1-E08-T03"
+
+[[provides]]
+name = "seite-kosten"
+kind = "ui"
+title = "Page /admin/costs with table and totals"
+defined_in = "06-installation-operations-ui.md#261-pages-of-the-admin-ui"
+from_task = "1-E08-T03"
+
+[[uses]]
+interface = "admin-api/admin-routen"
+from_task = "0-E17-T08"
+purpose = "Register endpoint /status"
+
+[[uses]]
+interface = "admin-api/admin-typen"
+from_task = "0-E17-T08"
+purpose = "StatusView, roles"
+
+[[uses]]
+interface = "admin-ui/seitenregister"
+from_task = "0-E17-T08"
+purpose = "Page status"
+
+[[uses]]
+interface = "admin-ui/api-client"
+from_task = "0-E17-T08"
+purpose = "Call /status"
+
+[[uses]]
+interface = "audit-kette/doctor-pruefungen"
+from_task = "0-E17-T08"
+purpose = "Audit anchor ok, missing or stale"
+
+[[uses]]
+interface = "ui-setup-assistent/installation-settings"
+from_task = "0-E17-T08"
+purpose = "last doctor report from doctor_last"
+
+[[uses]]
+interface = "ui-setup-assistent/setup-zustand"
+from_task = "0-E17-T08"
+purpose = "setupComplete"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.tenants"
+from_task = "0-E17-T08"
+purpose = "Drain switch"
+
+[[uses]]
+interface = "config-installation/lader"
+from_task = "0-E17-T08"
+purpose = "ingress.mode and support.version_age_warn_days"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.workers"
+from_task = "0-E17-T09"
+purpose = "Workers with checked capabilities"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.pools"
+from_task = "0-E17-T09"
+purpose = "configured isolation per pool"
+
+[[uses]]
+interface = "policy-engine/service-mode"
+from_task = "0-E17-T09"
+purpose = "effective mode and unproven per service"
+
+[[uses]]
+interface = "eval-qualifikation/matrix"
+from_task = "0-E17-T09"
+purpose = "Qualification status per service"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.audit"
+from_task = "0-E17-T09"
+purpose = "Audit list with cursor"
+
+[[uses]]
+interface = "audit-kette/verify-chain"
+from_task = "0-E17-T09"
+purpose = "Chain status ok or broken"
+
+[[uses]]
+interface = "core/schwaerzung"
+from_task = "0-E17-T09"
+purpose = "Audit details redacted"
+
+[[uses]]
+interface = "alarm-automat/alerts-api"
+from_task = "0-E19-T09"
+purpose = "Data of the alerts page"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.usage"
+from_task = "1-E08-T03"
+purpose = "Tokens and USD per source"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.reservations"
+from_task = "1-E08-T03"
+purpose = "open reservations"
+
+[[uses]]
+interface = "db-schema-kern/tabelle.runs"
+from_task = "1-E08-T03"
+purpose = "Runs per group"
